@@ -1,5 +1,14 @@
 import nacl from 'tweetnacl';
 import { encodeBase64, decodeBase64, encodeUTF8, decodeUTF8 } from 'tweetnacl-util';
+import * as ExpoCrypto from 'expo-crypto';
+
+// Wire expo-crypto's secure RNG into tweetnacl.
+// Required in React Native — 'self.crypto' doesn't exist, so tweetnacl's
+// built-in detection fails without this polyfill.
+nacl.setPRNG((output: Uint8Array, length: number) => {
+  const bytes = ExpoCrypto.getRandomBytes(length);
+  for (let i = 0; i < length; i++) output[i] = bytes[i];
+});
 
 export interface KeyPair {
   publicKey: string;

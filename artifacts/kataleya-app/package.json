@@ -59,6 +59,7 @@
   "dependencies": {
     "@expo-google-fonts/courier-prime": "^0.4.1",
     "@react-native-community/datetimepicker": "^8.4.4",
+    "expo-crypto": "56.0.0-canary-20260305-5163746",
     "expo-document-picker": "56.0.0-canary-20260305-5163746",
     "expo-file-system": "56.0.0-canary-20260305-5163746",
     "expo-notifications": "56.0.0-canary-20260305-5163746",

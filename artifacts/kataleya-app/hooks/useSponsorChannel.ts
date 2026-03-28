@@ -179,25 +179,32 @@ export function useSponsorChannel() {
   // ── Actions ───────────────────────────────────────────────────────────────
   const createInvite = useCallback(async () => {
     setError(null);
+    // ── Step 1: Network call ─────────────────────────────────────────────────
+    let data: { channelId: string; inviteCode: string; userToken: string };
     try {
       const res = await fetch(`${API_BASE}/sponsor/invite`, { method: 'POST' });
-      if (!res.ok) throw new Error('Server error');
-      const data = await res.json() as { channelId: string; inviteCode: string; userToken: string };
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      data = await res.json() as typeof data;
+    } catch (e) {
+      console.error('[createInvite] fetch failed:', e);
+      setError('Could not create invite. Check your connection.');
+      setConnState('error');
+      return;
+    }
+    // ── Step 2: Crypto + storage ─────────────────────────────────────────────
+    try {
       const sess: ChannelSession = { channelId: data.channelId, token: data.userToken, role: 'user' };
-
-      // Generate E2E key pair and store securely
       const kp = generateKeyPair();
       await Fortress.setCryptoKeyPair(kp.publicKey, kp.secretKey);
-
       await SponsorVault.setInviteCode(data.inviteCode);
       await SponsorVault.setChannel(data.channelId, data.userToken, 'user');
       setSession(sess);
       setInviteCode(data.inviteCode);
       setConnState('inviting');
-
       // Can't post pubkey yet — channel not connected until sponsor accepts
-    } catch {
-      setError('Could not create invite. Check your connection.');
+    } catch (e) {
+      console.error('[createInvite] crypto/storage failed:', e);
+      setError('Could not initialize secure channel. Please try again.');
       setConnState('error');
     }
   }, []);
