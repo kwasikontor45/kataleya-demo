@@ -16,14 +16,29 @@ export default function TabLayout() {
   const statusBarStyle = isDark ? 'light' : 'dark';
   const blurTint = isDark ? 'dark' : 'light';
 
+  // Tab icons get their own vivid palette so they're always readable.
+  // Day (blend=0): deep burnt sienna active, warm walnut inactive.
+  // Night (blend=1): theme accent / textMuted (already vivid on dark bg).
+  const lerp = (a: number, b: number, t: number) => Math.round(a + (b - a) * t);
+  const hexLerp = (dayHex: string, nightHex: string) => {
+    const p = (h: string) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+    const t = (c: [number, number, number]) => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+    const [dr, dg, db] = p(dayHex);
+    const [nr, ng, nb] = p(nightHex);
+    return t([lerp(dr, nr, blend), lerp(dg, ng, blend), lerp(db, nb, blend)]);
+  };
+
+  const tabActive   = hexLerp('#7a2200', theme.accent);
+  const tabInactive = hexLerp('#5c3418', theme.textMuted);
+
   return (
     <>
       <StatusBar style={statusBarStyle} />
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: theme.accent,
-          tabBarInactiveTintColor: theme.textMuted,
+          tabBarActiveTintColor: tabActive,
+          tabBarInactiveTintColor: tabInactive,
           tabBarStyle: {
             position: 'absolute',
             backgroundColor: isIOS ? 'transparent' : theme.surface,
