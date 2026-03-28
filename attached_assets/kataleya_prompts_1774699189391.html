@@ -1,0 +1,279 @@
+
+<style>
+.prompt-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1.25rem; margin-bottom: 1rem; }
+.prompt-header { display: flex; align-items: center; gap: 10px; margin-bottom: 0.75rem; }
+.badge { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+.badge-red { background: var(--color-background-danger); color: var(--color-text-danger); }
+.badge-amber { background: var(--color-background-warning); color: var(--color-text-warning); }
+.badge-teal { background: var(--color-background-success); color: var(--color-text-success); }
+.badge-purple { background: var(--color-background-info); color: var(--color-text-info); }
+.prompt-title { font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+.prompt-files { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 0.75rem; }
+.prompt-files span { background: var(--color-background-secondary); padding: 2px 8px; border-radius: 4px; margin-right: 6px; font-family: var(--font-mono); }
+.prompt-body { font-size: 13px; color: var(--color-text-secondary); line-height: 1.6; background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 1rem; white-space: pre-wrap; font-family: var(--font-mono); }
+.section-label { font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); letter-spacing: 0.08em; text-transform: uppercase; margin: 1.5rem 0 0.75rem; }
+</style>
+
+<div class="section-label">🔴 Critical — Week 1–2</div>
+
+<div class="prompt-card">
+  <div class="prompt-header">
+    <span class="badge badge-red">Critical #1</span>
+    <span class="prompt-title">SQLite migration system</span>
+  </div>
+  <div class="prompt-files">
+    <span>utils/db.ts</span><span>utils/storage.ts</span>
+  </div>
+  <div class="prompt-body" id="p1">Here is utils/db.ts [paste file]. Here is utils/storage.ts [paste file].
+
+The current migrate() function uses CREATE TABLE IF NOT EXISTS, which silently no-ops on existing installs. Any new column added in a future version will not be added to existing users' databases, causing silent runtime failures.
+
+Do the following:
+1. Add a user_version PRAGMA system. Read the current version with PRAGMA user_version. Compare it against a SCHEMA_VERSION constant defined at the top of the file.
+2. Wrap all schema changes in a runMigrations() function that runs only the deltas needed to reach SCHEMA_VERSION. Each migration step must be idempotent.
+3. The initial schema (current tables) is version 1. Write it so adding a new column in future only requires adding a new migration step and bumping SCHEMA_VERSION.
+4. Migrations must run inside a transaction — BEGIN / COMMIT — so a partial migration never leaves the database in a broken state.
+5. Do not change the existing table structure or column names. Do not change any exports from storage.ts.
+
+After the rewrite, show me the full updated db.ts and confirm: what happens when a user on v1 upgrades to v2?</div>
+</div>
+
+<div class="prompt-card">
+  <div class="prompt-header">
+    <span class="badge badge-red">Critical #2</span>
+    <span class="prompt-title">Web platform hard guard</span>
+  </div>
+  <div class="prompt-files">
+    <span>utils/db.ts</span><span>utils/storage.ts</span>
+  </div>
+  <div class="prompt-body" id="p2">Here is utils/db.ts [paste file]. Here is utils/storage.ts [paste file].
+
+The current web fallback uses AsyncStorage as a stub for SQLite and SecureStore, documented as dev/preview only — but there is nothing preventing a web build from reaching production users with that degraded, insecure path.
+
+Do the following:
+1. In getDb(), replace the current web check with a hard throw: throw new Error('Kataleya does not support web. Build for iOS or Android only.'). Remove any web stub logic entirely.
+2. In the Fortress vault functions (fortressSet, fortressGet, fortressDel), do the same — hard throw on Platform.OS === 'web', no AsyncStorage fallback.
+3. In the Sanctuary vault, same — hard throw on web, no AsyncStorage fallback.
+4. Leave the Surface vault (AsyncStorage) unchanged — it is correctly web-compatible.
+5. Add a BUILD_TARGET_CHECK function that is called once at app startup (export it so app/_layout.tsx can call it) that throws immediately if Platform.OS === 'web'.
+
+Do not change any other logic, exports, or vault separation. Show me the full updated files.</div>
+</div>
+
+<div class="section-label">🔴 Critical — Week 3–6</div>
+
+<div class="prompt-card">
+  <div class="prompt-header">
+    <span class="badge badge-red">Critical #3</span>
+    <span class="prompt-title">Replace crypto-js with native crypto</span>
+  </div>
+  <div class="prompt-files">
+    <span>utils/backup.ts</span><span>utils/storage.ts</span>
+  </div>
+  <div class="prompt-body" id="p3">Here is utils/backup.ts [paste file]. Here is utils/storage.ts [paste file]. Here is the expo-crypto documentation [paste from https://docs.expo.dev/versions/latest/sdk/crypto/].
+
+The current backup system uses crypto-js, a pure JavaScript implementation with no access to the device hardware security module and known RNG weaknesses on some environments. We need to migrate to expo-crypto and the Web Crypto API (available via expo-crypto's getRandomValues and subtle), which routes through the Secure Enclave on iOS and Android Keystore on Android.
+
+Constraints that are non-negotiable:
+- The encrypted blob format must remain identical: { v, alg, iters, salt, iv, mac, data }. Existing user backups must still decrypt correctly after this change.
+- The passphrase must never be stored, logged, or sent anywhere. After key derivation, it must exit scope.
+- HMAC verification must still happen before decryption — wrong passphrase caught at MAC check, not at decrypt.
+- encryptBackup() and decryptBackup() must make zero fetch() calls.
+
+Do the following:
+1. Replace CryptoJS.lib.WordArray.random with expo-crypto getRandomValues for salt and IV generation.
+2. Replace CryptoJS.PBKDF2 with the Web Crypto subtle.importKey + subtle.deriveBits pipeline for PBKDF2-SHA256 at 600,000 iterations (upgrade from 100,000 — OWASP 2023 recommendation). Store the iteration count in the blob as iters so future upgrades remain backward-compatible.
+3. Replace CryptoJS.AES with subtle.encrypt / subtle.decrypt using AES-CBC.
+4. Replace CryptoJS.HmacSHA256 with subtle.sign using HMAC-SHA256.
+5. The decryptBackup function must read blob.iters (not hardcode 600000) so old backups encrypted at 100,000 iterations still decrypt.
+
+After the rewrite:
+- List every place the passphrase or derived key touches memory and confirm it exits scope.
+- Confirm zero fetch() calls exist in the file.
+- Show the full updated backup.ts.</div>
+</div>
+
+<div class="prompt-card">
+  <div class="prompt-header">
+    <span class="badge badge-red">Critical #4</span>
+    <span class="prompt-title">Batched restore transactions</span>
+  </div>
+  <div class="prompt-files">
+    <span>utils/backup.ts</span><span>utils/storage.ts</span><span>utils/db.ts</span>
+  </div>
+  <div class="prompt-body" id="p4">Here is utils/backup.ts [paste file]. Here is utils/storage.ts [paste file]. Here is utils/db.ts [paste file].
+
+The current restorePayload() function restores mood logs and journal entries using sequential awaits in a for loop. For a user with 5,000 mood logs this will take minutes and will be killed by the iOS/Android OS if the app is backgrounded mid-restore, leaving the database in a partially written state.
+
+Do the following:
+1. Rewrite the mood log restore loop to use a single SQLite transaction: BEGIN TRANSACTION, then all INSERT statements, then COMMIT. Use db.runSync inside the transaction — do not await inside the loop.
+2. Do the same for journal entries and circadian log entries.
+3. Sanctuary.burnAll() must still be called first, before any inserts — do not change that.
+4. Add a try/catch around each transaction block that calls ROLLBACK on failure and re-throws, so a failed restore leaves the database empty (clean state) rather than partially written.
+5. Do not change the blob format, the encryption/decryption logic, or any Surface vault calls.
+
+Show me the full updated restorePayload() function and confirm: what state is the database left in if a restore fails halfway through the mood logs?</div>
+</div>
+
+<div class="section-label">🟡 Important — Month 2</div>
+
+<div class="prompt-card">
+  <div class="prompt-header">
+    <span class="badge badge-amber">Important #1</span>
+    <span class="prompt-title">Sponsor relay hardening</span>
+  </div>
+  <div class="prompt-files">
+    <span>api-server/index.ts</span><span>api-server/ (all files)</span>
+  </div>
+  <div class="prompt-body" id="p5">Here is the api-server directory [paste all server files].
+
+The sponsor relay has no rate limiting and no abuse protection. A valid token holder can hammer the poll endpoint indefinitely. The presence queue is capped at 50 signals but has no time-based expiry.
+
+Do the following:
+1. Add per-token rate limiting on the poll endpoint (GET /sponsor/poll or equivalent): max 20 requests per minute per token. Return HTTP 429 with a Retry-After header on breach.
+2. Add per-token rate limiting on the check-in endpoint: max 5 requests per minute per token.
+3. Add a timestamp to each PresenceSignal in the queue. Purge signals older than 10 minutes when the queue is read, before returning them to the client.
+4. Add a global request cap: if a single IP sends more than 200 requests per minute across all endpoints, return 429.
+5. All rate limit state is in-memory only — do not add a database. Rate limit state resets on server restart, which is acceptable.
+6. Do not change the channel lifecycle (48h unconnected, 90d connected), the token structure, or any client-facing response shapes.
+
+Show me the full updated server file(s) and confirm: what does the client receive when it hits a rate limit?</div>
+</div>
+
+<div class="prompt-card">
+  <div class="prompt-header">
+    <span class="badge badge-amber">Important #2</span>
+    <span class="prompt-title">Burn ritual UX safety</span>
+  </div>
+  <div class="prompt-files">
+    <span>components/BurningRitual.tsx</span><span>app/burn.tsx</span><span>utils/storage.ts</span>
+  </div>
+  <div class="prompt-body" id="p6">Here is components/BurningRitual.tsx [paste file]. Here is app/burn.tsx [paste file]. Here is utils/storage.ts [paste file].
+
+The current burn ritual triggers a full irreversible vault wipe after a 3-second hold gesture with no confirmation step. A user in distress — exactly the context this feature exists for — may trigger it accidentally.
+
+Do the following:
+1. After the 3-second hold completes, do not immediately call burnAll(). Instead, show a confirmation state within the same component: a brief message ("This will permanently erase everything. There is no undo.") and two buttons: "Erase everything" and "Cancel".
+2. Only call burnAll() if the user taps "Erase everything". Cancel returns to the normal burn screen state.
+3. The confirmation UI must be simple and calm — no animation, no countdown. The hold gesture was the dramatic moment; the confirmation is just a final gate.
+4. Before calling burnAll(), write a single entry to the Surface vault (AsyncStorage only — do not touch Sanctuary or Fortress): key kataleya.surface.burn_log, value a JSON string { ts: Date.now(), confirmed: true }. This is a tombstone record only — it survives the wipe because Surface.clearAll() is called after, which will erase it too. The purpose is so that if the app crashes mid-wipe, the next launch can detect an incomplete burn and complete it.
+5. Do not change the hold gesture duration, the visual design of the hold progress, or the post-wipe navigation.
+
+Show me the updated component and confirm: what does the user see between completing the hold and the data being erased?</div>
+</div>
+
+<div class="prompt-card">
+  <div class="prompt-header">
+    <span class="badge badge-amber">Important #3</span>
+    <span class="prompt-title">Restlessness field wiring</span>
+  </div>
+  <div class="prompt-files">
+    <span>hooks/useOrchidSway.ts</span><span>hooks/useSobriety.ts</span><span>utils/storage.ts</span><span>app/(tabs)/journal.tsx</span>
+  </div>
+  <div class="prompt-body" id="p7">Here is hooks/useOrchidSway.ts [paste file]. Here is utils/storage.ts [paste file]. Here is app/(tabs)/journal.tsx [paste file].
+
+The restlessness field in mood_logs is always written as 0. The accelerometer data is being captured in useOrchidSway but never mapped to this field. This makes the insights engine less accurate.
+
+Do the following:
+1. In useOrchidSway.ts, compute a restlessness score (0.0 to 1.0) from the accelerometer magnitude. A reasonable mapping: take the RMS of recent accelerometer deltas over a 5-second window, normalize it to [0, 1] using a max expected value of 2.0 m/s² (clamp above that to 1.0). Export this value as restlessnessScore from the hook.
+2. In app/(tabs)/journal.tsx, import restlessnessScore from useOrchidSway and pass it to Sanctuary.saveMoodLog() when saving a mood log entry.
+3. The fallback (when accelerometer is unavailable) must remain 0 — do not change that behaviour.
+4. Do not change the SQLite schema — the restlessness column already exists with the correct CHECK constraint (>= 0 AND <= 1).
+5. Do not change any other fields written to the mood log.
+
+Show me the updated useOrchidSway.ts and the relevant section of journal.tsx. Confirm: what value is written when the device has no accelerometer?</div>
+</div>
+
+<div class="section-label">🟢 Nice to have — Month 4</div>
+
+<div class="prompt-card">
+  <div class="prompt-header">
+    <span class="badge badge-teal">Nice #1</span>
+    <span class="prompt-title">Insights half-life UI disclosure</span>
+  </div>
+  <div class="prompt-files">
+    <span>hooks/useInsights.ts</span><span>app/(tabs)/ insights screen or home</span>
+  </div>
+  <div class="prompt-body" id="p8">Here is hooks/useInsights.ts [paste file]. Here is the insights UI screen [paste file].
+
+The insights engine uses a 45-day recency half-life, meaning users who log infrequently will see their insights disappear silently with no explanation. This causes confusion and erodes trust.
+
+Do the following:
+1. In useInsights.ts, export alongside the insights array: a dataAgeDays value (the age in days of the most recent mood log used in computation) and a hasEnoughData boolean (true if at least 7 mood logs exist within the last 90 days).
+2. In the insights UI, if hasEnoughData is false, show a gentle empty state: "Log your mood for a few days and patterns will start to appear here." Do not show an empty list or an error.
+3. If hasEnoughData is true but dataAgeDays > 30, show a soft notice below the insights: "Based on your logs from [X] days ago. Log today to refresh." This is informational, not alarming.
+4. Do not change the confidence formula, the threshold (0.72), or the pattern detection logic.
+5. The disclosure must use the app's existing text style tokens — do not introduce new colours or typography.
+
+Show me the updated hook exports and the updated UI component.</div>
+</div>
+
+<div class="prompt-card">
+  <div class="prompt-header">
+    <span class="badge badge-teal">Nice #2</span>
+    <span class="prompt-title">Offline sponsor check-in queue</span>
+  </div>
+  <div class="prompt-files">
+    <span>hooks/useSponsorChannel.ts</span><span>utils/storage.ts</span>
+  </div>
+  <div class="prompt-body" id="p9">Here is hooks/useSponsorChannel.ts [paste file]. Here is utils/storage.ts [paste file].
+
+Currently, if a user attempts to check in while offline, the fetch call fails silently. The check-in is lost with no feedback and no retry.
+
+Do the following:
+1. Wrap the check-in fetch call in a try/catch. On network failure, write the pending check-in to the Surface vault: key kataleya.surface.pending_checkin, value JSON { ts: Date.now(), orchidStage, milestones }.
+2. On app foreground and on successful poll reconnection, check for a pending_checkin in Surface. If one exists and is less than 24 hours old, attempt to replay it. If the replay succeeds, clear the pending_checkin key. If it is older than 24 hours, discard it silently.
+3. Show the user a subtle UI indicator when a check-in is pending (e.g. the check-in button shows a small queued state). Clear it when the replay succeeds.
+4. Do not queue more than one pending check-in — if a new check-in is attempted while one is already queued, replace the queued one.
+5. Do not change the server-side channel structure or any other fetch calls in the hook.
+
+Show me the updated hook and confirm: what happens if the user is offline for more than 24 hours before reconnecting?</div>
+</div>
+
+<div class="section-label">🟣 Feature build — Month 3–6</div>
+
+<div class="prompt-card">
+  <div class="prompt-header">
+    <span class="badge badge-purple">Feature #1</span>
+    <span class="prompt-title">Onboarding completion</span>
+  </div>
+  <div class="prompt-files">
+    <span>app/ (onboarding screens)</span><span>utils/storage.ts</span><span>app/_layout.tsx</span>
+  </div>
+  <div class="prompt-body" id="p10">Here is the onboarding screen(s) [paste files]. Here is utils/storage.ts [paste file]. Here is app/_layout.tsx [paste file].
+
+Onboarding is currently partial. A complete onboarding flow for Kataleya must:
+1. Collect: preferred name (stored to Surface.setName()), tracked substance as free text (stored to Surface.setSubstance()), and sobriety start date via a date picker (stored to Surface.setSobrietyStart() as an ISO string).
+2. Show a brief one-screen privacy explanation: "Your name, substance, and sobriety date stay on this device. They are never sent to any server." No accept button needed — it is a statement, not a consent gate.
+3. On completion, call Surface.setOnboarded(). The root layout already gates on this value — do not change that logic.
+4. Each step must be skippable except the sobriety start date, which is required for the timer to function. If skipped fields are empty, the app must handle null gracefully everywhere they are used.
+5. The design must match the existing app aesthetic — use the circadian theme tokens already in constants/. Do not introduce new colours.
+
+Show me the complete onboarding screen(s) and confirm: what state does the app enter if the user force-quits mid-onboarding and relaunches?</div>
+</div>
+
+<div class="prompt-card">
+  <div class="prompt-header">
+    <span class="badge badge-purple">Feature #2</span>
+    <span class="prompt-title">Push notifications</span>
+  </div>
+  <div class="prompt-files">
+    <span>hooks/useInsights.ts</span><span>utils/storage.ts</span><span>app/_layout.tsx</span>
+  </div>
+  <div class="prompt-body" id="p11">Here is hooks/useInsights.ts [paste file]. Here is utils/storage.ts [paste file]. Here is app/_layout.tsx [paste file].
+
+We need local push notifications only — no server-side push, no notification tokens sent anywhere. All scheduling happens on-device using expo-notifications.
+
+Implement the following notification types:
+1. Daily mood log reminder: scheduled at a user-chosen time (default 8pm), fires if no mood log has been written today. Check the last mood log timestamp from Sanctuary before scheduling — if a log already exists for today, cancel the pending notification.
+2. Sobriety milestone: fired when the milestone count increments (hook into useSobriety milestone detection). Fire once per milestone only — store the last notified milestone count in Surface (key: kataleya.surface.last_notified_milestone) and only fire if the current count is greater.
+3. Sponsor signal received: fired when useSponsorChannel receives a new presence signal (water or light) while the app is backgrounded.
+
+Constraints:
+- All notification scheduling is local (expo-notifications scheduleNotificationAsync). No push tokens. No server calls.
+- Notification permission must be requested once during onboarding, after the privacy explanation screen. If denied, the feature degrades silently — no nagging.
+- Notification preferences (on/off per type, reminder time) are stored in Surface vault.
+
+Show me the full implementation and confirm: do any notification payloads contain mood data or journal content?</div>
+</div>
+

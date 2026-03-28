@@ -1,0 +1,2068 @@
+KATALEYA — VERBATIM FILE DUMP
+Generated: 2026-03-28T13:16:33.905Z
+========================================================================
+
+========================================================================
+FILE: utils/db.ts  (66 lines)
+========================================================================
+import { openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
+import { Platform } from 'react-native';
+
+let _db: SQLiteDatabase | null = null;
+
+// Bump this integer whenever the schema changes.
+// Each migration block runs exactly once per install.
+const SCHEMA_VERSION = 1;
+
+export function getDb(): SQLiteDatabase {
+  if (_db) return _db;
+  if (Platform.OS === 'web') {
+    throw new Error('SQLite unavailable on web — Sanctuary is native-only');
+  }
+  _db = openDatabaseSync('kataleya.db', { enableChangeListener: false });
+  _db.execSync(`PRAGMA journal_mode = WAL;`);
+  _db.execSync(`PRAGMA foreign_keys = ON;`);
+  migrate(_db);
+  return _db;
+}
+
+function migrate(db: SQLiteDatabase): void {
+  const row = db.getFirstSync<{ user_version: number }>('PRAGMA user_version');
+  const version = row?.user_version ?? 0;
+
+  // ── v1: initial schema ─────────────────────────────────────────────────────
+  if (version < 1) {
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS mood_logs (
+        id               TEXT PRIMARY KEY NOT NULL,
+        ts               INTEGER NOT NULL,
+        mood_score       INTEGER NOT NULL CHECK (mood_score BETWEEN 1 AND 10),
+        context          TEXT,
+        circadian_phase  TEXT NOT NULL,
+        restlessness     REAL NOT NULL DEFAULT 0 CHECK (restlessness >= 0 AND restlessness <= 1),
+        correction       TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_mood_ts ON mood_logs (ts DESC);
+
+      CREATE TABLE IF NOT EXISTS journal_entries (
+        id               TEXT PRIMARY KEY NOT NULL,
+        ts               INTEGER NOT NULL,
+        body             TEXT NOT NULL,
+        mood_score       INTEGER CHECK (mood_score BETWEEN 1 AND 10),
+        circadian_phase  TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_journal_ts ON journal_entries (ts DESC);
+
+      CREATE TABLE IF NOT EXISTS circadian_log (
+        id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts     INTEGER NOT NULL,
+        phase  TEXT NOT NULL,
+        event  TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_circ_ts ON circadian_log (ts DESC);
+    `);
+    db.runSync(`PRAGMA user_version = 1`);
+  }
+
+  // ── v2 (example): add tags column to journal_entries ──────────────────────
+  // if (version < 2) {
+  //   db.runSync(`ALTER TABLE journal_entries ADD COLUMN tags TEXT`);
+  //   db.runSync(`PRAGMA user_version = 2`);
+  // }
+}
+
+
+========================================================================
+FILE: utils/storage.ts  (445 lines)
+========================================================================
+/**
+ * Storage vaults — three-tier architecture:
+ *
+ *  Surface  (AsyncStorage)  — UI preferences, sobriety date, onboarding state.
+ *                             Nothing sensitive. Never re-classified.
+ *  Sanctuary (SQLite)       — Mood logs, journal entries, circadian event log.
+ *                             Local-only. Structured for offline insights.
+ *  Fortress  (SecureStore)  — Sponsor channel credentials.
+ *                             Encrypted at rest, OS keychain-backed.
+ *
+ * Web fallback: SecureStore → AsyncStorage (dev/preview only, never shipped).
+ * Web fallback: SQLite      → AsyncStorage (dev/preview only, never shipped).
+ */
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+
+// ── Canonical Surface keys ───────────────────────────────────────────────────
+const SK = {
+  SOBRIETY_START: 'kataleya.surface.sobriety_start',
+  ONBOARDED:      'kataleya.surface.onboarded',
+  NAME:           'kataleya.surface.name',
+  SUBSTANCE:      'kataleya.surface.substance',
+  // Tombstone written immediately before burnAll(). If the app crashes mid-wipe,
+  // next launch detects this key and completes the burn. Gets erased by clearAll().
+  BURN_LOG:         'kataleya.surface.burn_log',
+  // Offline check-in queue: written on network failure, replayed on reconnect.
+  PENDING_CHECKIN:  'kataleya.surface.pending_checkin',
+  // Notification preferences
+  NOTIF_ENABLED:          'kataleya.surface.notif_enabled',
+  NOTIF_REMINDER_TIME:    'kataleya.surface.notif_reminder_time',  // 'HH:MM'
+  LAST_NOTIFIED_MILESTONE: 'kataleya.surface.last_notified_milestone',
+} as const;
+
+// ── Canonical Fortress keys ─────────────────────────────────────────────────
+const FK = {
+  CHANNEL_ID: 'kataleya.fortress.sponsor_channel_id',
+  TOKEN:      'kataleya.fortress.sponsor_token',
+  ROLE:       'kataleya.fortress.sponsor_role',
+  LAST_POLL:  'kataleya.fortress.sponsor_last_poll',
+  INVITE:     'kataleya.fortress.sponsor_invite',
+} as const;
+
+// ── Unique ID ────────────────────────────────────────────────────────────────
+function uid(): string {
+  const a = Date.now().toString(36);
+  const b = Math.random().toString(36).slice(2, 9);
+  const c = Math.random().toString(36).slice(2, 6);
+  return `${a}-${b}-${c}`;
+}
+
+// ── Fortress helpers (SecureStore, web-safe) ─────────────────────────────────
+async function fortressSet(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    await AsyncStorage.setItem(key, value);
+    return;
+  }
+  await SecureStore.setItemAsync(key, value);
+}
+
+async function fortressGet(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') return AsyncStorage.getItem(key);
+  return SecureStore.getItemAsync(key);
+}
+
+async function fortressDel(key: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    await AsyncStorage.removeItem(key);
+    return;
+  }
+  await SecureStore.deleteItemAsync(key);
+}
+
+// ── Types ────────────────────────────────────────────────────────────────────
+export interface MoodLog {
+  id: string;
+  ts: number;
+  moodScore: number;             // 1–10
+  context?: string;
+  circadianPhase: string;
+  restlessness: number;          // 0.0–1.0
+  correction?: string;           // user override: 'dancing', 'commuting', etc.
+}
+
+export interface JournalEntry {
+  id: string;
+  ts: number;
+  body: string;
+  moodScore?: number;
+  circadianPhase: string;
+}
+
+export interface CircadianEvent {
+  ts: number;
+  phase: string;
+  event: 'app_open' | 'mood_log' | 'journal_write' | 'sponsor_signal';
+}
+
+export interface SponsorChannel {
+  channelId: string;
+  token: string;
+  role: 'user' | 'sponsor';
+}
+
+// ── Surface (AsyncStorage) ───────────────────────────────────────────────────
+export const Surface = {
+  async setOnboarded(): Promise<void> {
+    await AsyncStorage.setItem(SK.ONBOARDED, '1');
+  },
+  async hasOnboarded(): Promise<boolean> {
+    return (await AsyncStorage.getItem(SK.ONBOARDED)) === '1';
+  },
+  async setName(name: string): Promise<void> {
+    await AsyncStorage.setItem(SK.NAME, name.trim().slice(0, 64));
+  },
+  async getName(): Promise<string | null> {
+    return AsyncStorage.getItem(SK.NAME);
+  },
+  async setSubstance(s: string): Promise<void> {
+    await AsyncStorage.setItem(SK.SUBSTANCE, s.trim().slice(0, 64));
+  },
+  async getSubstance(): Promise<string | null> {
+    return AsyncStorage.getItem(SK.SUBSTANCE);
+  },
+  async setSobrietyStart(isoDate: string): Promise<void> {
+    await AsyncStorage.setItem(SK.SOBRIETY_START, isoDate);
+  },
+  async getSobrietyStart(): Promise<string | null> {
+    return AsyncStorage.getItem(SK.SOBRIETY_START);
+  },
+  async clearSobrietyStart(): Promise<void> {
+    await AsyncStorage.removeItem(SK.SOBRIETY_START);
+  },
+  /**
+   * Write a burn tombstone immediately before calling burnAll().
+   * Purpose: crash-recovery signal. If the app is killed mid-wipe, the next
+   * launch detects this key and can complete the burn. The tombstone is itself
+   * erased by clearAll() — so a clean burn leaves nothing behind.
+   */
+  async writeBurnTombstone(): Promise<void> {
+    await AsyncStorage.setItem(
+      SK.BURN_LOG,
+      JSON.stringify({ ts: Date.now(), confirmed: true }),
+    );
+  },
+  /** Return the burn tombstone if an incomplete wipe was detected at launch. */
+  async getBurnTombstone(): Promise<{ ts: number; confirmed: boolean } | null> {
+    const raw = await AsyncStorage.getItem(SK.BURN_LOG);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  },
+  // ── Offline sponsor check-in queue ────────────────────────────────────────
+  async setPendingCheckin(data: { ts: number; orchidStage?: string; milestones?: number }): Promise<void> {
+    await AsyncStorage.setItem(SK.PENDING_CHECKIN, JSON.stringify(data));
+  },
+  async getPendingCheckin(): Promise<{ ts: number; orchidStage?: string; milestones?: number } | null> {
+    const raw = await AsyncStorage.getItem(SK.PENDING_CHECKIN);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  },
+  async clearPendingCheckin(): Promise<void> {
+    await AsyncStorage.removeItem(SK.PENDING_CHECKIN);
+  },
+
+  // ── Notification preferences ───────────────────────────────────────────────
+  async setNotifEnabled(v: boolean): Promise<void> {
+    await AsyncStorage.setItem(SK.NOTIF_ENABLED, v ? '1' : '0');
+  },
+  async getNotifEnabled(): Promise<boolean> {
+    return (await AsyncStorage.getItem(SK.NOTIF_ENABLED)) === '1';
+  },
+  async setNotifReminderTime(hhmm: string): Promise<void> {
+    await AsyncStorage.setItem(SK.NOTIF_REMINDER_TIME, hhmm);
+  },
+  async getNotifReminderTime(): Promise<string> {
+    return (await AsyncStorage.getItem(SK.NOTIF_REMINDER_TIME)) ?? '20:00';
+  },
+  async setLastNotifiedMilestone(n: number): Promise<void> {
+    await AsyncStorage.setItem(SK.LAST_NOTIFIED_MILESTONE, String(n));
+  },
+  async getLastNotifiedMilestone(): Promise<number> {
+    const raw = await AsyncStorage.getItem(SK.LAST_NOTIFIED_MILESTONE);
+    return raw ? parseInt(raw, 10) : 0;
+  },
+
+  async clearAll(): Promise<void> {
+    await AsyncStorage.multiRemove(Object.values(SK));
+  },
+};
+
+// ── Sanctuary (SQLite) ───────────────────────────────────────────────────────
+// Web builds must never reach health data operations — hard throw enforced below.
+// burnAll retains a web path to clean up any legacy AsyncStorage keys that may
+// exist from earlier development builds.
+const WEB_MOOD_KEY    = 'kataleya.sanctuary.mood_logs';
+const WEB_JOURNAL_KEY = 'kataleya.sanctuary.journal_entries';
+
+function sanctuaryWebGuard(operation: string): never {
+  throw new Error(
+    `Sanctuary.${operation}: health data storage is not available on web builds. ` +
+    'Kataleya is a native-only app. A web build must never handle mood logs or journal entries.'
+  );
+}
+
+export const Sanctuary = {
+  // ── Mood logs ──────────────────────────────────────────────────────────────
+  async saveMoodLog(
+    entry: Omit<MoodLog, 'id'>
+  ): Promise<MoodLog> {
+    if (Platform.OS === 'web') sanctuaryWebGuard('saveMoodLog');
+    const log: MoodLog = { ...entry, id: uid() };
+    const { getDb } = await import('./db');
+    const db = getDb();
+    db.runSync(
+      `INSERT INTO mood_logs (id, ts, mood_score, context, circadian_phase, restlessness, correction)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [log.id, log.ts, log.moodScore, log.context ?? null, log.circadianPhase, log.restlessness, log.correction ?? null]
+    );
+    await Sanctuary.logCircadianEvent({ ts: log.ts, phase: log.circadianPhase, event: 'mood_log' });
+    return log;
+  },
+
+  async getMoodLogs(limit = 500): Promise<MoodLog[]> {
+    if (Platform.OS === 'web') sanctuaryWebGuard('getMoodLogs');
+    const { getDb } = await import('./db');
+    const rows = getDb().getAllSync<{
+      id: string; ts: number; mood_score: number; context: string | null;
+      circadian_phase: string; restlessness: number; correction: string | null;
+    }>(
+      `SELECT id, ts, mood_score, context, circadian_phase, restlessness, correction
+       FROM mood_logs ORDER BY ts DESC LIMIT ?`,
+      [limit]
+    );
+    return rows.map(r => ({
+      id: r.id, ts: r.ts, moodScore: r.mood_score,
+      context: r.context ?? undefined, circadianPhase: r.circadian_phase,
+      restlessness: r.restlessness, correction: r.correction ?? undefined,
+    }));
+  },
+
+  async applyMoodCorrection(id: string, correction: string): Promise<void> {
+    if (Platform.OS === 'web') sanctuaryWebGuard('applyMoodCorrection');
+    const { getDb } = await import('./db');
+    getDb().runSync(`UPDATE mood_logs SET correction = ? WHERE id = ?`, [correction, id]);
+  },
+
+  async getRecentMoodState(): Promise<{ lastScore: number; hoursSince: number; avgRestlessness: number }> {
+    const logs = await Sanctuary.getMoodLogs(5);
+    if (!logs.length) return { lastScore: 5, hoursSince: 24, avgRestlessness: 0 };
+    const last = logs[0];
+    const hoursSince = (Date.now() - last.ts) / 3_600_000;
+    const avg = logs.slice(0, 3).reduce((s, l) => s + l.restlessness, 0) / Math.min(logs.length, 3);
+    return { lastScore: last.moodScore, hoursSince, avgRestlessness: avg };
+  },
+
+  // ── Journal ────────────────────────────────────────────────────────────────
+  async saveJournalEntry(
+    entry: Omit<JournalEntry, 'id'>
+  ): Promise<JournalEntry> {
+    if (Platform.OS === 'web') sanctuaryWebGuard('saveJournalEntry');
+    const e: JournalEntry = { ...entry, id: uid() };
+    const { getDb } = await import('./db');
+    const db = getDb();
+    db.runSync(
+      `INSERT INTO journal_entries (id, ts, body, mood_score, circadian_phase)
+       VALUES (?, ?, ?, ?, ?)`,
+      [e.id, e.ts, e.body, e.moodScore ?? null, e.circadianPhase]
+    );
+    await Sanctuary.logCircadianEvent({ ts: e.ts, phase: e.circadianPhase, event: 'journal_write' });
+    return e;
+  },
+
+  async getJournalEntries(limit = 200): Promise<JournalEntry[]> {
+    if (Platform.OS === 'web') sanctuaryWebGuard('getJournalEntries');
+    const { getDb } = await import('./db');
+    const rows = getDb().getAllSync<{
+      id: string; ts: number; body: string; mood_score: number | null; circadian_phase: string;
+    }>(
+      `SELECT id, ts, body, mood_score, circadian_phase FROM journal_entries ORDER BY ts DESC LIMIT ?`,
+      [limit]
+    );
+    return rows.map(r => ({
+      id: r.id, ts: r.ts, body: r.body,
+      moodScore: r.mood_score ?? undefined, circadianPhase: r.circadian_phase,
+    }));
+  },
+
+  async deleteJournalEntry(id: string): Promise<void> {
+    if (Platform.OS === 'web') sanctuaryWebGuard('deleteJournalEntry');
+    const { getDb } = await import('./db');
+    getDb().runSync(`DELETE FROM journal_entries WHERE id = ?`, [id]);
+  },
+
+  // ── Batch restore (used by backup restore — transactional for performance) ─
+  // Inserts thousands of rows in a single SQLite transaction instead of one
+  // await per row. Prevents OS killing the app mid-restore when backgrounded.
+  async batchRestoreMoodLogs(logs: Omit<MoodLog, 'id'>[]): Promise<void> {
+    if (Platform.OS === 'web') sanctuaryWebGuard('batchRestoreMoodLogs');
+    if (!logs.length) return;
+    const { getDb } = await import('./db');
+    const db = getDb();
+    db.execSync('BEGIN');
+    try {
+      for (const log of logs) {
+        db.runSync(
+          `INSERT INTO mood_logs (id, ts, mood_score, context, circadian_phase, restlessness, correction)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [uid(), log.ts, log.moodScore, log.context ?? null, log.circadianPhase, log.restlessness, log.correction ?? null]
+        );
+      }
+      db.execSync('COMMIT');
+    } catch (e) {
+      db.execSync('ROLLBACK');
+      throw e;
+    }
+  },
+
+  async batchRestoreJournalEntries(entries: Omit<JournalEntry, 'id'>[]): Promise<void> {
+    if (Platform.OS === 'web') sanctuaryWebGuard('batchRestoreJournalEntries');
+    if (!entries.length) return;
+    const { getDb } = await import('./db');
+    const db = getDb();
+    db.execSync('BEGIN');
+    try {
+      for (const entry of entries) {
+        db.runSync(
+          `INSERT INTO journal_entries (id, ts, body, mood_score, circadian_phase)
+           VALUES (?, ?, ?, ?, ?)`,
+          [uid(), entry.ts, entry.body, entry.moodScore ?? null, entry.circadianPhase]
+        );
+      }
+      db.execSync('COMMIT');
+    } catch (e) {
+      db.execSync('ROLLBACK');
+      throw e;
+    }
+  },
+
+  // ── Circadian event log ────────────────────────────────────────────────────
+  async logCircadianEvent(event: CircadianEvent): Promise<void> {
+    if (Platform.OS === 'web') return; // no-op on web
+    const { getDb } = await import('./db');
+    getDb().runSync(
+      `INSERT INTO circadian_log (ts, phase, event) VALUES (?, ?, ?)`,
+      [event.ts, event.phase, event.event]
+    );
+  },
+
+  async getCircadianLog(days = 90): Promise<CircadianEvent[]> {
+    if (Platform.OS === 'web') return [];
+    const since = Date.now() - days * 86_400_000;
+    const { getDb } = await import('./db');
+    const rows = getDb().getAllSync<{ ts: number; phase: string; event: string }>(
+      `SELECT ts, phase, event FROM circadian_log WHERE ts >= ? ORDER BY ts DESC`,
+      [since]
+    );
+    return rows.map(r => ({ ts: r.ts, phase: r.phase, event: r.event as CircadianEvent['event'] }));
+  },
+
+  // ── Burn ritual ────────────────────────────────────────────────────────────
+  // wipeSQLiteData: erases all SQLite tables only. Does NOT touch Surface or
+  // Fortress. Used by BurningRitual.tsx to allow the Surface tombstone to
+  // survive until all native vaults are confirmed empty.
+  async wipeSQLiteData(): Promise<void> {
+    if (Platform.OS !== 'web') {
+      const { getDb } = await import('./db');
+      const db = getDb();
+      db.runSync(`DELETE FROM mood_logs`);
+      db.runSync(`DELETE FROM journal_entries`);
+      db.runSync(`DELETE FROM circadian_log`);
+    } else {
+      await AsyncStorage.multiRemove([WEB_MOOD_KEY, WEB_JOURNAL_KEY]);
+    }
+  },
+
+  // burnAll: full wipe of all three vaults. Used by backup.ts restorePayload()
+  // before importing a backup. BurningRitual.tsx does NOT use this — it manages
+  // the sequence manually to guarantee the tombstone outlives native vault wipes.
+  async burnAll(): Promise<void> {
+    await Sanctuary.wipeSQLiteData();
+    await Surface.clearAll();
+    await Fortress.clear();
+  },
+};
+
+// ── Fortress (SecureStore) ───────────────────────────────────────────────────
+export const Fortress = {
+  async setInviteCode(code: string): Promise<void> {
+    const safe = code.replace(/[^A-Z0-9]/g, '').slice(0, 12);
+    await fortressSet(FK.INVITE, safe);
+  },
+  async getInviteCode(): Promise<string | null> {
+    return fortressGet(FK.INVITE);
+  },
+
+  async setChannel(channelId: string, token: string, role: 'user' | 'sponsor'): Promise<void> {
+    await Promise.all([
+      fortressSet(FK.CHANNEL_ID, channelId),
+      fortressSet(FK.TOKEN, token),
+      fortressSet(FK.ROLE, role),
+    ]);
+  },
+  async getChannel(): Promise<SponsorChannel | null> {
+    const [channelId, token, role] = await Promise.all([
+      fortressGet(FK.CHANNEL_ID),
+      fortressGet(FK.TOKEN),
+      fortressGet(FK.ROLE),
+    ]);
+    if (!channelId || !token || !role) return null;
+    return { channelId, token, role: role as SponsorChannel['role'] };
+  },
+
+  async setLastPoll(ts: number): Promise<void> {
+    await fortressSet(FK.LAST_POLL, String(ts));
+  },
+  async getLastPoll(): Promise<number> {
+    const v = await fortressGet(FK.LAST_POLL);
+    return v ? parseInt(v, 10) : 0;
+  },
+
+  async clear(): Promise<void> {
+    await Promise.all(Object.values(FK).map(fortressDel));
+  },
+};
+
+// ── Legacy shim — keeps SponsorVault callers working during migration ─────────
+/** @deprecated Use Fortress directly. */
+export const SponsorVault = {
+  setInviteCode: Fortress.setInviteCode,
+  getInviteCode: Fortress.getInviteCode,
+  setChannel: Fortress.setChannel,
+  getChannel: Fortress.getChannel,
+  setLastPoll: Fortress.setLastPoll,
+  getLastPoll: Fortress.getLastPoll,
+  clear: Fortress.clear,
+};
+
+/** @deprecated Use Sanctuary/Surface directly. */
+export const PrivateVault = {
+  saveJournalEntry: (entry: Omit<JournalEntry, 'id'>) => Sanctuary.saveJournalEntry(entry),
+  getJournalEntries: () => Sanctuary.getJournalEntries(),
+  deleteEntry: (id: string) => Sanctuary.deleteJournalEntry(id),
+};
+
+
+========================================================================
+FILE: utils/backup.ts  (307 lines)
+========================================================================
+/**
+ * Encrypted Backup — zero-knowledge device migration.
+ *
+ * Crypto stack (native, via react-native-quick-crypto):
+ *   Key derivation : PBKDF2-SHA256, 100,000 iterations, 32-byte random salt
+ *                    Runs in native code (OpenSSL on Android, CommonCrypto on iOS).
+ *                    Key state does not expand through the JS heap during derivation.
+ *   Encryption     : AES-256-CBC
+ *   Authentication : HMAC-SHA256 over ciphertext (Encrypt-then-MAC)
+ *   RNG            : randomBytes() — OS CSPRNG (/dev/urandom, SecureRandom, etc.)
+ *   MAC comparison : timingSafeEqual() — constant-time, prevents timing side-channels
+ *
+ * ── Passphrase & key memory trace ────────────────────────────────────────────
+ *   1. `passphrase` — JS string (heap, immutable). Passed as UTF-8 bytes to
+ *      pbkdf2Sync(). Cannot be zeroed; exits scope when function returns → GC.
+ *   2. `key` — Buffer (ArrayBuffer on JS heap, computed natively). Passed to
+ *      createCipheriv() and createHmac() then goes out of scope → GC eligible
+ *      but NOT zeroed. JS provides no deterministic memory zeroing.
+ *   3. `plaintext` — Buffer containing the full JSON payload. Most sensitive
+ *      object in memory. Consumed by cipher.update(); exits scope after
+ *      encryptBackup() returns → GC eligible but not zeroed.
+ *   Improvement over crypto-js: key derivation state (100k PBKDF2 iterations)
+ *   runs in native memory rather than expanding through the JS heap each step.
+ *
+ * ── Blob format (unchanged — existing backups restore correctly) ──────────────
+ *   { v, alg, iters, salt, iv, mac, data }
+ *   — v    : version integer (1)
+ *   — alg  : 'AES-256-CBC-PBKDF2-SHA256'
+ *   — iters: iteration count stored in blob so future upgrades are back-compat
+ *   — salt : hex (32 bytes)
+ *   — iv   : hex (16 bytes)
+ *   — mac  : hex (32 bytes, HMAC-SHA256 over ciphertext)
+ *   — data : base64 ciphertext
+ *
+ * ── Platform requirements ────────────────────────────────────────────────────
+ *   react-native-quick-crypto is a JSI native module.
+ *   It is imported dynamically inside the crypto functions so that:
+ *     • Web builds: fail at the function call with a clear error (not at import)
+ *     • Expo Go: the file loads; calling encryptBackup/decryptBackup throws clearly
+ *     • EAS Build / dev build: native module loads; full crypto runs natively
+ *   Backup testing requires a native build. Expo Go cannot run JSI modules.
+ *
+ * ── Zero-knowledge properties ────────────────────────────────────────────────
+ *   The passphrase is never stored, never logged, never sent anywhere.
+ *   The encrypted blob is opaque: without the passphrase it reveals nothing.
+ *   Wrong passphrase: HMAC fails (constant-time) before decrypt is attempted.
+ *   Cloud providers (iCloud, Google Drive) store encrypted bytes only.
+ *
+ * ── What is backed up ───────────────────────────────────────────────────────
+ *   Sanctuary: mood_logs, journal_entries, circadian_log
+ *   Surface:   sobriety_start, name, substance
+ *
+ * ── What is NOT backed up ────────────────────────────────────────────────────
+ *   Fortress (sponsor credentials): channels are ephemeral. They expire.
+ */
+
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
+import { Sanctuary, Surface } from './storage';
+
+const ITERS          = 100_000;
+const BACKUP_VERSION = 1;
+const BACKUP_FILENAME = 'kataleya.backup';
+
+// ── Backup payload (plaintext before encryption) ─────────────────────────────
+export interface BackupPayload {
+  v: number;
+  exportedAt: number;
+  sanctuary: {
+    moodLogs: Awaited<ReturnType<typeof Sanctuary.getMoodLogs>>;
+    journalEntries: Awaited<ReturnType<typeof Sanctuary.getJournalEntries>>;
+    circadianLog: Awaited<ReturnType<typeof Sanctuary.getCircadianLog>>;
+  };
+  surface: {
+    sobrietyStart: string | null;
+    name: string | null;
+    substance: string | null;
+  };
+}
+
+// ── Encrypted blob (stored to file / shared to cloud) ────────────────────────
+// This shape is frozen — changing it breaks existing backup files.
+interface EncryptedBlob {
+  v: number;
+  alg: string;
+  iters: number;
+  salt: string;  // hex, 32 bytes
+  iv: string;    // hex, 16 bytes
+  mac: string;   // hex, 32 bytes — HMAC-SHA256 over ciphertext
+  data: string;  // base64 ciphertext
+}
+
+// ── Native crypto guard ───────────────────────────────────────────────────────
+// Called before any crypto operation. Throws hard on web or Expo Go.
+function requireNativeCrypto(): void {
+  if (Platform.OS === 'web') {
+    throw new Error(
+      'Encrypted backup is not available on web builds. ' +
+      'Kataleya backup requires a native device build.'
+    );
+  }
+}
+
+// ── Encrypt ──────────────────────────────────────────────────────────────────
+export async function encryptBackup(passphrase: string): Promise<string> {
+  requireNativeCrypto();
+
+  if (!passphrase || passphrase.length < 4) {
+    throw new Error('Passphrase must be at least 4 characters');
+  }
+
+  // Dynamic import — JSI module; only works in native EAS/dev builds.
+  const { pbkdf2Sync, randomBytes, createCipheriv, createHmac, Buffer } =
+    await import('react-native-quick-crypto');
+
+  // Collect all vault data
+  const [moodLogs, journalEntries, circadianLog, sobrietyStart, name, substance] =
+    await Promise.all([
+      Sanctuary.getMoodLogs(5000),
+      Sanctuary.getJournalEntries(2000),
+      Sanctuary.getCircadianLog(365),
+      Surface.getSobrietyStart(),
+      Surface.getName(),
+      Surface.getSubstance(),
+    ]);
+
+  const payload: BackupPayload = {
+    v: BACKUP_VERSION,
+    exportedAt: Date.now(),
+    sanctuary: { moodLogs, journalEntries, circadianLog },
+    surface: { sobrietyStart, name, substance },
+  };
+
+  // `plaintext` — the most sensitive buffer; contains full vault JSON.
+  // Exits scope when encryptBackup returns → GC eligible, not zeroed.
+  const plaintext = Buffer.from(JSON.stringify(payload), 'utf8');
+
+  // Native CSPRNG — OS-provided (/dev/urandom, SecureRandom).
+  // No Math.random() path.
+  const salt = randomBytes(32);   // 32-byte random salt
+  const iv   = randomBytes(16);   // 16-byte random IV
+
+  // Native PBKDF2-SHA256 via OpenSSL / CommonCrypto.
+  // `key` — 32 bytes, Buffer (ArrayBuffer on JS heap, derived in native code).
+  // Key derivation state does not expand through JS heap for 100k iterations.
+  const key = pbkdf2Sync(passphrase, salt, ITERS, 32, 'sha256');
+
+  // Native AES-256-CBC
+  // `as any[]` cast: react-native-quick-crypto's Buffer type predates @types/node's
+  // Buffer<ArrayBufferLike> generic. Runtime behavior is correct; types disagree.
+  const cipher = createCipheriv('aes-256-cbc', key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()] as any[]);
+
+  // Encrypt-then-MAC: HMAC-SHA256 over ciphertext (not plaintext).
+  // `key` last touched here → exits scope after digest() → GC eligible.
+  const mac = createHmac('sha256', key).update(ciphertext).digest();
+
+  // `passphrase` exits scope here → GC eligible. Cannot be zeroed (JS string, immutable).
+  // `key` exits scope here → GC eligible. Not zeroed (JS/Hermes limitation).
+
+  const blob: EncryptedBlob = {
+    v: BACKUP_VERSION,
+    alg: 'AES-256-CBC-PBKDF2-SHA256',
+    iters: ITERS,
+    salt: salt.toString('hex'),
+    iv:   iv.toString('hex'),
+    mac:  mac.toString('hex'),
+    data: ciphertext.toString('base64'),
+  };
+
+  return JSON.stringify(blob);
+}
+
+// ── Decrypt ──────────────────────────────────────────────────────────────────
+export async function decryptBackup(
+  blobStr: string,
+  passphrase: string
+): Promise<BackupPayload> {
+  requireNativeCrypto();
+
+  // Dynamic import — same JSI module; only works in native builds.
+  const { pbkdf2Sync, createDecipheriv, createHmac, timingSafeEqual, Buffer } =
+    await import('react-native-quick-crypto');
+
+  let blob: EncryptedBlob;
+  try {
+    blob = JSON.parse(blobStr) as EncryptedBlob;
+  } catch {
+    throw new Error('Invalid backup file format');
+  }
+
+  if (blob.v !== BACKUP_VERSION) {
+    throw new Error(`Unsupported backup version: ${blob.v}`);
+  }
+
+  const salt = Buffer.from(blob.salt, 'hex');
+  const iv   = Buffer.from(blob.iv, 'hex');
+
+  // blob.iters read from the file — not ITERS constant.
+  // Old backups (100k iters) decrypt correctly even after we raise ITERS.
+  // `key` — 32-byte Buffer, derived in native code, lives on JS heap.
+  const key = pbkdf2Sync(passphrase, salt, blob.iters, 32, 'sha256');
+
+  const ciphertext  = Buffer.from(blob.data, 'base64');
+  const expectedMac = createHmac('sha256', key).update(ciphertext).digest();
+  const providedMac = Buffer.from(blob.mac, 'hex');
+
+  // Constant-time comparison — prevents timing attacks.
+  // The original string !== comparison was NOT timing-safe.
+  // If lengths differ (corrupt blob), we throw before timingSafeEqual (which
+  // would throw on unequal-length inputs in the native implementation).
+  if (
+    expectedMac.length !== providedMac.length ||
+    !timingSafeEqual(expectedMac, providedMac)
+  ) {
+    throw new Error('Incorrect passphrase or corrupt backup');
+  }
+
+  // Decrypt only if MAC passes — wrong passphrase rejected above.
+  // `key` last touched here → exits scope after decryptBackup returns → GC.
+  // `as any[]` cast: same RN vs @types/node Buffer generic mismatch as encrypt path.
+  const decipher = createDecipheriv('aes-256-cbc', key, iv);
+  let plaintext: Uint8Array;
+  try {
+    plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()] as any[]) as unknown as Uint8Array;
+  } catch {
+    // Padding error on wrong key — additional safety net
+    throw new Error('Incorrect passphrase or corrupt backup');
+  }
+
+  try {
+    return JSON.parse(Buffer.from(plaintext).toString('utf8')) as BackupPayload;
+  } catch {
+    throw new Error('Incorrect passphrase or corrupt backup');
+  }
+}
+
+// ── Restore payload to vaults ─────────────────────────────────────────────────
+export async function restorePayload(payload: BackupPayload): Promise<void> {
+  // Wipe existing data first (clean restore)
+  await Sanctuary.burnAll();
+
+  // Restore Surface
+  if (payload.surface.sobrietyStart) {
+    await Surface.setSobrietyStart(payload.surface.sobrietyStart);
+  }
+  if (payload.surface.name) {
+    await Surface.setName(payload.surface.name);
+  }
+  if (payload.surface.substance) {
+    await Surface.setSubstance(payload.surface.substance);
+  }
+  await Surface.setOnboarded();
+
+  // Restore Sanctuary in a single transaction per table.
+  // Oldest-first order preserves chronological ordering in the DB index.
+  // Batch methods use BEGIN/COMMIT — safe if the OS backgrounds the app mid-restore.
+  const moodLogsChron = [...payload.sanctuary.moodLogs].reverse();
+  await Sanctuary.batchRestoreMoodLogs(moodLogsChron);
+
+  const journalChron = [...payload.sanctuary.journalEntries].reverse();
+  await Sanctuary.batchRestoreJournalEntries(journalChron);
+}
+
+// ── File operations ───────────────────────────────────────────────────────────
+export async function saveAndShareBackup(encryptedStr: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    throw new Error('Backup export is not available on web builds');
+  }
+
+  // documentDirectory: canary expo-file-system moved this to Paths.document;
+  // cast to any preserves runtime legacy behaviour while satisfying TypeScript.
+  const path = `${(FileSystem as any).documentDirectory}${BACKUP_FILENAME}`;
+  await FileSystem.writeAsStringAsync(path, encryptedStr, {
+    encoding: 'utf8', // EncodingType enum removed from canary re-exports; literal accepted
+  });
+
+  const canShare = await Sharing.isAvailableAsync();
+  if (canShare) {
+    await Sharing.shareAsync(path, {
+      mimeType: 'application/json',
+      dialogTitle: 'Save your Kataleya backup',
+      UTI: 'public.json',
+    });
+  }
+}
+
+export async function pickBackupFile(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    throw new Error('Backup restore is not available on web builds');
+  }
+
+  const result = await DocumentPicker.getDocumentAsync({
+    type: '*/*',
+    copyToCacheDirectory: true,
+  });
+
+  if (result.canceled || !result.assets?.length) return null;
+
+  const uri = result.assets[0].uri;
+  return FileSystem.readAsStringAsync(uri, {
+    encoding: 'utf8', // EncodingType enum removed from canary re-exports; literal accepted
+  });
+}
+
+
+========================================================================
+FILE: components/BurningRitual.tsx  (423 lines)
+========================================================================
+'use no memo';
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+} from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { ThemeTokens } from '@/constants/theme';
+import { Sanctuary, Surface } from '@/utils/storage';
+
+type BurnReason = 'no_longer_serves' | 'begin_again' | 'not_this_way' | 'private' | null;
+
+interface Props {
+  theme: ThemeTokens;
+  onComplete: () => void;
+  onCancel: () => void;
+}
+
+const REASONS = [
+  { id: 'no_longer_serves' as const, label: 'The data no longer serves me' },
+  { id: 'begin_again' as const, label: 'I need to begin again' },
+  { id: 'not_this_way' as const, label: 'I do not want to be known this way' },
+  { id: 'private' as const, label: '[No reason / Private]' },
+];
+
+export function BurningRitual({ theme, onComplete, onCancel }: Props) {
+  const [selectedReason, setSelectedReason] = useState<BurnReason>(null);
+  const [isHolding, setIsHolding] = useState(false);
+  // confirming: hold completed — waiting for explicit user confirmation before wipe
+  const [confirming, setConfirming] = useState(false);
+  const [burned, setBurned] = useState(false);
+  const progress = useRef(new Animated.Value(0)).current;
+  const progressAnim = useRef<Animated.CompositeAnimation | null>(null);
+
+  const startHold = () => {
+    if (!selectedReason) return;
+    setIsHolding(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+    progressAnim.current = Animated.timing(progress, {
+      toValue: 100,
+      duration: 3000,
+      useNativeDriver: false,
+    });
+    progressAnim.current.start(({ finished }) => {
+      if (finished) {
+        // Hold complete — enter confirmation gate; do NOT wipe yet
+        setIsHolding(false);
+        setConfirming(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+    });
+  };
+
+  const endHold = () => {
+    if (burned || confirming) return;
+    setIsHolding(false);
+    if (progressAnim.current) progressAnim.current.stop();
+    Animated.timing(progress, {
+      toValue: 0,
+      duration: 400,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const cancelConfirmation = () => {
+    setConfirming(false);
+    // Reset progress bar so the user can try again or walk away
+    Animated.timing(progress, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const executeBurn = async () => {
+    setBurned(true);
+
+    // ── Phase 1: Tombstone ─────────────────────────────────────────────────
+    // Written FIRST — before any destructive action. If the app is killed
+    // during the subsequent native wipes, this key survives in AsyncStorage
+    // and the next launch detects + completes the burn automatically.
+    await Surface.writeBurnTombstone();
+
+    try {
+      // ── Phase 2: Parallel native vault wipes ────────────────────────────
+      // Sanctuary (SQLite) and Fortress (Keychain) are independent. Run them
+      // concurrently to minimize the window where data partially exists.
+      // wipeSQLiteData does NOT touch Surface, so the tombstone stays alive.
+      await Promise.all([
+        Sanctuary.wipeSQLiteData(),
+        Fortress.clear(),
+      ]);
+
+      // ── Phase 3: Surface wipe (last) ─────────────────────────────────────
+      // Only executed once both native vaults confirm empty. This also erases
+      // the tombstone — a clean burn leaves no trace in any vault.
+      await Surface.clearAll();
+    } catch (error) {
+      // Native wipe interrupted. The tombstone in Surface survives here
+      // because Surface.clearAll() was never reached. Next launch will detect
+      // the tombstone and re-attempt the wipe before rendering any UI.
+      console.error('Critical: Burn interrupted during native phase', error);
+    }
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const progressWidth = progress.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
+
+  // ── Post-burn: completion screen ──────────────────────────────────────────
+  if (burned) {
+    return (
+      <View style={[styles.container, styles.afterContainer, { backgroundColor: theme.bg }]}>
+        <Text style={[styles.burnTitle, { color: theme.danger }]}>
+          The garden burns.
+        </Text>
+        <Text style={[styles.burnSubtitle, { color: theme.textMuted }]}>
+          The orchid returns to seed.{'\n'}The soil is fresh.
+        </Text>
+
+        <View style={styles.afterActions}>
+          <TouchableOpacity
+            style={[styles.afterBtn, { borderColor: theme.accent, backgroundColor: `${theme.accent}18` }]}
+            onPress={onComplete}
+          >
+            <Text style={[styles.afterBtnText, { color: theme.accent }]}>Begin Again</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.afterBtn, { borderColor: theme.border }]}
+            onPress={onComplete}
+          >
+            <Text style={[styles.afterBtnText, { color: theme.textMuted }]}>Close</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.afterNote, { color: `${theme.textMuted}60` }]}>
+          All data has been permanently erased.{'\n'}Nothing remains.
+        </Text>
+      </View>
+    );
+  }
+
+  // ── Confirmation gate: shown after hold completes, before wipe executes ───
+  if (confirming) {
+    return (
+      <View style={[styles.container, styles.confirmContainer, { backgroundColor: theme.bg }]}>
+        <Text style={[styles.confirmMessage, { color: theme.text }]}>
+          This will permanently erase everything.{'\n'}There is no undo.
+        </Text>
+
+        <View style={styles.confirmActions}>
+          <TouchableOpacity
+            style={[styles.confirmEraseBtn, { borderColor: theme.danger, backgroundColor: `${theme.danger}18` }]}
+            onPress={executeBurn}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.confirmEraseBtnText, { color: theme.danger }]}>
+              Erase everything
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.confirmCancelBtn, { borderColor: theme.border }]}
+            onPress={cancelConfirmation}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.confirmCancelBtnText, { color: theme.textMuted }]}>
+              Cancel
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Default: hold gesture screen ─────────────────────────────────────────
+  return (
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <TouchableOpacity onPress={onCancel} style={styles.cancelBtn}>
+        <Text style={[styles.cancelText, { color: theme.textMuted }]}>← return</Text>
+      </TouchableOpacity>
+
+      <Text style={[styles.title, { color: theme.danger }]}>Burn the Garden</Text>
+      <Text style={[styles.subtitle, { color: theme.text, opacity: 0.75 }]}>
+        You are about to destroy all records.{'\n'}This cannot be undone. No one can recover it.
+      </Text>
+
+      <Text style={[styles.reasonLabel, { color: theme.textMuted }]}>Why are you burning?</Text>
+
+      <View style={styles.reasons}>
+        {REASONS.map(r => (
+          <TouchableOpacity
+            key={r.id}
+            onPress={() => setSelectedReason(r.id)}
+            style={[
+              styles.reasonBtn,
+              {
+                borderColor: selectedReason === r.id ? theme.danger : theme.border,
+                backgroundColor: selectedReason === r.id ? `${theme.danger}15` : 'transparent',
+              },
+            ]}
+          >
+            <Text style={[styles.reasonText, { color: theme.text }]}>{r.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={styles.igniteArea}>
+        <Text style={[styles.holdLabel, { color: theme.textMuted }]}>
+          {isHolding ? 'burning...' : 'hold to ignite'}
+        </Text>
+
+        <View style={[styles.progressTrack, { backgroundColor: theme.border }]}>
+          <Animated.View
+            style={[
+              styles.progressFill,
+              { width: progressWidth, backgroundColor: isHolding ? theme.danger : theme.gold },
+            ]}
+          />
+        </View>
+
+        <TouchableOpacity
+          onPressIn={startHold}
+          onPressOut={endHold}
+          disabled={!selectedReason}
+          activeOpacity={1}
+          style={[
+            styles.igniteBtn,
+            {
+              borderColor: selectedReason ? theme.danger : theme.border,
+              opacity: selectedReason ? 1 : 0.3,
+              backgroundColor: isHolding ? `${theme.danger}20` : 'transparent',
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.igniteText,
+              { color: isHolding ? theme.danger : selectedReason ? theme.text : theme.textMuted },
+            ]}
+          >
+            {isHolding ? 'BURNING...' : 'HOLD TO IGNITE'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 24,
+    paddingTop: 60,
+  },
+  cancelBtn: {
+    marginBottom: 32,
+  },
+  cancelText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  title: {
+    fontFamily: 'CourierPrime',
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  },
+  subtitle: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 32,
+  },
+  reasonLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
+  reasons: {
+    gap: 8,
+    marginBottom: 40,
+  },
+  reasonBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+  },
+  reasonText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+  },
+  igniteArea: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  holdLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+  },
+  progressTrack: {
+    width: '100%',
+    height: 2,
+    borderRadius: 1,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 1,
+  },
+  igniteBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    width: '100%',
+    alignItems: 'center',
+  },
+  igniteText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 12,
+    letterSpacing: 2.5,
+  },
+  // ── Confirmation gate styles (calm, no animation) ────────────────────────
+  confirmContainer: {
+    justifyContent: 'center',
+    gap: 40,
+    paddingHorizontal: 32,
+    paddingTop: 0,
+  },
+  confirmMessage: {
+    fontFamily: 'CourierPrime',
+    fontSize: 16,
+    lineHeight: 26,
+    textAlign: 'center',
+    opacity: 0.9,
+  },
+  confirmActions: {
+    gap: 12,
+  },
+  confirmEraseBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  confirmEraseBtnText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  confirmCancelBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  confirmCancelBtnText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  // ── Post-burn completion screen ───────────────────────────────────────────
+  afterContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 24,
+    paddingHorizontal: 32,
+    paddingTop: 0,
+  },
+  burnTitle: {
+    fontFamily: 'CourierPrime',
+    fontSize: 28,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  burnSubtitle: {
+    fontFamily: 'CourierPrime',
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  afterActions: {
+    width: '100%',
+    gap: 10,
+  },
+  afterBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  afterBtnText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  afterNote: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 1,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+});
+
+
+========================================================================
+FILE: hooks/useSponsorChannel.ts  (262 lines)
+========================================================================
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
+import { SponsorVault, Surface } from '@/utils/storage';
+
+const _domain = process.env.EXPO_PUBLIC_DOMAIN;
+if (!_domain || _domain === 'undefined') {
+  console.warn('[useSponsorChannel] EXPO_PUBLIC_DOMAIN is not set — API calls will fail');
+}
+const API_BASE = `https://${_domain}/api`;
+const POLL_INTERVAL_MS = 5000;
+
+export interface PresenceSignal {
+  id: string;
+  type: 'water' | 'light';
+  from: 'user' | 'sponsor';
+  timestamp: number;
+}
+
+export interface ChannelStatus {
+  connected: boolean;
+  checkedIn: boolean;
+  checkedInDate: string | null;
+  orchidStage: string;
+  milestones: number;
+  sponsorPresent: boolean;
+}
+
+export type Role = 'user' | 'sponsor';
+export type ConnState = 'idle' | 'inviting' | 'connected' | 'error';
+
+interface ChannelSession {
+  channelId: string;
+  token: string;
+  role: Role;
+}
+
+export function useSponsorChannel() {
+  const [session, setSession] = useState<ChannelSession | null>(null);
+  const [connState, setConnState] = useState<ConnState>('idle');
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [status, setStatus] = useState<ChannelStatus | null>(null);
+  const [incomingSignals, setIncomingSignals] = useState<PresenceSignal[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sinceRef = useRef<number>(0);
+
+  // ── Load persisted session on mount ──────────────────────────────────────
+  useEffect(() => {
+    SponsorVault.getChannel().then(async ch => {
+      if (!ch) return;
+      const since = await SponsorVault.getLastPoll();
+      sinceRef.current = since;
+      setSession(ch);
+      setConnState('connected');
+    });
+    SponsorVault.getInviteCode().then(c => { if (c) setInviteCode(c); });
+  }, []);
+
+  const connStateRef = useRef<ConnState>('idle');
+  useEffect(() => { connStateRef.current = connState; }, [connState]);
+
+  // ── Polling ───────────────────────────────────────────────────────────────
+  const startPolling = useCallback((sess: ChannelSession) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    const poll = async () => {
+      try {
+        const url = `${API_BASE}/sponsor/poll?channelId=${sess.channelId}&token=${sess.token}&since=${sinceRef.current}`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json() as { signals: PresenceSignal[]; status: ChannelStatus; serverTime: number };
+        if (data.signals?.length) {
+          setIncomingSignals(prev => [...prev, ...data.signals]);
+          sinceRef.current = data.serverTime;
+          await SponsorVault.setLastPoll(data.serverTime);
+        }
+        if (data.status) {
+          setStatus(data.status);
+          // Transition inviting → connected when sponsor joins
+          if (data.status.connected && connStateRef.current === 'inviting') {
+            setConnState('connected');
+          }
+        }
+      } catch { /* network blip, silent */ }
+    };
+    poll();
+    pollRef.current = setInterval(poll, POLL_INTERVAL_MS);
+  }, []);
+
+  useEffect(() => {
+    // Poll while waiting for sponsor to join (inviting) AND while fully connected
+    if (session && (connState === 'connected' || connState === 'inviting')) {
+      startPolling(session);
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [session, connState, startPolling]);
+
+  // ── Actions ───────────────────────────────────────────────────────────────
+  const createInvite = useCallback(async () => {
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/sponsor/invite`, { method: 'POST' });
+      if (!res.ok) throw new Error('Server error');
+      const data = await res.json() as { channelId: string; inviteCode: string; userToken: string };
+      const sess: ChannelSession = { channelId: data.channelId, token: data.userToken, role: 'user' };
+      await SponsorVault.setInviteCode(data.inviteCode);
+      await SponsorVault.setChannel(data.channelId, data.userToken, 'user');
+      setSession(sess);
+      setInviteCode(data.inviteCode);
+      setConnState('inviting');
+    } catch (e: unknown) {
+      setError('Could not create invite. Check your connection.');
+      setConnState('error');
+    }
+  }, []);
+
+  const acceptInvite = useCallback(async (code: string) => {
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/sponsor/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode: code.toUpperCase().trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        throw new Error(err.error ?? 'Invalid code');
+      }
+      const data = await res.json() as { channelId: string; sponsorToken: string; inviteCode: string };
+      const sess: ChannelSession = { channelId: data.channelId, token: data.sponsorToken, role: 'sponsor' };
+      await SponsorVault.setChannel(data.channelId, data.sponsorToken, 'sponsor');
+      await SponsorVault.setInviteCode(data.inviteCode);
+      setSession(sess);
+      setInviteCode(data.inviteCode);
+      setConnState('connected');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Invalid code';
+      setError(msg);
+    }
+  }, []);
+
+  const sendPresence = useCallback(async (type: 'water' | 'light') => {
+    if (!session) return;
+    try {
+      await fetch(`${API_BASE}/sponsor/presence`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: session.channelId, token: session.token, type }),
+      });
+    } catch { /* silent */ }
+  }, [session]);
+
+  const [hasPendingCheckin, setHasPendingCheckin] = useState(false);
+
+  // Attempt to flush a queued offline check-in.
+  const replayPendingCheckin = useCallback(async (sess: ChannelSession) => {
+    const pending = await Surface.getPendingCheckin();
+    if (!pending) return;
+    // Discard stale (> 24 h) queued check-ins
+    if (Date.now() - pending.ts > 86_400_000) {
+      await Surface.clearPendingCheckin();
+      setHasPendingCheckin(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/sponsor/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channelId: sess.channelId,
+          token: sess.token,
+          date: new Date(pending.ts).toDateString(),
+        }),
+      });
+      if (res.ok) {
+        await Surface.clearPendingCheckin();
+        setHasPendingCheckin(false);
+      }
+    } catch { /* still offline */ }
+  }, []);
+
+  const sendCheckIn = useCallback(async (orchidStage?: string, milestones?: number) => {
+    if (!session || session.role !== 'user') return;
+    const today = new Date().toDateString();
+    try {
+      const res = await fetch(`${API_BASE}/sponsor/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: session.channelId, token: session.token, date: today }),
+      });
+      if (!res.ok) throw new Error('Server error');
+      // Clear any queued check-in on success
+      await Surface.clearPendingCheckin();
+      setHasPendingCheckin(false);
+    } catch {
+      // Queue for replay when back online
+      await Surface.setPendingCheckin({ ts: Date.now(), orchidStage, milestones });
+      setHasPendingCheckin(true);
+    }
+  }, [session]);
+
+  // ── Pending check-in state management ────────────────────────────────────
+  // Named function so the same async check can be called on mount, after
+  // replay, and after sendCheckIn — always from the resolved value, never
+  // from a synchronous Promise reference.
+  const checkQueueStatus = useCallback(async () => {
+    const pending = await Surface.getPendingCheckin();
+    setHasPendingCheckin(!!pending);
+  }, []);
+
+  // ── Replay pending check-in on app foreground ─────────────────────────────
+  useEffect(() => {
+    if (!session) return;
+    checkQueueStatus(); // Initial check on mount
+    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') {
+        replayPendingCheckin(session);
+      }
+    });
+    return () => sub.remove();
+  }, [session, replayPendingCheckin, checkQueueStatus]);
+
+  const disconnect = useCallback(async () => {
+    if (!session) return;
+    try {
+      await fetch(`${API_BASE}/sponsor/disconnect`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: session.channelId, token: session.token }),
+      });
+    } catch { /* silent */ }
+    if (pollRef.current) clearInterval(pollRef.current);
+    await SponsorVault.clear();
+    setSession(null);
+    setInviteCode(null);
+    setConnState('idle');
+    setStatus(null);
+    setIncomingSignals([]);
+    sinceRef.current = 0;
+  }, [session]);
+
+  const dismissSignal = useCallback((id: string) => {
+    setIncomingSignals(prev => prev.filter(s => s.id !== id));
+  }, []);
+
+  return {
+    role: session?.role ?? null,
+    connState,
+    inviteCode,
+    status,
+    incomingSignals,
+    error,
+    hasPendingCheckin,
+    createInvite,
+    acceptInvite,
+    sendPresence,
+    sendCheckIn,
+    disconnect,
+    dismissSignal,
+    isConnected: connState === 'connected',
+  };
+}
+
+
+========================================================================
+FILE: hooks/useInsights.ts  (220 lines)
+========================================================================
+'use no memo';
+/**
+ * useInsights — local pattern detection with confidence gating.
+ *
+ * Guardrail 1: no insight surfaces below CONFIDENCE_THRESHOLD.
+ * Guardrail 2: language is observational, never diagnostic.
+ * Guardrail 3: user corrections (stored in mood_logs.correction) shift
+ *              per-context thresholds on next compute.
+ */
+
+import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
+import { Sanctuary, MoodLog, CircadianEvent } from '@/utils/storage';
+
+export const CONFIDENCE_THRESHOLD = 0.72;
+
+export interface Insight {
+  id: string;
+  message: string;          // observational, open-ended — never a diagnosis
+  confidence: number;       // 0.0–1.0
+  n: number;                // number of supporting observations
+  phase?: string;           // circadian phase this pattern relates to, if any
+}
+
+interface RawPattern {
+  id: string;
+  message: string;
+  confidence: number;
+  n: number;
+  phase?: string;
+}
+
+// ── Confidence formula ────────────────────────────────────────────────────────
+// Combines sample size with recency decay.
+// n=3 → ~0.21  n=10 → ~0.50  n=30 → ~0.87  n=50 → ~0.97 (plateau)
+function scoreConfidence(n: number, mostRecentTs: number): number {
+  if (n < 3) return 0;
+  const sizeScore = 1 - 1 / (1 + n / 12);            // sigmoid-like
+  const ageDays = (Date.now() - mostRecentTs) / 86_400_000;
+  const recency = Math.exp(-ageDays / 45);             // half-life ~45 days
+  return Math.min(0.97, sizeScore * recency);
+}
+
+// ── Pattern: phase with lowest average mood ───────────────────────────────────
+function phaseLowestMood(logs: MoodLog[]): RawPattern | null {
+  if (logs.length < 5) return null;
+
+  const byPhase: Record<string, { sum: number; count: number; latest: number }> = {};
+  for (const l of logs) {
+    const p = l.circadianPhase;
+    if (!byPhase[p]) byPhase[p] = { sum: 0, count: 0, latest: 0 };
+    byPhase[p].sum += l.moodScore;
+    byPhase[p].count += 1;
+    if (l.ts > byPhase[p].latest) byPhase[p].latest = l.ts;
+  }
+
+  const phases = Object.entries(byPhase).filter(([, v]) => v.count >= 3);
+  if (phases.length < 2) return null;
+
+  const sorted = phases.sort(([, a], [, b]) => a.sum / a.count - b.sum / b.count);
+  const [phase, data] = sorted[0];
+  const avg = data.sum / data.count;
+  if (avg > 6) return null;  // not notably low — skip
+
+  const confidence = scoreConfidence(data.count, data.latest);
+  if (confidence < CONFIDENCE_THRESHOLD) return null;
+
+  const phaseLabel = phaseDisplayName(phase);
+  return {
+    id: `phase_low_mood_${phase}`,
+    message: `${phaseLabel} tends to be harder. You've logged lower moods then ${data.count} times.`,
+    confidence,
+    n: data.count,
+    phase,
+  };
+}
+
+// ── Pattern: mood trend (last 14 vs. prior 14 days) ──────────────────────────
+function moodTrend(logs: MoodLog[]): RawPattern | null {
+  const now = Date.now();
+  const day14 = 14 * 86_400_000;
+  const recent = logs.filter(l => now - l.ts < day14);
+  const prior  = logs.filter(l => now - l.ts >= day14 && now - l.ts < 2 * day14);
+
+  if (recent.length < 5 || prior.length < 5) return null;
+
+  const avg = (arr: MoodLog[]) => arr.reduce((s, l) => s + l.moodScore, 0) / arr.length;
+  const recentAvg = avg(recent);
+  const priorAvg  = avg(prior);
+  const delta = recentAvg - priorAvg;
+
+  if (Math.abs(delta) < 1.2) return null;  // not meaningful enough
+
+  const confidence = scoreConfidence(recent.length + prior.length, recent[0]?.ts ?? now);
+  if (confidence < CONFIDENCE_THRESHOLD) return null;
+
+  const dir = delta > 0 ? 'been trending higher' : 'been lower';
+  return {
+    id: 'mood_trend_14d',
+    message: `Your mood has ${dir} these past two weeks compared to the two before.`,
+    confidence,
+    n: recent.length + prior.length,
+  };
+}
+
+// ── Pattern: check-in frequency (habits) ─────────────────────────────────────
+function checkInFrequency(events: CircadianEvent[]): RawPattern | null {
+  if (events.length < 10) return null;
+
+  const byPhase: Record<string, number> = {};
+  for (const e of events) {
+    byPhase[e.phase] = (byPhase[e.phase] ?? 0) + 1;
+  }
+  const sorted = Object.entries(byPhase).sort(([, a], [, b]) => b - a);
+  const [topPhase, topCount] = sorted[0];
+  const total = events.length;
+  const ratio = topCount / total;
+
+  if (ratio < 0.4) return null;  // no dominant phase
+
+  const confidence = scoreConfidence(topCount, events[0]?.ts ?? Date.now());
+  if (confidence < CONFIDENCE_THRESHOLD) return null;
+
+  return {
+    id: `checkin_phase_${topPhase}`,
+    message: `You check in most during ${phaseDisplayName(topPhase)} — ${Math.round(ratio * 100)}% of the time.`,
+    confidence,
+    n: topCount,
+    phase: topPhase,
+  };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function phaseDisplayName(phase: string): string {
+  const map: Record<string, string> = {
+    dawn:        'Dawn',
+    day:         'Day',
+    goldenHour:  'Golden Hour',
+    night:       'Night',
+  };
+  return map[phase] ?? phase;
+}
+
+// ── Hook ─────────────────────────────────────────────────────────────────────
+export interface InsightsResult {
+  insights: Insight[];
+  loading: boolean;
+  /**
+   * Age in days of the most recent mood log used in computation.
+   * 0 if no logs exist. Used to show "Based on your logs from X days ago."
+   */
+  dataAgeDays: number;
+  /**
+   * True if at least 7 mood logs exist within the last 90 days.
+   * False → show empty state prompt instead of an empty list.
+   */
+  hasEnoughData: boolean;
+}
+
+export function useInsights(): InsightsResult {
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dataAgeDays, setDataAgeDays] = useState(0);
+  const [hasEnoughData, setHasEnoughData] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+
+    const compute = async () => {
+      try {
+        const [logs, events] = await Promise.all([
+          Sanctuary.getMoodLogs(500),
+          Sanctuary.getCircadianLog(90),
+        ]);
+
+        // ── Data quality metrics ──────────────────────────────────────────
+        const now         = Date.now();
+        const ninetyDays  = 90 * 86_400_000;
+        const recentLogs  = logs.filter(l => now - l.ts <= ninetyDays);
+        const enough      = recentLogs.length >= 7;
+        // logs are ORDER BY ts DESC — index 0 is the most recent
+        const ageDays     = logs.length > 0
+          ? Math.floor((now - logs[0].ts) / 86_400_000)
+          : 0;
+
+        const candidates: RawPattern[] = [
+          phaseLowestMood(logs),
+          moodTrend(logs),
+          checkInFrequency(events),
+        ].filter((p): p is RawPattern => p !== null);
+
+        // Sort by confidence descending; cap at 3 surfaced insights
+        const surfaced = candidates
+          .sort((a, b) => b.confidence - a.confidence)
+          .slice(0, 3);
+
+        if (active) {
+          setInsights(surfaced);
+          setHasEnoughData(enough);
+          setDataAgeDays(ageDays);
+        }
+      } catch {
+        // Fail silently — insights are enhancement, not core
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    compute();
+    return () => { active = false; };
+  }, []);
+
+  return { insights, loading, dataAgeDays, hasEnoughData };
+}
+
+
+========================================================================
+FILE: api-server/src/routes/sponsor.ts  (313 lines)
+========================================================================
+import { Router, type IRouter } from "express";
+import { randomBytes, randomUUID } from "crypto";
+
+const router: IRouter = Router();
+
+// ─── In-memory store ────────────────────────────────────────────────────────
+interface PresenceSignal {
+  id: string;
+  type: "water" | "light";
+  from: "user" | "sponsor";
+  timestamp: number;
+  seen: boolean;
+}
+
+interface Channel {
+  id: string;
+  inviteCode: string;
+  userToken: string;
+  sponsorToken: string | null;
+  connected: boolean;
+  checkedIn: boolean;
+  checkedInDate: string | null;
+  orchidStage: string;
+  milestones: number;
+  presenceQueue: PresenceSignal[];
+  createdAt: number;
+  expiresAt: number;
+}
+
+const channels = new Map<string, Channel>();
+const codeIndex = new Map<string, string>(); // inviteCode -> channelId
+
+// ─── Per-token rate limiting ─────────────────────────────────────────────────
+// Each token gets its own window. Limits are per-token, not global, so a
+// misbehaving client cannot affect other channels.
+interface RateEntry {
+  count: number;
+  windowStart: number;
+}
+
+// Separate maps per endpoint so limits are independently configurable.
+const pollRates     = new Map<string, RateEntry>(); // 30 req / 60s per token
+const presenceRates = new Map<string, RateEntry>(); // 10 req / 60s per token
+const checkinRates  = new Map<string, RateEntry>(); //  5 req / 60s per token
+
+function checkRate(
+  map: Map<string, RateEntry>,
+  token: string,
+  limit: number,
+  windowMs = 60_000
+): boolean {
+  const now = Date.now();
+  const entry = map.get(token);
+
+  if (!entry || now - entry.windowStart >= windowMs) {
+    // New window
+    map.set(token, { count: 1, windowStart: now });
+    return true;
+  }
+
+  if (entry.count >= limit) {
+    return false; // rate-limited
+  }
+
+  entry.count++;
+  return true;
+}
+
+// Prune rate entries for tokens that no longer exist in any channel.
+// Called alongside channel expiry cleanup.
+function cleanRateMaps(activeTokens: Set<string>) {
+  for (const map of [pollRates, presenceRates, checkinRates]) {
+    for (const token of map.keys()) {
+      if (!activeTokens.has(token)) map.delete(token);
+    }
+  }
+}
+
+function generateCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 6 }, () =>
+    chars[Math.floor(Math.random() * chars.length)]
+  ).join("");
+}
+
+function generateToken(): string {
+  return randomBytes(24).toString("hex");
+}
+
+function cleanExpired(): number {
+  const now = Date.now();
+  const activeTokens = new Set<string>();
+  let pruned = 0;
+
+  for (const [id, ch] of channels) {
+    if (!ch.connected && ch.expiresAt < now) {
+      codeIndex.delete(ch.inviteCode);
+      channels.delete(id);
+      pruned++;
+    } else {
+      activeTokens.add(ch.userToken);
+      if (ch.sponsorToken) activeTokens.add(ch.sponsorToken);
+    }
+  }
+
+  cleanRateMaps(activeTokens);
+  return pruned;
+}
+
+// Periodic GC — runs every 5 minutes regardless of request activity.
+// Without this, rate-limit maps for long-idle sessions accumulate unboundedly.
+// Only emits a log line when something was actually pruned (no log spam).
+setInterval(() => {
+  const pruned = cleanExpired();
+  if (pruned > 0) {
+    console.log(`[GC] Pruned ${pruned} expired channel(s) at ${new Date().toISOString()}`);
+  }
+}, 5 * 60 * 1000);
+
+// ─── Routes ─────────────────────────────────────────────────────────────────
+
+// POST /api/sponsor/invite  →  create invite, return code + tokens
+router.post("/sponsor/invite", (_req, res) => {
+  cleanExpired();
+  const channelId = randomUUID();
+  const inviteCode = generateCode();
+  const userToken = generateToken();
+
+  const channel: Channel = {
+    id: channelId,
+    inviteCode,
+    userToken,
+    sponsorToken: null,
+    connected: false,
+    checkedIn: false,
+    checkedInDate: null,
+    orchidStage: "seedling",
+    milestones: 0,
+    presenceQueue: [],
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 48 * 60 * 60 * 1000,
+  };
+
+  channels.set(channelId, channel);
+  codeIndex.set(inviteCode, channelId);
+
+  res.json({ channelId, inviteCode, userToken });
+});
+
+// POST /api/sponsor/accept  →  sponsor enters code, channel connects
+router.post("/sponsor/accept", (req, res) => {
+  const { inviteCode } = req.body as { inviteCode?: string };
+  if (!inviteCode) { res.status(400).json({ error: "inviteCode required" }); return; }
+
+  const code = inviteCode.toUpperCase().trim();
+  const channelId = codeIndex.get(code);
+  if (!channelId) { res.status(404).json({ error: "Code not found or expired" }); return; }
+
+  const channel = channels.get(channelId);
+  if (!channel) { res.status(404).json({ error: "Channel not found" }); return; }
+  if (channel.connected) { res.status(409).json({ error: "Channel already in use" }); return; }
+
+  const sponsorToken = generateToken();
+  channel.sponsorToken = sponsorToken;
+  channel.connected = true;
+  // Extend expiry now that connected
+  channel.expiresAt = Date.now() + 90 * 24 * 60 * 60 * 1000;
+
+  res.json({ channelId, sponsorToken, inviteCode: code });
+});
+
+// POST /api/sponsor/presence  →  send water or light
+router.post("/sponsor/presence", (req, res) => {
+  const { channelId, token, type } = req.body as {
+    channelId?: string;
+    token?: string;
+    type?: "water" | "light";
+  };
+  if (!channelId || !token || !type) { res.status(400).json({ error: "channelId, token, type required" }); return; }
+  if (!["water", "light"].includes(type)) { res.status(400).json({ error: "type must be water or light" }); return; }
+
+  // Rate limit: 10 presence signals per 60s per token
+  if (!checkRate(presenceRates, token, 10)) {
+    res.status(429).json({ error: "Too many presence signals — slow down" }); return;
+  }
+
+  const channel = channels.get(channelId);
+  if (!channel || !channel.connected) { res.status(404).json({ error: "Channel not found" }); return; }
+
+  const isUser = token === channel.userToken;
+  const isSponsor = token === channel.sponsorToken;
+  if (!isUser && !isSponsor) { res.status(403).json({ error: "Invalid token" }); return; }
+
+  const signal: PresenceSignal = {
+    id: randomUUID(),
+    type,
+    from: isUser ? "user" : "sponsor",
+    timestamp: Date.now(),
+    seen: false,
+  };
+
+  channel.presenceQueue.push(signal);
+  // Keep queue bounded
+  if (channel.presenceQueue.length > 50) {
+    channel.presenceQueue = channel.presenceQueue.slice(-50);
+  }
+
+  res.json({ ok: true, signalId: signal.id });
+});
+
+// POST /api/sponsor/checkin  →  user marks checked in
+router.post("/sponsor/checkin", (req, res) => {
+  const { channelId, token, date } = req.body as {
+    channelId?: string;
+    token?: string;
+    date?: string;
+  };
+  if (!channelId || !token) { res.status(400).json({ error: "channelId, token required" }); return; }
+
+  // Rate limit: 5 check-ins per 60s per token (should be once per day; this is generous)
+  if (!checkRate(checkinRates, token, 5)) {
+    res.status(429).json({ error: "Too many check-in attempts" }); return;
+  }
+
+  const channel = channels.get(channelId);
+  if (!channel) { res.status(404).json({ error: "Channel not found" }); return; }
+  if (token !== channel.userToken) { res.status(403).json({ error: "Invalid token" }); return; }
+
+  channel.checkedIn = true;
+  channel.checkedInDate = date ?? new Date().toDateString();
+  res.json({ ok: true });
+});
+
+// POST /api/sponsor/update  →  user pushes orchid stage + milestone count
+router.post("/sponsor/update", (req, res) => {
+  const { channelId, token, orchidStage, milestones } = req.body as {
+    channelId?: string;
+    token?: string;
+    orchidStage?: string;
+    milestones?: number;
+  };
+  if (!channelId || !token) { res.status(400).json({ error: "channelId, token required" }); return; }
+
+  const channel = channels.get(channelId);
+  if (!channel) { res.status(404).json({ error: "Channel not found" }); return; }
+  if (token !== channel.userToken) { res.status(403).json({ error: "Invalid token" }); return; }
+
+  if (orchidStage) channel.orchidStage = orchidStage;
+  if (typeof milestones === "number") channel.milestones = milestones;
+  res.json({ ok: true });
+});
+
+// GET /api/sponsor/poll?channelId=...&token=...&since=...
+router.get("/sponsor/poll", (req, res) => {
+  const { channelId, token, since } = req.query as Record<string, string>;
+  if (!channelId || !token) { res.status(400).json({ error: "channelId, token required" }); return; }
+
+  // Rate limit: 30 polls per 60s per token.
+  // Normal client interval is 5s = 12 req/min. Limit is 2.5× that.
+  // A legitimate client will never hit this; a hammering client will be blocked
+  // per-token, leaving other channels unaffected.
+  if (!checkRate(pollRates, token, 30)) {
+    res.status(429).json({ error: "Too many poll requests — client is polling too fast" }); return;
+  }
+
+  const channel = channels.get(channelId);
+  if (!channel) { res.status(404).json({ error: "Channel not found" }); return; }
+
+  const isUser = token === channel.userToken;
+  const isSponsor = token === channel.sponsorToken;
+  if (!isUser && !isSponsor) { res.status(403).json({ error: "Invalid token" }); return; }
+
+  const sinceMs = since ? parseInt(since, 10) : 0;
+
+  // Return signals addressed to this role that arrived after `since`
+  const myRole = isUser ? "user" : "sponsor";
+  const incoming = channel.presenceQueue.filter(
+    s => s.from !== myRole && s.timestamp > sinceMs && !s.seen
+  );
+
+  // Mark as seen
+  for (const s of incoming) s.seen = true;
+
+  const status = {
+    connected: channel.connected,
+    checkedIn: channel.checkedIn,
+    checkedInDate: channel.checkedInDate,
+    orchidStage: channel.orchidStage,
+    milestones: channel.milestones,
+    sponsorPresent: channel.sponsorToken !== null,
+  };
+
+  res.json({ signals: incoming, status, serverTime: Date.now() });
+});
+
+// DELETE /api/sponsor/disconnect
+router.delete("/sponsor/disconnect", (req, res) => {
+  const { channelId, token } = req.body as { channelId?: string; token?: string };
+  if (!channelId || !token) { res.status(400).json({ error: "channelId, token required" }); return; }
+
+  const channel = channels.get(channelId);
+  if (!channel) { res.status(404).json({ error: "Channel not found" }); return; }
+  if (token !== channel.userToken && token !== channel.sponsorToken) {
+    res.status(403).json({ error: "Invalid token" }); return;
+  }
+
+  codeIndex.delete(channel.inviteCode);
+  channels.delete(channelId);
+  res.json({ ok: true });
+});
+
+export default router;
+
+

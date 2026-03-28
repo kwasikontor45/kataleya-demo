@@ -1,0 +1,346 @@
+THE SPONSOR CONNECTION ARCHITECTURE
+Phase 1: The Invitation Ceremony
+plain
+Copy
+USER (in recovery)                    SPONSOR (in recovery community)
+───────────────                       ─────────────────────────────────
+Opens Kataleya                        Receives invite via secure channel
+↓                                     ↓
+"Connect a sponsor"                   Sees: "[User] invites you to witness"
+↓                                     ↓
+System generates                      Accepts / Declines
+cryptographic keypair                 ↓
+↓                                     If accept:
+Displays invite glyph                 Key exchange via E2E protocol
+(visual pattern, not text)            ↓
+↓                                     Both hold:
+Sends via Signal/Wire/                • Public keys (for encryption)
+in-person QR scan                     • No private keys leave devices
+Technical implementation:
+TypeScript
+Copy
+// hooks/useSponsorConnection.ts
+import { useState, useEffect } from 'react';
+import * as Crypto from 'expo-crypto';
+import { Fortress } from '@/utils/storage';
+
+interface SponsorKeys {
+  userKeyPair: Crypto.CryptoKeyPair;
+  sponsorPublicKey: Uint8Array;
+  sharedSecret?: Crypto.CryptoKey;
+}
+
+export function useSponsorConnection() {
+  const [connectionState, setConnectionState] = useState<'disconnected' | 'inviting' | 'connected'>('disconnected');
+  
+  const generateInvite = async (): Promise<string> => {
+    // Generate Ed25519 keypair for E2E encryption
+    const keyPair = await Crypto.generateKeyPairAsync(
+      Crypto.CryptoAlgorithm.ED25519
+    );
+    
+    // Store private key in Fortress (SecureStore)
+    await Fortress.set('USER_PRIVATE_KEY', 
+      Array.from(keyPair.privateKey).join(',')
+    );
+    
+    // Create invite payload: public key + user ID + timestamp
+    const invitePayload = {
+      publicKey: Array.from(keyPair.publicKey),
+      userId: await generateUserId(),
+      expires: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
+    };
+    
+    // Encode as visual glyph (QR-like pattern) + short code
+    const visualGlyph = encodeToGlyph(invitePayload);
+    const shortCode = generateShortCode(invitePayload);
+    
+    setConnectionState('inviting');
+    return JSON.stringify({ visualGlyph, shortCode });
+  };
+  
+  const acceptInvite = async (sponsorPublicKey: Uint8Array): Promise<void> => {
+    // Derive shared secret using X25519
+    const userPrivateKey = await Fortress.get('USER_PRIVATE_KEY');
+    const sharedSecret = await deriveSharedSecret(
+      userPrivateKey,
+      sponsorPublicKey
+    );
+    
+    // Store connection state
+    await Fortress.set('SPONSOR_PUBLIC_KEY', 
+      Array.from(sponsorPublicKey).join(',')
+    );
+    await Fortress.set('SHARED_SECRET',
+      Array.from(sharedSecret).join(',')
+    );
+    
+    setConnectionState('connected');
+  };
+  
+  return {
+    generateInvite,
+    acceptInvite,
+    connectionState,
+  };
+}
+Phase 2: The Connection Ceremony (Visual)
+plain
+Copy
+USER SCREEN                           SPONSOR SCREEN
+───────────                           ─────────────
+Two orchid silhouettes                Two orchid silhouettes
+side by side, not touching            side by side, not touching
+↓                                     ↓
+"Someone asks to                      "Accept invitation from
+ walk with you"                       [User]?"
+↓                                     ↓
+Tap "Open to presence"               Tap "Walk together"
+↓                                     ↓
+Orchids turn toward                   Orchids turn toward
+each other (animation)                each other (animation)
+↓                                     ↓
+Gold color bleeds from                Gold color bleeds from
+user orchid → sponsor orchid          sponsor orchid → user orchid
+↓                                     ↓
+CONNECTION SEALED                     CONNECTION SEALED
+The visual metaphor: Both must lean in. No automatic acceptance. The color bleed represents the E2E key exchange—distinct, visible, mutual.
+Phase 3: Ongoing Secure Communication
+plain
+Copy
+MESSAGE FLOW (E2E Encrypted)
+────────────────────────────
+
+USER types: "Hard day"
+↓
+Message encrypted with shared secret (AES-256-GCM)
+↓
+Encrypted payload sent via Stream Chat transport
+(Stream sees only ciphertext, cannot read)
+↓
+SPONSOR receives ciphertext
+↓
+Decrypted with shared secret (local, on-device)
+↓
+Sponsor sees: "Hard day"
+Presence messages (Water/Light):
+Table
+Type	Content	Encryption	Haptic
+Water	{type: 'water', timestamp, intensity}	E2E + signed	Ripple pattern
+Light	{type: 'light', timestamp, warmth}	E2E + signed	Heartbeat 72 BPM
+Text	Full message	E2E + signed	None (silent)
+Phase 4: Security Verification
+plain
+Copy
+USER CAN VERIFY:
+────────────────
+• Sponsor's public key fingerprint (visual hash)
+• Last seen timestamp (not "online now"—privacy)
+• Message signature validity (auto-checked)
+
+SPONSOR CAN SEE:
+────────────────
+• Check-in status (boolean: checked in today?)
+• Milestone badges earned (dates only)
+• Direct messages (decrypted locally)
+
+SPONSOR CANNOT SEE:
+───────────────────
+• Journal entries
+• Mood logs
+• Sobriety date
+• Any data not explicitly shared
+Phase 5: Disconnection & Revocation
+plain
+Copy
+USER chooses "Close the connection"
+↓
+System deletes:
+  • Shared secret (Fortress)
+  • Sponsor public key (Fortress)
+  • Message history (Sanctuary, soft delete)
+↓
+Sponsor notified: "The bridge has closed"
+↓
+No reconnection possible without new invite ceremony
+THE TRUST MODEL
+Table
+Threat	Mitigation
+Stream Chat hacked	E2E means ciphertext useless
+Device stolen	SecureStore requires device auth
+Sponsor shares screenshots	Social trust, not technical
+User spoofed	Public key fingerprint verification
+Man-in-middle	Key exchange in-person or via trusted channel
+TESTING THE FLOW
+Want to verify this works? Test these scenarios:
+Happy path: Generate invite → Accept → Send Water → Receive heartbeat
+Key verification: Compare fingerprints on both devices
+Offline resilience: Queue messages, deliver when online
+Disconnection: Close connection → Verify sponsor cannot see new check-ins
+Rejection: Decline invite → Verify no keys exchanged
+The architecture is sound. The ceremony is intentional. The privacy is technical, not promised.
+Ready to implement the key exchange, or test the presence flow first?
+Yes
+Edit
+Copy
+Share
+I see the timestamp. The user said "Yes" but didn't specify which question they were answering—implement the key exchange, or test the presence flow first?
+Given the context, they likely want to proceed with implementation. But I should clarify which path: the E2E encryption infrastructure, or the lighter presence/water-light feature first.
+Actually, looking back at the conversation, they said "Yes" to my closing question: "Ready to implement the key exchange, or test the presence flow first?"
+This is ambiguous. But given their previous frustration with setup and their current state (Replit environment ready), I should recommend the lighter path first—test presence flow without full crypto infrastructure. Get something working, feel progress, then deepen.
+Let me respond with a clear recommendation: start with presence (Water/Light) using mock/simulated security, validate the UX, then add real E2E.  Understood.
+Recommendation: Test presence flow first. Lighter weight, immediate feedback, validates the UX before crypto complexity.
+PHASE 1: SIMULATED PRESENCE (Now)
+Skip E2E initially. Use Replit's collaborative features to simulate:
+plain
+Copy
+REPLIT MULTIPLAYER MODE
+───────────────────────
+• Open Replit in two browser windows
+• Window 1: "User" 
+• Window 2: "Sponsor"
+• Both see same SQLite (simulated cloud)
+Mock implementation:
+TypeScript
+Copy
+// Temporary: No real crypto
+const sendPresence = async (type: 'water' | 'light') => {
+  // Write to shared Replit DB
+  await Replit.db.set('presence_queue', {
+    to: 'sponsor',
+    from: 'user',
+    type,
+    timestamp: Date.now(),
+  });
+};
+Test the feel: Does Water calm? Does Light warm? Is 30s cooldown right?
+PHASE 2: REAL E2E (After presence feels right)
+Add actual X25519 key exchange, Fortress storage, Stream Chat transport.
+Replit link is live. Open two windows. Test the ritual.
+Which window are you—the user, or the sponsor?
+sponsor
+Edit
+Copy
+Share
+I see. The user is testing from the sponsor perspective in the Replit environment.
+This means:
+They have the Replit open in one window as "sponsor"
+They need the "user" perspective in another window to test the full flow
+Or they want me to describe what the sponsor experience should be
+Given the context, I should describe the sponsor's view—what they see, what they can do, what they cannot see, and how the secure connection feels from the supporting side.
+The sponsor experience is actually the harder design problem. The user is in crisis; the sponsor must be present without being intrusive, helpful without being demanding.
+Let me map the sponsor's interface and permissions.The Sponsor's View
+You see differently. Not more—differently.
+WHAT YOU SEE
+plain
+Copy
+SPONSOR DASHBOARD
+─────────────────
+[User's Orchid]          [Your Orchid]
+  (small, living)         (yours, full)
+
+Status: "Morning bloom"
+Last check-in: 2 hours ago
+Milestone: 47 days (seedling)
+
+[Send Water]  [Send Light]
+You do NOT see:
+Mood scores
+Journal entries
+What they wrote at 3 AM
+Where they are
+Who else they talk to
+You DO see:
+Did they open the app today? (boolean)
+Is the orchid growing? (stage only)
+Can you send presence now? (cooldown status)
+WHAT YOU CAN SEND
+Table
+Button	What They Feel	When to Use
+Water	Cool ripples expand from orchid base, 3s	They're restless, agitated, "hot"
+Light	Warm gold bloom, 8s, heartbeat in pocket	They're distant, cold, alone, night
+Nothing	Silence. The app breathes.	Most of the time. Presence is enough.
+THE RITUAL OF SENDING
+plain
+Copy
+YOUR SCREEN                         THEIR SCREEN
+───────────                         ─────────────
+Finger hovers over                  (nothing)
+[Send Water]                        
+↓                                   ↓
+Long press: vessel fills            (still nothing)
+  (2-5 seconds, your choice)        
+↓                                   ↓
+Release → "poured"                  Ripples arrive
+                                    ↓
+                                    They feel it.
+                                    No words needed.
+The delay is intentional. You must mean it. Quick tap = accidental. Held pour = intentional presence.
+WHAT YOU RECEIVE
+plain
+Copy
+NOTIFICATION (silent, not banner)
+─────────────────────────────────
+"Orchid sways"
+- They opened the app
+- They're moving (restless)
+- Or: They're still (calm)
+
+"Gold center glows"
+- They hit a milestone
+- They're celebrating
+- You can send Light to witness
+No "typing..."
+No "read receipt"
+No conversation thread
+Just state. Just presence. Just the orchid carries it.
+THE COOLDOWN
+After you send:
+plain
+Copy
+Water:  30 seconds until next
+Light:  60 seconds until next
+
+Why: Prevents panic-spam.
+      Forces intention.
+      Respects their space.
+YOUR PROTECTION
+Table
+Boundary	Why
+Can't see mood logs	Their inner life is theirs
+Can't see journal	Writing is not for you
+Can't see location	Safety is not surveillance
+Can't force check-in	Autonomy is recovery
+You are witness, not watcher.
+You are companion, not controller.
+TESTING IN REPLIT
+Window 1 (You - Sponsor):
+TypeScript
+Copy
+// Sponsor view
+const sponsorView = {
+  canSendWater: true,
+  canSendLight: true,
+  userOrchidStage: 'seedling',
+  lastCheckIn: '2 hours ago',
+};
+Window 2 (User):
+TypeScript
+Copy
+// User receives
+const receivePresence = (type) => {
+  if (type === 'water') triggerRipple();
+  if (type === 'light') triggerHeartbeat();
+};
+Test the sequence:
+User opens app (Window 2)
+Sponsor sees "orchid sways" (Window 1)
+Sponsor holds Water (Window 1)
+User sees ripples (Window 2)
+Both feel: connection without exposure
+What does the sponsor's Send Light feel like when you press it? Does the 8-second hold feel like commitment or burden?
+
+
+
+
+K2.5 Instant
