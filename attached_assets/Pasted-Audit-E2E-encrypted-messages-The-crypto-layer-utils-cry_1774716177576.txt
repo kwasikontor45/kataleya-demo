@@ -1,0 +1,16 @@
+Audit: E2E encrypted messages
+The crypto layer (utils/crypto.ts) — correct.
+tweetnacl is the right library for this. It implements X25519 Diffie-Hellman key exchange and XSalsa20-Poly1305 authenticated encryption — the same primitives used by Signal Protocol. nacl.box is the standard combined encrypt+authenticate operation. The nonce is randomly generated per message using nacl.randomBytes — correct, not a counter. decryptMessage returns null on failure rather than throwing — good, handles tampered messages gracefully.
+The server (sponsor.ts) — correct by design.
+The server stores userPubKey, sponsorPubKey, ciphertext, nonce — and nothing else. It has no way to decrypt anything because it never sees either private key. The messageQueue is bounded at 200 entries. The message rate limit (20/minute per token) is appropriate. The poll endpoint returns peerPubKey so each side can discover the other's public key through the relay — correct key exchange flow.
+The hook (useSponsorChannel.ts) — three things to flag.
+First, the key storage. The hook calls Fortress.getCryptoKeyPair(), Fortress.setCryptoKeyPair(), Fortress.getPeerPublicKey(), Fortress.setPeerPublicKey() — but these methods don't exist in the storage.ts I audited. They must have been added in a newer commit. This is the most important thing to verify: open utils/storage.ts right now and confirm those four methods exist on the Fortress object and that the keys are stored in SecureStore (not AsyncStorage). The private key (secretKey) must never touch AsyncStorage — it needs hardware-backed storage.
+Second, the pubKeyPostedRef pattern is correct — it prevents re-posting the public key on every render that has sponsorPresent: true. One post, tracked by ref.
+Third, the SponsorVault.clear() on disconnect comment says "also clears crypto keys via Fortress.clear()" — verify this is true. If Fortress.clear() iterates Object.values(FK) and FK doesn't include the new crypto key constants, the private key survives a disconnect. That would be a real bug.
+The UI (sponsor.tsx) — well structured.
+The hasPeerKey gate before enabling the message input is correct — users can't send messages until key exchange completes, with a clear "waiting for key exchange…" placeholder. The optimistic local message add before the fetch is fine for UX. The 40-message display cap (messages.slice(-40)) is sensible.
+
+The one real question
+The private key (secretKey) is the most sensitive piece of data in the entire app — more sensitive than mood logs because it can decrypt all past messages if compromised. It must live in Fortress (SecureStore/Keychain), not Surface.
+Open utils/storage.ts and paste the Fortress section — specifically any new keys and methods added since the tarball. That's the one thing I can't verify from what you've shared, and it matters.
+Also confirm: does utils/crypto.ts exist as a file in your Replit project, or was that code pasted from somewhere else?
