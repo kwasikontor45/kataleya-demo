@@ -19,6 +19,8 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { DataBridge } from '@/components/DataBridge';
 import { OrchidProgress } from '@/components/OrchidProgress';
 import { CircadianBadge } from '@/components/CircadianBadge';
+import { BreathingExercise } from '@/components/BreathingExercise';
+import { GroundingExercise } from '@/components/GroundingExercise';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { BLOOM_THRESHOLDS } from '@/utils/hapticBloom';
 import { Surface } from '@/utils/storage';
@@ -44,6 +46,8 @@ export default function SanctuaryScreen() {
   useNotifications(sobriety.daysSober);
   const [settingDate, setSettingDate] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
+  const [showBreathing, setShowBreathing] = useState(false);
+  const [showGrounding, setShowGrounding] = useState(false);
 
   useEffect(() => {
     Surface.getName().then(n => setUserName(n ?? null));
@@ -302,6 +306,30 @@ export default function SanctuaryScreen() {
           </View>
         )}
 
+        <View style={styles.mindfulSection}>
+          <Text style={[styles.mindfulLabel, { color: `${theme.textMuted}88` }]}>mindfulness</Text>
+          <View style={styles.mindfulRow}>
+            <TouchableOpacity
+              style={[styles.mindfulCard, { borderColor: `${theme.accent}40`, backgroundColor: `${theme.accent}0e` }]}
+              onPress={() => { setShowBreathing(true); }}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.mindfulGlyph, { color: theme.accent }]}>◎</Text>
+              <Text style={[styles.mindfulCardTitle, { color: theme.accent }]}>breathe</Text>
+              <Text style={[styles.mindfulCardSub, { color: `${theme.textMuted}88` }]}>4 — 7 — 8</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.mindfulCard, { borderColor: `${theme.accentSoft}40`, backgroundColor: `${theme.accentSoft}0e` }]}
+              onPress={() => { setShowGrounding(true); }}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.mindfulGlyph, { color: theme.accentSoft }]}>⟡</Text>
+              <Text style={[styles.mindfulCardTitle, { color: theme.accentSoft }]}>ground</Text>
+              <Text style={[styles.mindfulCardSub, { color: `${theme.textMuted}88` }]}>5 — 4 — 3 — 2 — 1</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={styles.heartSection}>
           <DataBridge phase={phase} theme={theme} size="large" />
           <Text style={[styles.phaseDesc, { color: theme.textMuted }]}>{phaseConfig.description}</Text>
@@ -310,6 +338,17 @@ export default function SanctuaryScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <BreathingExercise
+        visible={showBreathing}
+        onClose={() => setShowBreathing(false)}
+        theme={theme}
+      />
+      <GroundingExercise
+        visible={showGrounding}
+        onClose={() => setShowGrounding(false)}
+        theme={theme}
+      />
     </View>
   );
 }
@@ -364,4 +403,15 @@ const styles = StyleSheet.create({
   heartSection: { alignItems: 'center', gap: 8, marginTop: 16, paddingBottom: 8, width: '100%' },
   phaseDesc: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textAlign: 'center', lineHeight: 18, maxWidth: 280 },
   privacyLink: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 2, textTransform: 'lowercase', marginTop: 4 },
+  mindfulSection: { width: '100%', gap: 10, marginTop: 8 },
+  mindfulLabel: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 3, textTransform: 'uppercase', textAlign: 'center' },
+  mindfulRow: { flexDirection: 'row', gap: 10 },
+  mindfulCard: {
+    flex: 1, borderWidth: 1, borderRadius: 14,
+    paddingVertical: 18, paddingHorizontal: 12,
+    alignItems: 'center', gap: 6,
+  },
+  mindfulGlyph: { fontSize: 24, lineHeight: 28 },
+  mindfulCardTitle: { fontFamily: 'CourierPrime', fontSize: 13, letterSpacing: 2, textTransform: 'lowercase', fontWeight: '700' },
+  mindfulCardSub: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 1.5, textAlign: 'center' },
 });
