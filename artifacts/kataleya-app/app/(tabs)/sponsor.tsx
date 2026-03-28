@@ -133,9 +133,10 @@ function HoldButton({
   );
 }
 
-function IncomingSignalBanner({ type, count, onDismiss, theme }: {
+function IncomingSignalBanner({ type, count, latestTs, onDismiss, theme }: {
   type: 'water' | 'light';
   count: number;
+  latestTs: number;
   onDismiss: (type: 'water' | 'light') => void;
   theme: any;
 }) {
@@ -153,7 +154,10 @@ function IncomingSignalBanner({ type, count, onDismiss, theme }: {
       </View>
       <View style={styles.signalText}>
         <Text style={[styles.signalLabel, { color }]}>{label}</Text>
-        <Text style={[styles.signalFrom, { color: theme.textMuted }]}>{countLabel} · tap to dismiss</Text>
+        <Text style={[styles.signalFrom, { color: theme.textMuted }]}>
+          {countLabel} · {formatSignalTime(latestTs)}
+        </Text>
+        <Text style={[styles.signalFrom, { color: theme.textMuted, opacity: 0.6 }]}>tap to dismiss</Text>
       </View>
     </TouchableOpacity>
   );
@@ -311,13 +315,15 @@ export default function SponsorScreen() {
       >
         {/* Incoming signal banners */}
         {(['water', 'light'] as const).map(type => {
-          const count = incomingSignals.filter(s => s.type === type).length;
-          if (!count) return null;
+          const group = incomingSignals.filter(s => s.type === type);
+          if (!group.length) return null;
+          const latestTs = Math.max(...group.map(s => s.timestamp));
           return (
             <IncomingSignalBanner
               key={type}
               type={type}
-              count={count}
+              count={group.length}
+              latestTs={latestTs}
               onDismiss={dismissSignalsByType}
               theme={theme}
             />
