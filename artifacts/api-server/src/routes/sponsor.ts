@@ -1,7 +1,68 @@
 import { Router, type IRouter } from "express";
 import { randomBytes, randomUUID } from "crypto";
+import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync } from "fs";
+import { join, dirname } from "path";
 
 const router: IRouter = Router();
+
+// ─── Channel persistence ─────────────────────────────────────────────────────
+// Channels are written to a JSON file after every mutation.
+// On startup the file is read back — server restarts become invisible to users.
+// The file contains no health data: only tokens, invite codes, orchid labels,
+// milestone counts, check-in dates, presence signal types, encrypted message
+// blobs (ciphertext+nonce only), and X25519 public keys.
+// All of this is already visible to the relay server in normal operation.
+
+const PERSIST_PATH = join(dirname(new URL(import.meta.url).pathname), "../../data/channels.json");
+
+function ensureDataDir() {
+  const dir = dirname(PERSIST_PATH);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+}
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleSave() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    flushChannels();
+  }, 800);
+}
+
+function flushChannels() {
+  try {
+    ensureDataDir();
+    const now = Date.now();
+    const payload = Array.from(channels.values()).filter(ch => ch.expiresAt > now);
+    const tmp = PERSIST_PATH + ".tmp";
+    writeFileSync(tmp, JSON.stringify(payload, null, 0), "utf8");
+    renameSync(tmp, PERSIST_PATH);
+  } catch (e) {
+    console.error("[persist] write failed:", e);
+  }
+}
+
+function loadPersistedChannels() {
+  try {
+    if (!existsSync(PERSIST_PATH)) return;
+    const raw = readFileSync(PERSIST_PATH, "utf8");
+    const list: Channel[] = JSON.parse(raw);
+    const now = Date.now();
+    let loaded = 0;
+    for (const ch of list) {
+      if (ch.expiresAt <= now) continue;
+      channels.set(ch.id, ch);
+      codeIndex.set(ch.inviteCode, ch.id);
+      loaded++;
+    }
+    if (loaded > 0) {
+      console.log(`[persist] Restored ${loaded} channel(s) from disk at startup`);
+    }
+  } catch (e) {
+    console.error("[persist] load failed (starting fresh):", e);
+  }
+}
 
 // ─── In-memory store ────────────────────────────────────────────────────────
 interface PresenceSignal {
@@ -41,6 +102,9 @@ interface Channel {
 const channels = new Map<string, Channel>();
 const codeIndex = new Map<string, string>(); // inviteCode -> channelId
 
+// Restore persisted state immediately on module load.
+loadPersistedChannels();
+
 // ─── Per-token rate limiting ─────────────────────────────────────────────────
 // Each token gets its own window. Limits are per-token, not global, so a
 // misbehaving client cannot affect other channels.
@@ -49,7 +113,6 @@ interface RateEntry {
   windowStart: number;
 }
 
-// Separate maps per endpoint so limits are independently configurable.
 const pollRates     = new Map<string, RateEntry>(); // 30 req / 60s per token
 const presenceRates = new Map<string, RateEntry>(); // 10 req / 60s per token
 const checkinRates  = new Map<string, RateEntry>(); //  5 req / 60s per token
@@ -65,21 +128,15 @@ function checkRate(
   const entry = map.get(token);
 
   if (!entry || now - entry.windowStart >= windowMs) {
-    // New window
     map.set(token, { count: 1, windowStart: now });
     return true;
   }
 
-  if (entry.count >= limit) {
-    return false; // rate-limited
-  }
-
+  if (entry.count >= limit) return false;
   entry.count++;
   return true;
 }
 
-// Prune rate entries for tokens that no longer exist in any channel.
-// Called alongside channel expiry cleanup.
 function cleanRateMaps(activeTokens: Set<string>) {
   for (const map of [pollRates, presenceRates, checkinRates, messageRates]) {
     for (const token of map.keys()) {
@@ -119,13 +176,13 @@ function cleanExpired(): number {
   return pruned;
 }
 
-// Periodic GC — runs every 5 minutes regardless of request activity.
-// Without this, rate-limit maps for long-idle sessions accumulate unboundedly.
-// Only emits a log line when something was actually pruned (no log spam).
+// Periodic GC — runs every 5 minutes. Prunes expired channels from memory
+// and from the persisted file.
 setInterval(() => {
   const pruned = cleanExpired();
   if (pruned > 0) {
     console.log(`[GC] Pruned ${pruned} expired channel(s) at ${new Date().toISOString()}`);
+    flushChannels();
   }
 }, 5 * 60 * 1000);
 
@@ -158,6 +215,7 @@ router.post("/sponsor/invite", (_req, res) => {
 
   channels.set(channelId, channel);
   codeIndex.set(inviteCode, channelId);
+  scheduleSave();
 
   res.json({ channelId, inviteCode, userToken });
 });
@@ -178,8 +236,8 @@ router.post("/sponsor/accept", (req, res) => {
   const sponsorToken = generateToken();
   channel.sponsorToken = sponsorToken;
   channel.connected = true;
-  // Extend expiry now that connected
   channel.expiresAt = Date.now() + 90 * 24 * 60 * 60 * 1000;
+  scheduleSave();
 
   res.json({ channelId, sponsorToken, inviteCode: code });
 });
@@ -194,7 +252,6 @@ router.post("/sponsor/presence", (req, res) => {
   if (!channelId || !token || !type) { res.status(400).json({ error: "channelId, token, type required" }); return; }
   if (!["water", "light"].includes(type)) { res.status(400).json({ error: "type must be water or light" }); return; }
 
-  // Rate limit: 10 presence signals per 60s per token
   if (!checkRate(presenceRates, token, 10)) {
     res.status(429).json({ error: "Too many presence signals — slow down" }); return;
   }
@@ -215,10 +272,10 @@ router.post("/sponsor/presence", (req, res) => {
   };
 
   channel.presenceQueue.push(signal);
-  // Keep queue bounded
   if (channel.presenceQueue.length > 50) {
     channel.presenceQueue = channel.presenceQueue.slice(-50);
   }
+  scheduleSave();
 
   res.json({ ok: true, signalId: signal.id });
 });
@@ -232,7 +289,6 @@ router.post("/sponsor/checkin", (req, res) => {
   };
   if (!channelId || !token) { res.status(400).json({ error: "channelId, token required" }); return; }
 
-  // Rate limit: 5 check-ins per 60s per token (should be once per day; this is generous)
   if (!checkRate(checkinRates, token, 5)) {
     res.status(429).json({ error: "Too many check-in attempts" }); return;
   }
@@ -243,6 +299,8 @@ router.post("/sponsor/checkin", (req, res) => {
 
   channel.checkedIn = true;
   channel.checkedInDate = date ?? new Date().toDateString();
+  scheduleSave();
+
   res.json({ ok: true });
 });
 
@@ -262,6 +320,8 @@ router.post("/sponsor/update", (req, res) => {
 
   if (orchidStage) channel.orchidStage = orchidStage;
   if (typeof milestones === "number") channel.milestones = milestones;
+  scheduleSave();
+
   res.json({ ok: true });
 });
 
@@ -285,6 +345,7 @@ router.post("/sponsor/pubkey", (req, res) => {
 
   if (isUser) channel.userPubKey = publicKey;
   else channel.sponsorPubKey = publicKey;
+  scheduleSave();
 
   res.json({ ok: true });
 });
@@ -321,10 +382,10 @@ router.post("/sponsor/message", (req, res) => {
   };
 
   channel.messageQueue.push(msg);
-  // Keep queue bounded — last 200 messages
   if (channel.messageQueue.length > 200) {
     channel.messageQueue = channel.messageQueue.slice(-200);
   }
+  scheduleSave();
 
   res.json({ ok: true, messageId: msg.id });
 });
@@ -334,10 +395,6 @@ router.get("/sponsor/poll", (req, res) => {
   const { channelId, token, since } = req.query as Record<string, string>;
   if (!channelId || !token) { res.status(400).json({ error: "channelId, token required" }); return; }
 
-  // Rate limit: 30 polls per 60s per token.
-  // Normal client interval is 5s = 12 req/min. Limit is 2.5× that.
-  // A legitimate client will never hit this; a hammering client will be blocked
-  // per-token, leaving other channels unaffected.
   if (!checkRate(pollRates, token, 30)) {
     res.status(429).json({ error: "Too many poll requests — client is polling too fast" }); return;
   }
@@ -352,18 +409,15 @@ router.get("/sponsor/poll", (req, res) => {
   const sinceMs = since ? parseInt(since, 10) : 0;
   const myRole = isUser ? "user" : "sponsor";
 
-  // Presence signals addressed to this role
   const incoming = channel.presenceQueue.filter(
     s => s.from !== myRole && s.timestamp > sinceMs && !s.seen
   );
   for (const s of incoming) s.seen = true;
 
-  // Encrypted messages addressed to this role (from the other party), since last poll
   const newMessages = channel.messageQueue.filter(
     m => m.from !== myRole && m.timestamp > sinceMs
   );
 
-  // Peer's public key (if they've posted it)
   const peerPubKey = isUser ? channel.sponsorPubKey : channel.userPubKey;
 
   const status = {
@@ -391,6 +445,8 @@ router.delete("/sponsor/disconnect", (req, res) => {
 
   codeIndex.delete(channel.inviteCode);
   channels.delete(channelId);
+  flushChannels();
+
   res.json({ ok: true });
 });
 
