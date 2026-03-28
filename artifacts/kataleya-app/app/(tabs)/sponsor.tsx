@@ -234,7 +234,8 @@ export default function SponsorScreen() {
     role, connState, inviteCode, status, incomingSignals, presenceLog,
     messages, hasPeerKey,
     error, createInvite, acceptInvite, sendPresence, sendMessage, sendCheckIn,
-    disconnect, dismissSignal, dismissSignalsByType, clearPresenceLog, isConnected,
+    disconnect, dismissSignal, dismissSignalsByType, clearPresenceLog,
+    deleteMessage, clearMessages, isConnected,
   } = useSponsorChannel();
 
   const [roleChoice, setRoleChoice] = useState<RoleChoice>(null);
@@ -242,6 +243,7 @@ export default function SponsorScreen() {
   const [accepting, setAccepting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [checkedIn, setCheckedIn] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
   const [checkedInDate, setCheckedInDate] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
@@ -608,76 +610,108 @@ export default function SponsorScreen() {
         {/* ── E2E ENCRYPTED MESSAGES ──────────────────────────────────────── */}
         {isConnected && (
           <>
-            <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 16 }]}>
-              messages · end-to-end encrypted
-            </Text>
-            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              {/* Message thread */}
-              <View style={styles.msgThread}>
-                {messages.length === 0 ? (
-                  <Text style={[styles.msgEmpty, { color: theme.textMuted }]}>
-                    {hasPeerKey
-                      ? 'No messages yet. Say something.'
-                      : 'Waiting for key exchange…'}
-                  </Text>
-                ) : (
-                  messages.slice(-40).map(msg => (
-                    <View
-                      key={msg.id}
-                      style={[
-                        styles.msgBubble,
-                        msg.from === 'me'
-                          ? [styles.msgBubbleMe, { backgroundColor: `${theme.accent}22`, borderColor: `${theme.accent}40` }]
-                          : [styles.msgBubbleThem, { backgroundColor: `${theme.border}30`, borderColor: `${theme.border}60` }],
-                      ]}
-                    >
-                      <Text style={[styles.msgText, { color: theme.text }]}>{msg.text}</Text>
-                      <Text style={[styles.msgTime, { color: theme.textMuted }]}>
-                        {formatSignalTime(msg.timestamp)}
-                      </Text>
-                    </View>
-                  ))
-                )}
-              </View>
+            {/* Tappable header — collapses/expands thread */}
+            <TouchableOpacity
+              onPress={() => setChatOpen(o => !o)}
+              style={styles.msgSectionHeader}
+              activeOpacity={0.6}
+            >
+              <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 16 }]}>
+                messages · end-to-end encrypted
+                {messages.length > 0 ? ` (${messages.length})` : ''}
+              </Text>
+              <Text style={[styles.msgChevron, { color: theme.textMuted }]}>
+                {chatOpen ? '▲' : '▼'}
+              </Text>
+            </TouchableOpacity>
 
-              {/* Input row */}
-              <View style={[styles.msgInputRow, { borderTopColor: `${theme.border}50` }]}>
-                <TextInput
-                  value={messageInput}
-                  onChangeText={setMessageInput}
-                  placeholder={hasPeerKey ? 'type a message…' : 'waiting for key exchange…'}
-                  placeholderTextColor={theme.textMuted}
-                  style={[styles.msgInput, { color: theme.text, backgroundColor: `${theme.border}20` }]}
-                  multiline
-                  maxLength={500}
-                  editable={hasPeerKey}
-                  returnKeyType="send"
-                  onSubmitEditing={handleSendMessage}
-                  blurOnSubmit
-                />
-                <TouchableOpacity
-                  onPress={handleSendMessage}
-                  disabled={!messageInput.trim() || !hasPeerKey || sendingMsg}
-                  style={[
-                    styles.msgSendBtn,
-                    {
-                      backgroundColor: messageInput.trim() && hasPeerKey
-                        ? `${theme.accent}30`
-                        : `${theme.border}20`,
-                      borderColor: messageInput.trim() && hasPeerKey
-                        ? `${theme.accent}60`
-                        : `${theme.border}40`,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.msgSendText, {
-                    color: messageInput.trim() && hasPeerKey ? theme.accent : theme.textMuted,
-                  }]}>
-                    {sendingMsg ? '…' : '→'}
-                  </Text>
-                </TouchableOpacity>
+            {chatOpen && (
+              <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                {/* Thread header with clear-all */}
+                {messages.length > 0 && (
+                  <View style={styles.msgThreadHeader}>
+                    <Text style={[styles.msgThreadCount, { color: theme.textMuted }]}>
+                      {messages.length} message{messages.length !== 1 ? 's' : ''} · hold to delete
+                    </Text>
+                    <TouchableOpacity onPress={clearMessages}>
+                      <Text style={[styles.logClearText, { color: theme.textMuted }]}>clear all</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Message thread */}
+                <View style={styles.msgThread}>
+                  {messages.length === 0 ? (
+                    <Text style={[styles.msgEmpty, { color: theme.textMuted }]}>
+                      {hasPeerKey
+                        ? 'No messages yet. Say something.'
+                        : 'Waiting for key exchange…'}
+                    </Text>
+                  ) : (
+                    messages.slice(-40).map(msg => (
+                      <TouchableOpacity
+                        key={msg.id}
+                        onLongPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          deleteMessage(msg.id);
+                        }}
+                        delayLongPress={500}
+                        activeOpacity={0.75}
+                        style={[
+                          styles.msgBubble,
+                          msg.from === 'me'
+                            ? [styles.msgBubbleMe, { backgroundColor: `${theme.accent}22`, borderColor: `${theme.accent}40` }]
+                            : [styles.msgBubbleThem, { backgroundColor: `${theme.border}30`, borderColor: `${theme.border}60` }],
+                        ]}
+                      >
+                        <Text style={[styles.msgText, { color: theme.text }]}>{msg.text}</Text>
+                        <Text style={[styles.msgTime, { color: theme.textMuted }]}>
+                          {formatSignalTime(msg.timestamp)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </View>
+
+                {/* Input row */}
+                <View style={[styles.msgInputRow, { borderTopColor: `${theme.border}50` }]}>
+                  <TextInput
+                    value={messageInput}
+                    onChangeText={setMessageInput}
+                    placeholder={hasPeerKey ? 'type a message…' : 'waiting for key exchange…'}
+                    placeholderTextColor={theme.textMuted}
+                    style={[styles.msgInput, { color: theme.text, backgroundColor: `${theme.border}20` }]}
+                    multiline
+                    maxLength={500}
+                    editable={hasPeerKey}
+                    returnKeyType="send"
+                    onSubmitEditing={handleSendMessage}
+                    blurOnSubmit
+                  />
+                  <TouchableOpacity
+                    onPress={handleSendMessage}
+                    disabled={!messageInput.trim() || !hasPeerKey || sendingMsg}
+                    style={[
+                      styles.msgSendBtn,
+                      {
+                        backgroundColor: messageInput.trim() && hasPeerKey
+                          ? `${theme.accent}30`
+                          : `${theme.border}20`,
+                        borderColor: messageInput.trim() && hasPeerKey
+                          ? `${theme.accent}60`
+                          : `${theme.border}40`,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.msgSendText, {
+                      color: messageInput.trim() && hasPeerKey ? theme.accent : theme.textMuted,
+                    }]}>
+                      {sendingMsg ? '…' : '→'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            )}
           </>
         )}
 
@@ -804,6 +838,10 @@ const styles = StyleSheet.create({
   logClearText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textDecorationLine: 'underline' },
   logDivider: { height: 1, marginVertical: 8 },
 
+  msgSectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  msgChevron: { fontFamily: 'CourierPrime', fontSize: 10, marginBottom: 3, paddingLeft: 8 },
+  msgThreadHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 },
+  msgThreadCount: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5 },
   msgThread: { padding: 14, gap: 8, minHeight: 60 },
   msgEmpty: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textAlign: 'center', opacity: 0.6, paddingVertical: 8 },
   msgBubble: { borderWidth: 1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 13, maxWidth: '82%', gap: 4 },

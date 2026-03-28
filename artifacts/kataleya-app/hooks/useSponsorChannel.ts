@@ -405,6 +405,14 @@ export function useSponsorChannel() {
     setPresenceLog(await Surface.getPresenceLog());
   }, []);
 
+  const deleteMessage = useCallback((id: string) => {
+    setMessages(prev => prev.filter(m => m.id !== id));
+  }, []);
+
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+  }, []);
+
   return {
     role: session?.role ?? null,
     connState,
@@ -425,6 +433,8 @@ export function useSponsorChannel() {
     dismissSignal,
     dismissSignalsByType,
     clearPresenceLog,
+    deleteMessage,
+    clearMessages,
     isConnected: connState === 'connected',
   };
 }
