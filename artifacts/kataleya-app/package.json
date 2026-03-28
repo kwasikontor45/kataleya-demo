@@ -66,6 +66,8 @@
     "expo-sensors": "56.0.0-canary-20260305-5163746",
     "expo-sharing": "56.0.0-canary-20260305-5163746",
     "expo-sqlite": "56.0.0-canary-20260305-5163746",
-    "react-native-quick-crypto": "^1.0.18"
+    "react-native-quick-crypto": "^1.0.18",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1"
   }
 }

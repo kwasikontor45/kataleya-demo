@@ -232,7 +232,8 @@ export default function SponsorScreen() {
   const { theme } = useCircadian();
   const {
     role, connState, inviteCode, status, incomingSignals, presenceLog,
-    error, createInvite, acceptInvite, sendPresence, sendCheckIn,
+    messages, hasPeerKey,
+    error, createInvite, acceptInvite, sendPresence, sendMessage, sendCheckIn,
     disconnect, dismissSignal, dismissSignalsByType, clearPresenceLog, isConnected,
   } = useSponsorChannel();
 
@@ -242,6 +243,8 @@ export default function SponsorScreen() {
   const [creating, setCreating] = useState(false);
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedInDate, setCheckedInDate] = useState<string | null>(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [sendingMsg, setSendingMsg] = useState(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
@@ -302,6 +305,16 @@ export default function SponsorScreen() {
     setCodeInput('');
     setCheckedIn(false);
     setCheckedInDate(null);
+    setMessageInput('');
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || sendingMsg) return;
+    Keyboard.dismiss();
+    setSendingMsg(true);
+    await sendMessage(messageInput);
+    setMessageInput('');
+    setSendingMsg(false);
   };
 
   const effectiveRole = isConnected ? role : roleChoice;
@@ -592,6 +605,82 @@ export default function SponsorScreen() {
           </>
         )}
 
+        {/* ── E2E ENCRYPTED MESSAGES ──────────────────────────────────────── */}
+        {isConnected && (
+          <>
+            <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 16 }]}>
+              messages · end-to-end encrypted
+            </Text>
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              {/* Message thread */}
+              <View style={styles.msgThread}>
+                {messages.length === 0 ? (
+                  <Text style={[styles.msgEmpty, { color: theme.textMuted }]}>
+                    {hasPeerKey
+                      ? 'No messages yet. Say something.'
+                      : 'Waiting for key exchange…'}
+                  </Text>
+                ) : (
+                  messages.slice(-40).map(msg => (
+                    <View
+                      key={msg.id}
+                      style={[
+                        styles.msgBubble,
+                        msg.from === 'me'
+                          ? [styles.msgBubbleMe, { backgroundColor: `${theme.accent}22`, borderColor: `${theme.accent}40` }]
+                          : [styles.msgBubbleThem, { backgroundColor: `${theme.border}30`, borderColor: `${theme.border}60` }],
+                      ]}
+                    >
+                      <Text style={[styles.msgText, { color: theme.text }]}>{msg.text}</Text>
+                      <Text style={[styles.msgTime, { color: theme.textMuted }]}>
+                        {formatSignalTime(msg.timestamp)}
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </View>
+
+              {/* Input row */}
+              <View style={[styles.msgInputRow, { borderTopColor: `${theme.border}50` }]}>
+                <TextInput
+                  value={messageInput}
+                  onChangeText={setMessageInput}
+                  placeholder={hasPeerKey ? 'type a message…' : 'waiting for key exchange…'}
+                  placeholderTextColor={theme.textMuted}
+                  style={[styles.msgInput, { color: theme.text, backgroundColor: `${theme.border}20` }]}
+                  multiline
+                  maxLength={500}
+                  editable={hasPeerKey}
+                  returnKeyType="send"
+                  onSubmitEditing={handleSendMessage}
+                  blurOnSubmit
+                />
+                <TouchableOpacity
+                  onPress={handleSendMessage}
+                  disabled={!messageInput.trim() || !hasPeerKey || sendingMsg}
+                  style={[
+                    styles.msgSendBtn,
+                    {
+                      backgroundColor: messageInput.trim() && hasPeerKey
+                        ? `${theme.accent}30`
+                        : `${theme.border}20`,
+                      borderColor: messageInput.trim() && hasPeerKey
+                        ? `${theme.accent}60`
+                        : `${theme.border}40`,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.msgSendText, {
+                    color: messageInput.trim() && hasPeerKey ? theme.accent : theme.textMuted,
+                  }]}>
+                    {sendingMsg ? '…' : '→'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
+
         {/* ── DISCONNECT ──────────────────────────────────────────────────── */}
         {isConnected && (
           <>
@@ -618,7 +707,8 @@ export default function SponsorScreen() {
         <View style={[styles.footerNote, { borderColor: `${theme.border}50` }]}>
           <Text style={[styles.footerText, { color: theme.textMuted }]}>
             Signals are relayed and discarded — not stored permanently.{'\n'}
-            No messages. No logs. No accounts.
+            Messages are end-to-end encrypted. The server sees only ciphertext.{'\n'}
+            No accounts. No logs.
           </Text>
         </View>
       </ScrollView>
@@ -713,4 +803,22 @@ const styles = StyleSheet.create({
   logClear: { paddingLeft: 16, paddingVertical: 4 },
   logClearText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textDecorationLine: 'underline' },
   logDivider: { height: 1, marginVertical: 8 },
+
+  msgThread: { padding: 14, gap: 8, minHeight: 60 },
+  msgEmpty: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textAlign: 'center', opacity: 0.6, paddingVertical: 8 },
+  msgBubble: { borderWidth: 1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 13, maxWidth: '82%', gap: 4 },
+  msgBubbleMe: { alignSelf: 'flex-end' },
+  msgBubbleThem: { alignSelf: 'flex-start' },
+  msgText: { fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 19 },
+  msgTime: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 0.5, opacity: 0.6 },
+  msgInputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, borderTopWidth: 1, padding: 12 },
+  msgInput: {
+    flex: 1, fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 19,
+    borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12, maxHeight: 100,
+  },
+  msgSendBtn: {
+    borderWidth: 1, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 14,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  msgSendText: { fontFamily: 'CourierPrime', fontSize: 16, fontWeight: '700' },
 });

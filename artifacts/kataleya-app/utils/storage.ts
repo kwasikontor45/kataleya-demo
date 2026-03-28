@@ -41,6 +41,9 @@ const FK = {
   ROLE:       'kataleya.fortress.sponsor_role',
   LAST_POLL:  'kataleya.fortress.sponsor_last_poll',
   INVITE:     'kataleya.fortress.sponsor_invite',
+  CRYPTO_SK:  'kataleya.fortress.crypto_sk',
+  CRYPTO_PK:  'kataleya.fortress.crypto_pk',
+  PEER_PK:    'kataleya.fortress.peer_pk',
 } as const;
 
 // ── Unique ID ────────────────────────────────────────────────────────────────
@@ -439,6 +442,28 @@ export const Fortress = {
   async getLastPoll(): Promise<number> {
     const v = await fortressGet(FK.LAST_POLL);
     return v ? parseInt(v, 10) : 0;
+  },
+
+  async setCryptoKeyPair(publicKey: string, secretKey: string): Promise<void> {
+    await Promise.all([
+      fortressSet(FK.CRYPTO_PK, publicKey),
+      fortressSet(FK.CRYPTO_SK, secretKey),
+    ]);
+  },
+  async getCryptoKeyPair(): Promise<{ publicKey: string; secretKey: string } | null> {
+    const [pk, sk] = await Promise.all([
+      fortressGet(FK.CRYPTO_PK),
+      fortressGet(FK.CRYPTO_SK),
+    ]);
+    if (!pk || !sk) return null;
+    return { publicKey: pk, secretKey: sk };
+  },
+
+  async setPeerPublicKey(pk: string): Promise<void> {
+    await fortressSet(FK.PEER_PK, pk);
+  },
+  async getPeerPublicKey(): Promise<string | null> {
+    return fortressGet(FK.PEER_PK);
   },
 
   async clear(): Promise<void> {

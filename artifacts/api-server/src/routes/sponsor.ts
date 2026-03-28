@@ -12,6 +12,14 @@ interface PresenceSignal {
   seen: boolean;
 }
 
+interface EncryptedMessage {
+  id: string;
+  from: "user" | "sponsor";
+  ciphertext: string;
+  nonce: string;
+  timestamp: number;
+}
+
 interface Channel {
   id: string;
   inviteCode: string;
@@ -23,6 +31,9 @@ interface Channel {
   orchidStage: string;
   milestones: number;
   presenceQueue: PresenceSignal[];
+  messageQueue: EncryptedMessage[];
+  userPubKey: string | null;
+  sponsorPubKey: string | null;
   createdAt: number;
   expiresAt: number;
 }
@@ -42,6 +53,7 @@ interface RateEntry {
 const pollRates     = new Map<string, RateEntry>(); // 30 req / 60s per token
 const presenceRates = new Map<string, RateEntry>(); // 10 req / 60s per token
 const checkinRates  = new Map<string, RateEntry>(); //  5 req / 60s per token
+const messageRates  = new Map<string, RateEntry>(); // 20 req / 60s per token
 
 function checkRate(
   map: Map<string, RateEntry>,
@@ -69,7 +81,7 @@ function checkRate(
 // Prune rate entries for tokens that no longer exist in any channel.
 // Called alongside channel expiry cleanup.
 function cleanRateMaps(activeTokens: Set<string>) {
-  for (const map of [pollRates, presenceRates, checkinRates]) {
+  for (const map of [pollRates, presenceRates, checkinRates, messageRates]) {
     for (const token of map.keys()) {
       if (!activeTokens.has(token)) map.delete(token);
     }
@@ -137,6 +149,9 @@ router.post("/sponsor/invite", (_req, res) => {
     orchidStage: "seedling",
     milestones: 0,
     presenceQueue: [],
+    messageQueue: [],
+    userPubKey: null,
+    sponsorPubKey: null,
     createdAt: Date.now(),
     expiresAt: Date.now() + 48 * 60 * 60 * 1000,
   };
@@ -250,6 +265,70 @@ router.post("/sponsor/update", (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /api/sponsor/pubkey  →  store this device's X25519 public key
+router.post("/sponsor/pubkey", (req, res) => {
+  const { channelId, token, publicKey } = req.body as {
+    channelId?: string;
+    token?: string;
+    publicKey?: string;
+  };
+  if (!channelId || !token || !publicKey) {
+    res.status(400).json({ error: "channelId, token, publicKey required" }); return;
+  }
+
+  const channel = channels.get(channelId);
+  if (!channel || !channel.connected) { res.status(404).json({ error: "Channel not found" }); return; }
+
+  const isUser = token === channel.userToken;
+  const isSponsor = token === channel.sponsorToken;
+  if (!isUser && !isSponsor) { res.status(403).json({ error: "Invalid token" }); return; }
+
+  if (isUser) channel.userPubKey = publicKey;
+  else channel.sponsorPubKey = publicKey;
+
+  res.json({ ok: true });
+});
+
+// POST /api/sponsor/message  →  relay an encrypted message blob
+router.post("/sponsor/message", (req, res) => {
+  const { channelId, token, ciphertext, nonce } = req.body as {
+    channelId?: string;
+    token?: string;
+    ciphertext?: string;
+    nonce?: string;
+  };
+  if (!channelId || !token || !ciphertext || !nonce) {
+    res.status(400).json({ error: "channelId, token, ciphertext, nonce required" }); return;
+  }
+
+  if (!checkRate(messageRates, token, 20)) {
+    res.status(429).json({ error: "Too many messages — slow down" }); return;
+  }
+
+  const channel = channels.get(channelId);
+  if (!channel || !channel.connected) { res.status(404).json({ error: "Channel not found" }); return; }
+
+  const isUser = token === channel.userToken;
+  const isSponsor = token === channel.sponsorToken;
+  if (!isUser && !isSponsor) { res.status(403).json({ error: "Invalid token" }); return; }
+
+  const msg: EncryptedMessage = {
+    id: randomUUID(),
+    from: isUser ? "user" : "sponsor",
+    ciphertext,
+    nonce,
+    timestamp: Date.now(),
+  };
+
+  channel.messageQueue.push(msg);
+  // Keep queue bounded — last 200 messages
+  if (channel.messageQueue.length > 200) {
+    channel.messageQueue = channel.messageQueue.slice(-200);
+  }
+
+  res.json({ ok: true, messageId: msg.id });
+});
+
 // GET /api/sponsor/poll?channelId=...&token=...&since=...
 router.get("/sponsor/poll", (req, res) => {
   const { channelId, token, since } = req.query as Record<string, string>;
@@ -271,15 +350,21 @@ router.get("/sponsor/poll", (req, res) => {
   if (!isUser && !isSponsor) { res.status(403).json({ error: "Invalid token" }); return; }
 
   const sinceMs = since ? parseInt(since, 10) : 0;
-
-  // Return signals addressed to this role that arrived after `since`
   const myRole = isUser ? "user" : "sponsor";
+
+  // Presence signals addressed to this role
   const incoming = channel.presenceQueue.filter(
     s => s.from !== myRole && s.timestamp > sinceMs && !s.seen
   );
-
-  // Mark as seen
   for (const s of incoming) s.seen = true;
+
+  // Encrypted messages addressed to this role (from the other party), since last poll
+  const newMessages = channel.messageQueue.filter(
+    m => m.from !== myRole && m.timestamp > sinceMs
+  );
+
+  // Peer's public key (if they've posted it)
+  const peerPubKey = isUser ? channel.sponsorPubKey : channel.userPubKey;
 
   const status = {
     connected: channel.connected,
@@ -290,7 +375,7 @@ router.get("/sponsor/poll", (req, res) => {
     sponsorPresent: channel.sponsorToken !== null,
   };
 
-  res.json({ signals: incoming, status, serverTime: Date.now() });
+  res.json({ signals: incoming, messages: newMessages, peerPubKey, status, serverTime: Date.now() });
 });
 
 // DELETE /api/sponsor/disconnect

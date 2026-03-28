@@ -106,7 +106,8 @@ Privacy-first, circadian-aware sobriety companion — Expo mobile app (React Nat
 - **Navigation**: File-based Expo Router, 5-tab bar (sanctuary/growth/journal/vault/sponsor)
 - **Insights**: `hooks/useInsights.ts` — `phaseLowestMood`, `moodTrend`, `checkInFrequency` patterns; exports `hasEnoughData` (≥7 logs in 90d) + `dataAgeDays` for UI disclosure; shown on Growth tab
 - **Orchid sway**: `hooks/useOrchidSway.ts` — accelerometer-driven 100-sample RMS restlessnessScore (0-1), wired into journal mood saves
-- **Sponsor channel**: `hooks/useSponsorChannel.ts` — offline check-in queue via `Surface.PENDING_CHECKIN`; replays on app foreground; `hasPendingCheckin` flag returned
+- **Sponsor channel**: `hooks/useSponsorChannel.ts` — offline check-in queue via `Surface.PENDING_CHECKIN`; replays on app foreground; `hasPendingCheckin` flag returned; E2E encrypted messages via X25519 key exchange (TweetNaCl); keys stored in Fortress (SecureStore); server stores only ciphertext
+- **E2E crypto**: `utils/crypto.ts` — `generateKeyPair()`, `encryptMessage()`, `decryptMessage()` using TweetNaCl (pure JS, Expo Go compatible); Fortress keys `CRYPTO_PK`, `CRYPTO_SK`, `PEER_PK`
 - **Notifications**: `hooks/useNotifications.ts` — daily reminder scheduler + milestone bloom notifications; `expo-notifications` plugin in app.json; permission request in onboarding step 5
 - **Burn Ritual**: UX safety gate — hold → confirm screen with tombstone write → `burnAll()`; `Surface.BURN_LOG` key
 - **Storage keys**: Surface `kataleya.surface.*` including `pending_checkin`, `notif_enabled`, `notif_reminder_time`, `last_notified_milestone`, `burn_log`
