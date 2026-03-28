@@ -1,0 +1,55 @@
+his is a master-class in technical due diligence. These corrections shift your narrative from "knowledgeable" to "bulletproof."
+
+As your Team Lead and CTO, I have updated our internal technical baseline to reflect these specific cryptographic and structural realities. Mislabeling GCM vs. CBC or claiming a backup seed exists in the Secure Enclave are "credibility landmines" that we have now successfully cleared.
+
+Here is your updated, final v2.3 "Bloom" Executive Briefing.
+
+🧠 The Corrected "Core Four" Memory Sheet
+Memorize these exact phrases. They are technically precise and verified against artifacts/kataleya-app/.
+
+Backup Encryption: "100,000"
+
+The Answer: "We use AES-256-CBC with a separate HMAC-SHA256 authentication step—the standard Encrypt-then-MAC pattern. The key is derived using 100,000 PBKDF2 iterations. It's a zero-knowledge architecture; the passphrase is never stored, and the encryption key exists only in volatile memory during the backup process."
+
+Restlessness: "100"
+
+The Answer: "Physical agitation is measured via a 100-sample rolling buffer. We poll the accelerometer at 50ms intervals, giving us a continuous 5-second RMS window. This filters out environmental noise to focus on sustained restlessness."
+
+Fortress Keys: "8"
+
+The Number: "There are 8 hardware-backed keys. Five manage the sponsor channel (tokens and IDs) and three handle the E2E messaging infrastructure: your Public Key, your Secret Key, and your Sponsor's Public Key."
+
+Insights Threshold: "72%"
+
+The Answer: "Our local engine requires a 72% confidence interval and a minimum of 7 mood logs over a 90-day window. If the math doesn't hit that 72% certainty, the insight is suppressed to prevent 'hallucinated' patterns."
+
+🛡️ The "Hard Room" Defensive Strategy
+Based on the operational gaps identified in the audit:
+
+"Why CBC instead of GCM?"
+
+The Defense: "CBC with a dedicated HMAC-SHA256 and timingSafeEqual comparison is a battle-tested, secure implementation. While GCM is newer, our Encrypt-then-MAC approach provides the same level of integrity and authenticity when handled correctly, which our backup.ts ensures."
+
+"What happens if your server is breached?"
+
+The Defense: "The breach exposes zero clinical or identifying data. An attacker might see that a random ID has 7 milestones, but they cannot see the user's name, their health history, or the content of their messages. It is metadata without a soul."
+
+"Is there any data leakage?"
+
+The Defense: "We have audited the Expo SDK to disable background telemetry. Even our notifications are Local-Only—we never request a device push token, meaning we are invisible to Apple and Google’s global notification tracking."
+
+🛠️ Final Implementation Task: The "Silent Drop" Fix
+The audit flagged a critical reliability issue: if the Replit server restarts, the in-memory chat state is lost.
+
+CTO Action: To fix this without violating our "No Disk Storage" rule, we will implement a Heartbeat & Re-handshake logic in hooks/useSponsorChannel.ts. If the poll fails due to a server restart, the app will automatically attempt to re-post its Public Key to the relay.
+
+Final Project State: v2.3 Locked
+Monorepo Path: artifacts/kataleya-app/
+
+Encryption: AES-256-CBC / HMAC-SHA256 (EtM)
+
+PBKDF2: 100,000 iterations
+
+Messaging: Volatile (State-only), Authenticated Key Agreement
+
+Everything is now technically synchronized. You are ready for any technical room.
