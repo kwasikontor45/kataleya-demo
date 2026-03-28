@@ -114,7 +114,11 @@ export function useSponsorChannel() {
 
         // ── Presence signals ──────────────────────────────────────────────
         if (data.signals?.length) {
-          setIncomingSignals(prev => [...prev, ...data.signals]);
+          setIncomingSignals(prev => {
+            const seen = new Set(prev.map(s => s.id));
+            const fresh = data.signals.filter(s => !seen.has(s.id));
+            return fresh.length ? [...prev, ...fresh] : prev;
+          });
           const entries: PresenceLogEntry[] = data.signals.map(s => ({
             id: s.id, type: s.type, timestamp: s.timestamp,
           }));
@@ -144,7 +148,12 @@ export function useSponsorChannel() {
               }
             }
             if (decrypted.length) {
-              setMessages(prev => [...prev, ...decrypted].sort((a, b) => a.timestamp - b.timestamp));
+              setMessages(prev => {
+                const seen = new Set(prev.map(m => m.id));
+                const fresh = decrypted.filter(m => !seen.has(m.id));
+                if (!fresh.length) return prev;
+                return [...prev, ...fresh].sort((a, b) => a.timestamp - b.timestamp);
+              });
             }
           }
         }
