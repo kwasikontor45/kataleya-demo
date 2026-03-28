@@ -17,8 +17,14 @@
       "supportsTablet": false
     },
     "android": {
+      "package": "com.kataleya.app",
+      "versionCode": 1,
       "backgroundColor": "#0e0c14",
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#0e0c14"
+      }
     },
     "web": {
       "favicon": "./assets/images/icon.png"
