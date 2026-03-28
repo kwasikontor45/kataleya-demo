@@ -125,7 +125,8 @@ export default function Onboarding() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top + 16;
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom + 16;
   const showBack = step !== 'welcome';
-  const num = stepNumber(step);
+  const currentIdx = STEP_ORDER.indexOf(step);
+  const showDots = currentIdx >= 1 && currentIdx <= 5;
 
   // Derive picker theme from current background luminance so the inline
   // iOS calendar is always readable — 'dark' in night phase, 'light' in dawn/day.
@@ -146,8 +147,18 @@ export default function Onboarding() {
           ) : (
             <View style={styles.backBtn} />
           )}
-          {num ? (
-            <Text style={[styles.stepLabel, { color: theme.textMuted }]}>{num}</Text>
+          {showDots ? (
+            <View style={styles.progressDots}>
+              {[1, 2, 3, 4, 5].map(i => (
+                <View
+                  key={i}
+                  style={[
+                    styles.progressDot,
+                    { backgroundColor: currentIdx >= i ? theme.accent : `${theme.border}60` },
+                  ]}
+                />
+              ))}
+            </View>
           ) : null}
         </View>
 
@@ -420,7 +431,9 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     textTransform: 'uppercase',
   },
-  stepContainer: { flex: 1, justifyContent: 'center', gap: 20 },
+  stepContainer: { flex: 1, justifyContent: 'center', gap: 24 },
+  progressDots: { flexDirection: 'row', gap: 7, alignItems: 'center' },
+  progressDot: { width: 6, height: 6, borderRadius: 3 },
   textBlock: { gap: 10 },
   title: { fontFamily: 'CourierPrime', fontSize: 28, fontWeight: '700', letterSpacing: 0.5 },
   subtitle: { fontFamily: 'CourierPrime', fontSize: 14, lineHeight: 22 },

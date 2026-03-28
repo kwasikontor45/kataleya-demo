@@ -314,6 +314,13 @@ export default function SponsorScreen() {
   const [sentSignalLog, setSentSignalLog] = useState<{ type: 'water' | 'light'; ts: number }[]>([]);
   const [rainbowActive, setRainbowActive] = useState(false);
   const rainbowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const threadScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (chatOpen && messages.length > 0) {
+      setTimeout(() => threadScrollRef.current?.scrollToEnd({ animated: true }), 80);
+    }
+  }, [messages.length, chatOpen]);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
@@ -739,12 +746,23 @@ export default function SponsorScreen() {
                 )}
 
                 {/* Message thread */}
-                <View style={styles.msgThread}>
+                <ScrollView
+                  ref={threadScrollRef}
+                  style={styles.msgThread}
+                  contentContainerStyle={styles.msgThreadContent}
+                  showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled
+                  onContentSizeChange={() => {
+                    if (messages.length > 0) {
+                      threadScrollRef.current?.scrollToEnd({ animated: false });
+                    }
+                  }}
+                >
                   {messages.length === 0 ? (
                     <Text style={[styles.msgEmpty, { color: theme.textMuted }]}>
                       {hasPeerKey
-                        ? 'No messages yet. Say something.'
-                        : 'Waiting for key exchange…'}
+                        ? 'no messages yet. say something.'
+                        : 'waiting for key exchange…'}
                     </Text>
                   ) : (
                     messages.slice(-40).map(msg => (
@@ -770,7 +788,7 @@ export default function SponsorScreen() {
                       </TouchableOpacity>
                     ))
                   )}
-                </View>
+                </ScrollView>
 
                 {/* Input row */}
                 <View style={[styles.msgInputRow, { borderTopColor: `${theme.border}50` }]}>
@@ -974,7 +992,8 @@ const styles = StyleSheet.create({
   msgChevron: { fontFamily: 'CourierPrime', fontSize: 10, marginBottom: 3, paddingLeft: 8 },
   msgThreadHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 },
   msgThreadCount: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5 },
-  msgThread: { padding: 14, gap: 8, minHeight: 60 },
+  msgThread: { maxHeight: 300, minHeight: 60 },
+  msgThreadContent: { padding: 14, gap: 8 },
   msgEmpty: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textAlign: 'center', opacity: 0.6, paddingVertical: 8 },
   msgBubble: { borderWidth: 1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 13, maxWidth: '82%', gap: 4 },
   msgBubbleMe: { alignSelf: 'flex-end' },

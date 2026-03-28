@@ -1,17 +1,14 @@
-import { Feather } from "@expo/vector-icons";
-import { reloadAppAsync } from "expo";
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
   View,
-  useColorScheme,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Platform,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { reloadAppAsync } from 'expo';
 
 export type ErrorFallbackProps = {
   error: Error;
@@ -19,268 +16,171 @@ export type ErrorFallbackProps = {
 };
 
 export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();
+  const [showDetail, setShowDetail] = useState(false);
 
-  const theme = {
-    background: isDark ? "#000000" : "#FFFFFF",
-    backgroundSecondary: isDark ? "#1C1C1E" : "#F2F2F7",
-    text: isDark ? "#FFFFFF" : "#000000",
-    textSecondary: isDark ? "rgba(255, 255, 255, 0.7)" : "rgba(0, 0, 0, 0.7)",
-    link: "#007AFF",
-    buttonText: "#FFFFFF",
-  };
-
-  const [isModalVisible, setIsModalVisible] = useState(false);
-
-  const handleRestart = async () => {
+  const handleReturn = async () => {
     try {
       await reloadAppAsync();
-    } catch (restartError) {
-      console.error("Failed to restart app:", restartError);
+    } catch {
       resetError();
     }
   };
 
-  const formatErrorDetails = (): string => {
-    let details = `Error: ${error.message}\n\n`;
-    if (error.stack) {
-      details += `Stack Trace:\n${error.stack}`;
-    }
-    return details;
-  };
-
   const monoFont = Platform.select({
-    ios: "Menlo",
-    android: "monospace",
-    default: "monospace",
+    ios: 'Menlo',
+    android: 'monospace',
+    default: 'monospace',
   });
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {__DEV__ ? (
-        <Pressable
-          onPress={() => setIsModalVisible(true)}
-          accessibilityLabel="View error details"
-          accessibilityRole="button"
-          style={({ pressed }) => [
-            styles.topButton,
-            {
-              top: insets.top + 16,
-              backgroundColor: theme.backgroundSecondary,
-              opacity: pressed ? 0.8 : 1,
-            },
-          ]}
-        >
-          <Feather name="alert-circle" size={20} color={theme.text} />
-        </Pressable>
-      ) : null}
-
+    <View style={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
       <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.text }]}>
-          Something went wrong
-        </Text>
+        <Text style={styles.orchidGlyph}>⟡</Text>
 
-        <Text style={[styles.message, { color: theme.textSecondary }]}>
-          Please reload the app to continue.
-        </Text>
-
-        <Pressable
-          onPress={handleRestart}
-          style={({ pressed }) => [
-            styles.button,
-            {
-              backgroundColor: theme.link,
-              opacity: pressed ? 0.9 : 1,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            },
-          ]}
-        >
-          <Text style={[styles.buttonText, { color: theme.buttonText }]}>
-            Try Again
+        <View style={styles.textBlock}>
+          <Text style={styles.title}>the sanctuary{'\n'}lost its footing.</Text>
+          <Text style={styles.body}>
+            something unexpected happened.{'\n'}
+            the garden is still here — just step back in.
           </Text>
-        </Pressable>
+        </View>
+
+        <TouchableOpacity style={styles.returnBtn} onPress={handleReturn} activeOpacity={0.75}>
+          <Text style={styles.returnBtnText}>return to garden</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={resetError} style={styles.tryAgainBtn}>
+          <Text style={styles.tryAgainText}>try without reloading</Text>
+        </TouchableOpacity>
+
+        {__DEV__ && (
+          <TouchableOpacity
+            onPress={() => setShowDetail(v => !v)}
+            style={styles.devToggle}
+          >
+            <Text style={styles.devToggleText}>
+              {showDetail ? '↑ hide error' : '↓ dev: show error'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {__DEV__ ? (
-        <Modal
-          visible={isModalVisible}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setIsModalVisible(false)}
+      {__DEV__ && showDetail && (
+        <ScrollView
+          style={styles.detailScroll}
+          contentContainerStyle={styles.detailContent}
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.modalOverlay}>
-            <View
-              style={[
-                styles.modalContainer,
-                { backgroundColor: theme.background },
-              ]}
-            >
-              <View
-                style={[
-                  styles.modalHeader,
-                  {
-                    borderBottomColor: isDark
-                      ? "rgba(255, 255, 255, 0.1)"
-                      : "rgba(0, 0, 0, 0.1)",
-                  },
-                ]}
-              >
-                <Text style={[styles.modalTitle, { color: theme.text }]}>
-                  Error Details
-                </Text>
-                <Pressable
-                  onPress={() => setIsModalVisible(false)}
-                  accessibilityLabel="Close error details"
-                  accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.closeButton,
-                    { opacity: pressed ? 0.6 : 1 },
-                  ]}
-                >
-                  <Feather name="x" size={24} color={theme.text} />
-                </Pressable>
-              </View>
+          <Text style={[styles.detailText, { fontFamily: monoFont }]} selectable>
+            {error.message}
+            {'\n\n'}
+            {error.stack ?? ''}
+          </Text>
+        </ScrollView>
+      )}
 
-              <ScrollView
-                style={styles.modalScrollView}
-                contentContainerStyle={[
-                  styles.modalScrollContent,
-                  { paddingBottom: insets.bottom + 16 },
-                ]}
-                showsVerticalScrollIndicator
-              >
-                <View
-                  style={[
-                    styles.errorContainer,
-                    { backgroundColor: theme.backgroundSecondary },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.errorText,
-                      {
-                        color: theme.text,
-                        fontFamily: monoFont,
-                      },
-                    ]}
-                    selectable
-                  >
-                    {formatErrorDetails()}
-                  </Text>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-      ) : null}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>..: kataleya :..</Text>
+      </View>
     </View>
   );
 }
 
+const BG = '#0e0c14';
+const ACCENT = '#7fc9c9';
+const MUTED = '#5a5870';
+const TEXT = '#e8e4f0';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
+    backgroundColor: BG,
+    paddingHorizontal: 32,
+    justifyContent: 'center',
   },
   content: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-    width: "100%",
-    maxWidth: 600,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 24,
+  },
+  orchidGlyph: {
+    color: ACCENT,
+    fontSize: 48,
+    opacity: 0.6,
+    lineHeight: 56,
+  },
+  textBlock: {
+    alignItems: 'center',
+    gap: 12,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    textAlign: "center",
-    lineHeight: 40,
+    fontFamily: 'CourierPrime',
+    fontSize: 24,
+    fontWeight: '700',
+    color: TEXT,
+    textAlign: 'center',
+    lineHeight: 32,
   },
-  message: {
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 24,
+  body: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    color: MUTED,
+    textAlign: 'center',
+    lineHeight: 21,
   },
-  topButton: {
-    position: "absolute",
-    right: 16,
-    width: 44,
-    height: 44,
+  returnBtn: {
+    borderWidth: 1,
+    borderColor: ACCENT,
     borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 36,
+    backgroundColor: `${ACCENT}18`,
+    alignItems: 'center',
   },
-  button: {
-    paddingVertical: 16,
-    borderRadius: 8,
-    paddingHorizontal: 24,
-    minWidth: 200,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonText: {
-    fontWeight: "600",
-    textAlign: "center",
-    fontSize: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContainer: {
-    width: "100%",
-    height: "90%",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalScrollView: {
-    flex: 1,
-  },
-  modalScrollContent: {
-    padding: 16,
-  },
-  errorContainer: {
-    width: "100%",
-    borderRadius: 8,
-    overflow: "hidden",
-    padding: 16,
-  },
-  errorText: {
+  returnBtnText: {
+    fontFamily: 'CourierPrime',
     fontSize: 12,
-    lineHeight: 18,
-    width: "100%",
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+    color: ACCENT,
+  },
+  tryAgainBtn: { paddingVertical: 4 },
+  tryAgainText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 1.5,
+    color: MUTED,
+    textAlign: 'center',
+  },
+  devToggle: { paddingVertical: 6 },
+  devToggleText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 1,
+    color: `${MUTED}80`,
+  },
+  detailScroll: {
+    maxHeight: 220,
+    marginBottom: 16,
+    borderRadius: 8,
+    backgroundColor: '#1a1825',
+  },
+  detailContent: { padding: 14 },
+  detailText: {
+    fontSize: 10,
+    lineHeight: 16,
+    color: '#ff9999',
+  },
+  footer: {
+    alignItems: 'center',
+    paddingBottom: 8,
+  },
+  footerText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 3,
+    color: `${MUTED}60`,
   },
 });

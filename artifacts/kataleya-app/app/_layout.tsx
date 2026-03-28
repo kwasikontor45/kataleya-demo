@@ -38,6 +38,7 @@ function RootLayoutNav() {
       <Stack.Screen name="onboarding" options={{ headerShown: false, contentStyle: { backgroundColor: '#0e0c14' } }} />
       <Stack.Screen name="burn" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="cover" options={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: '#000000' } }} />
+      <Stack.Screen name="privacy" options={{ headerShown: false, contentStyle: { backgroundColor: '#0e0c14' } }} />
     </Stack>
   );
 }

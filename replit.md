@@ -111,6 +111,16 @@ Privacy-first, circadian-aware sobriety companion — Expo mobile app (React Nat
 - **Notifications**: `hooks/useNotifications.ts` — daily reminder scheduler + milestone bloom notifications; `expo-notifications` plugin in app.json; permission request in onboarding step 5
 - **Burn Ritual**: UX safety gate — hold → confirm screen with tombstone write → `burnAll()`; `Surface.BURN_LOG` key
 - **Storage keys**: Surface `kataleya.surface.*` including `pending_checkin`, `notif_enabled`, `notif_reminder_time`, `last_notified_milestone`, `burn_log`
+- **Subscription tiers**: `utils/entitlements.ts` — Seed/Bloom/Garden tier definitions, feature gates, `canAccess()`. `hooks/useEntitlements.ts` — returns current tier + `check(feature)` + paywall state. `PAYWALL_ACTIVE = false` currently (everyone gets Bloom); flip to `true` once RevenueCat is wired.
+- **Paywall UI**: `components/PaywallModal.tsx` — bottom-sheet modal showing Bloom/Garden tiers with feature lists; `onSubscribe` callback ready for RevenueCat
+- **Privacy screen**: `app/privacy.tsx` — full privacy policy in founder voice; linked from Sanctuary and Growth tabs; accessible at `/privacy` route
+- **Error boundary**: `components/ErrorFallback.tsx` — brand-matched calm recovery UI (`#0e0c14` bg, Courier Prime, ⟡ glyph, "the sanctuary lost its footing."); reloadAppAsync on main CTA; DEV-only collapsible stack trace
+- **EAS build**: `eas.json` — development (simulator), preview (internal distribution), production (autoIncrement) profiles; bundle ID `com.kataleya.app`
+- **app.json fix**: Syntax error (missing comma after `"supportsTablet": false`) corrected
+- **Onboarding UX**: Progress dots (5 filled dots replacing text counter "01 / 05"); stepContainer gap 24px; dots animate from empty to filled as steps advance
+- **Sanctuary home**: Personalized greeting from `Surface.getName()` ("good evening, alex"); improved empty state ("the garden waits for you"); privacy link in footer
+- **Message thread**: Sponsor tab messages now in `ScrollView` with `maxHeight: 300`; `onContentSizeChange` auto-scrolls to newest; `threadScrollRef.scrollToEnd` on new message + chat open
+- **Empty states**: Journal (mood log empty + entries empty with atmospheric copy); Growth (⟡ glyph + "the season hasn't begun yet" copy); insightEmpty improved copy
 
 ### `scripts` (`@workspace/scripts`)
 

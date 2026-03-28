@@ -14,7 +14,8 @@
       "backgroundColor": "#0e0c14"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.kataleya.app"
     },
     "android": {
       "package": "com.kataleya.app",
@@ -57,6 +58,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "72297d8e-1e5e-45f4-9e04-da70ac5d7207"
+      }
+    },
+    "owner": "bleedin6ed6e"
   }
 }

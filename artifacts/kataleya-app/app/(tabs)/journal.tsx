@@ -249,6 +249,14 @@ export default function JournalScreen() {
             </View>
           </View>
 
+          {moodLogs.length === 0 && (
+            <View style={[styles.emptyStateCard, { backgroundColor: `${theme.surface}80`, borderColor: `${theme.border}50` }]}>
+              <Text style={[styles.emptyStateText, { color: theme.textMuted }]}>
+                no mood has been recorded yet.{'\n'}your first log appears here when you do.
+              </Text>
+            </View>
+          )}
+
           {moodLogs.length > 0 && (
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               {visibleLogs.map((log, i) => (
@@ -342,6 +350,14 @@ export default function JournalScreen() {
             </View>
           </View>
 
+          {entries.length === 0 && (
+            <View style={[styles.emptyStateCard, { backgroundColor: `${theme.surface}80`, borderColor: `${theme.border}50` }]}>
+              <Text style={[styles.emptyStateText, { color: theme.textMuted }]}>
+                the page is clear.{'\n'}when you seal your first entry, it appears here.
+              </Text>
+            </View>
+          )}
+
           {entries.length > 0 && (
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               {visibleEntries.map((entry, i) => (
@@ -406,6 +422,15 @@ const styles = StyleSheet.create({
   },
   card: { borderWidth: 1, borderRadius: 12, overflow: 'hidden' },
   cardInner: { padding: 16, gap: 12 },
+  emptyStateCard: { borderWidth: 1, borderRadius: 12 },
+  emptyStateText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 12,
+    lineHeight: 19,
+    textAlign: 'center',
+    padding: 20,
+    opacity: 0.7,
+  },
   cardHint: {
     fontFamily: 'CourierPrime',
     fontSize: 10,

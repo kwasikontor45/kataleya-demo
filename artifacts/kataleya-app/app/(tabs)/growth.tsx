@@ -5,14 +5,17 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useCircadian } from '@/hooks/useCircadian';
 import { useSobriety } from '@/hooks/useSobriety';
 import { useInsights } from '@/hooks/useInsights';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 
 export default function GrowthScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useCircadian();
   const { sobriety } = useSobriety();
@@ -79,9 +82,13 @@ export default function GrowthScreen() {
 
         {!sobriety.startDate && (
           <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-              Begin tracking from the Sanctuary tab to see your season of growth.
-            </Text>
+            <View style={styles.emptyBlock}>
+              <Text style={[styles.emptyGlyph, { color: `${theme.accent}50` }]}>⟡</Text>
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                the season hasn't begun yet.{'\n'}
+                plant your date in the sanctuary and growth appears here.
+              </Text>
+            </View>
           </View>
         )}
 
@@ -93,7 +100,8 @@ export default function GrowthScreen() {
             {!hasEnoughData ? (
               <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <Text style={[styles.insightEmpty, { color: theme.textMuted }]}>
-                  Log your mood for a few days and patterns will start to appear here.
+                  patterns form in silence.{'\n'}
+                  log your mood for a few days and they'll surface here — no server, no model, just your data.
                 </Text>
               </View>
             ) : (
@@ -135,8 +143,11 @@ export default function GrowthScreen() {
 
         <View style={[styles.privacyNote, { borderColor: `${theme.border}60` }]}>
           <Text style={[styles.privacyText, { color: theme.textMuted }]}>
-            All growth data lives only on this device
+            all growth data lives only on this device
           </Text>
+          <TouchableOpacity onPress={() => router.push('/privacy')} hitSlop={8}>
+            <Text style={[styles.privacyLink, { color: `${theme.textMuted}55` }]}>privacy →</Text>
+          </TouchableOpacity>
         </View>
 
       </ScrollView>
@@ -217,24 +228,31 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 1,
   },
+  emptyBlock: { padding: 24, alignItems: 'center', gap: 12 },
+  emptyGlyph: { fontSize: 28, lineHeight: 34 },
   emptyText: {
     fontFamily: 'CourierPrime',
     fontSize: 13,
     textAlign: 'center',
-    padding: 24,
-    lineHeight: 20,
+    lineHeight: 21,
   },
   privacyNote: {
     borderTopWidth: 1,
     paddingTop: 16,
     marginTop: 8,
     alignItems: 'center',
+    gap: 6,
   },
   privacyText: {
     fontFamily: 'CourierPrime',
     fontSize: 10,
     letterSpacing: 1,
     textAlign: 'center',
+  },
+  privacyLink: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 1.5,
   },
   insightEmpty: {
     fontFamily: 'CourierPrime',

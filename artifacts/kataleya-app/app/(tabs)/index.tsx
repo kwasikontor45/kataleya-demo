@@ -21,11 +21,18 @@ import { OrchidProgress } from '@/components/OrchidProgress';
 import { CircadianBadge } from '@/components/CircadianBadge';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { BLOOM_THRESHOLDS } from '@/utils/hapticBloom';
+import { Surface } from '@/utils/storage';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
 function formatDate(d: Date): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function greetPhrase(phase: string): string {
+  if (phase === 'dawn' || phase === 'morning') return 'good morning';
+  if (phase === 'noon' || phase === 'afternoon') return 'good afternoon';
+  return 'good evening';
 }
 
 export default function SanctuaryScreen() {
@@ -36,6 +43,11 @@ export default function SanctuaryScreen() {
   const { x: swayX, y: swayY } = useOrchidSway();
   useNotifications(sobriety.daysSober);
   const [settingDate, setSettingDate] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+
+  useEffect(() => {
+    Surface.getName().then(n => setUserName(n ?? null));
+  }, []);
   const [pickerDate, setPickerDate] = useState<Date>(
     sobriety.startDate ? new Date(sobriety.startDate) : new Date()
   );
@@ -93,6 +105,12 @@ export default function SanctuaryScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {userName ? (
+          <Text style={[styles.greeting, { color: theme.textMuted }]}>
+            {greetPhrase(phase)}, {userName.toLowerCase()}
+          </Text>
+        ) : null}
+
         <View style={styles.header}>
           <TouchableOpacity
             onPressIn={handlePanicStart}
@@ -216,14 +234,19 @@ export default function SanctuaryScreen() {
           </View>
         ) : (
           <View style={styles.setupSection}>
-            <Text style={[styles.setupTitle, { color: theme.textMuted }]}>plant your seed of sobriety</Text>
+            <Text style={[styles.setupTitle, { color: theme.textMuted }]}>
+              the garden waits for you.
+            </Text>
+            <Text style={[styles.setupHint, { color: `${theme.textMuted}70` }]}>
+              when you're ready, set your date below.
+            </Text>
 
             {!settingDate ? (
               <TouchableOpacity
                 style={[styles.enterBtn, { borderColor: theme.accent, backgroundColor: `${theme.accent}15` }]}
                 onPress={() => setSettingDate(true)}
               >
-                <Text style={[styles.enterBtnText, { color: theme.accent }]}>Begin Tracking</Text>
+                <Text style={[styles.enterBtnText, { color: theme.accent }]}>begin tracking</Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.datePickerArea}>
@@ -282,6 +305,9 @@ export default function SanctuaryScreen() {
         <View style={styles.heartSection}>
           <DataBridge phase={phase} theme={theme} size="large" />
           <Text style={[styles.phaseDesc, { color: theme.textMuted }]}>{phaseConfig.description}</Text>
+          <TouchableOpacity onPress={() => router.push('/privacy')} hitSlop={8}>
+            <Text style={[styles.privacyLink, { color: `${theme.textMuted}55` }]}>privacy</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -322,10 +348,20 @@ const styles = StyleSheet.create({
   pickerSelected: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 0.5 },
   confirmBtn: { borderWidth: 1, borderRadius: 6, paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center' },
   confirmBtnText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1.5, textTransform: 'lowercase' },
-  setupSection: { alignItems: 'center', gap: 12, width: '100%' },
-  setupTitle: { fontFamily: 'CourierPrime', fontSize: 13, letterSpacing: 2, textTransform: 'lowercase' },
+  greeting: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+    width: '100%',
+    marginBottom: 2,
+  },
+  setupSection: { alignItems: 'center', gap: 10, width: '100%' },
+  setupTitle: { fontFamily: 'CourierPrime', fontSize: 15, letterSpacing: 1, textTransform: 'lowercase', textAlign: 'center' },
+  setupHint: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 0.5, textAlign: 'center' },
   enterBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 13, paddingHorizontal: 28, alignItems: 'center', width: '100%' },
-  enterBtnText: { fontFamily: 'CourierPrime', fontSize: 13, letterSpacing: 2, textTransform: 'uppercase' },
+  enterBtnText: { fontFamily: 'CourierPrime', fontSize: 13, letterSpacing: 2, textTransform: 'lowercase' },
   heartSection: { alignItems: 'center', gap: 8, marginTop: 16, paddingBottom: 8, width: '100%' },
   phaseDesc: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textAlign: 'center', lineHeight: 18, maxWidth: 280 },
+  privacyLink: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 2, textTransform: 'lowercase', marginTop: 4 },
 });
