@@ -39,12 +39,17 @@ export function useResponsiveHeart(phase: CircadianPhase) {
     const calculate = async () => {
       const mood = await Sanctuary.getRecentMoodState();
 
-      let bpm = 52 + (mood.lastScore - 1) * 1.3;
-      if (mood.avgRestlessness > 0.6) bpm += 3;
-      if (phase === 'night') bpm -= 4;
-      if (phase === 'goldenHour') bpm += 2;
-      if (mood.hoursSince > 6) bpm += 3;
-      bpm = Math.max(52, Math.min(65, bpm));
+      // Base BPM: 50 (crisis) → 75 (grounded), scaled across score 1–10
+      let bpm = 50 + (mood.lastScore - 1) * 2.8;
+
+      // Phase modifiers
+      if (mood.avgRestlessness > 0.6) bpm += 5;   // anxious → more frequent, smaller
+      if (phase === 'night')          bpm -= 10;   // sleep support → deep and slow
+      if (phase === 'goldenHour')     bpm += 5;    // protective presence → slightly elevated
+      if (mood.hoursSince > 6)        bpm += 8;    // gentle concern → more insistent
+      if (mood.hoursSince > 24)       bpm += 5;    // 24h silence → warm urgency
+
+      bpm = Math.max(45, Math.min(78, bpm));
 
       const cycleMs = 60000 / bpm;
       let ratios: [number, number, number];
@@ -109,5 +114,12 @@ export function useResponsiveHeart(phase: CircadianPhase) {
     return () => clearInterval(loop);
   }, [biometrics, opacity, scale, letterSpacingVal]);
 
-  return { opacity, scale, letterSpacing: letterSpacingVal, biometrics };
+  // Derive a human-readable system state for ambient display
+  const systemState: string =
+    biometrics.bpm < 52 ? 'holding' :
+    biometrics.bpm < 62 ? 'present' :
+    biometrics.bpm < 72 ? 'attuned' :
+    'celebrating';
+
+  return { opacity, scale, letterSpacing: letterSpacingVal, biometrics, systemState };
 }

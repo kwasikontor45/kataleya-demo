@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   dayText: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
     fontSize: 13,
     color: '#666666',
     letterSpacing: 1,
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   timeText: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
     fontSize: 72,
     color: '#e0e0e0',
     fontWeight: '100',
@@ -117,13 +117,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   ampm: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
     fontSize: 11,
     color: '#888888',
     letterSpacing: 1,
   },
   seconds: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
     fontSize: 18,
     color: '#444444',
     letterSpacing: 3,
@@ -135,14 +135,14 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   label: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
     fontSize: 12,
     color: '#555555',
     letterSpacing: 3,
     textTransform: 'uppercase',
   },
   sublabel: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
     fontSize: 9,
     color: '#333333',
     letterSpacing: 1,

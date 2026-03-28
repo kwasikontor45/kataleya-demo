@@ -38,7 +38,7 @@ interface Props {
 }
 
 export function DataBridge({ phase, theme, size = 'large', showBridge = false }: Props) {
-  const { opacity, scale, letterSpacing, biometrics } = useResponsiveHeart(phase);
+  const { opacity, scale, letterSpacing, systemState } = useResponsiveHeart(phase);
 
   const symbolStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -119,6 +119,9 @@ export function DataBridge({ phase, theme, size = 'large', showBridge = false }:
         >
           ..: :..
         </AnimatedText>
+        <Text style={[styles.stateLabel, { color: `${theme.accent}50` }]}>
+          {systemState}
+        </Text>
       </View>
     );
   }
@@ -254,11 +257,11 @@ const styles = StyleSheet.create({
   symbol: {
     fontWeight: '400',
   },
-  bpm: {
+  stateLabel: {
     fontFamily: 'CourierPrime',
-    fontSize: 10,
+    fontSize: 9,
+    letterSpacing: 2.5,
     textTransform: 'lowercase',
-    letterSpacing: 1.5,
-    opacity: 0.6,
+    marginTop: 4,
   },
 });
