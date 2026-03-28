@@ -32,6 +32,7 @@ const SK = {
   NOTIF_REMINDER_TIME:    'kataleya.surface.notif_reminder_time',  // 'HH:MM'
   LAST_NOTIFIED_MILESTONE: 'kataleya.surface.last_notified_milestone',
   PRESENCE_LOG:           'kataleya.surface.presence_log',
+  DARK_OVERRIDE:          'kataleya.surface.dark_override',
 } as const;
 
 // ── Canonical Fortress keys ─────────────────────────────────────────────────
@@ -207,6 +208,13 @@ export const Surface = {
   async getLastNotifiedMilestone(): Promise<number> {
     const raw = await AsyncStorage.getItem(SK.LAST_NOTIFIED_MILESTONE);
     return raw ? parseInt(raw, 10) : 0;
+  },
+
+  async setDarkOverride(v: boolean): Promise<void> {
+    await AsyncStorage.setItem(SK.DARK_OVERRIDE, v ? '1' : '0');
+  },
+  async getDarkOverride(): Promise<boolean> {
+    return (await AsyncStorage.getItem(SK.DARK_OVERRIDE)) === '1';
   },
 
   async clearAll(): Promise<void> {

@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Switch,
   Platform,
   Alert,
   Keyboard,
@@ -27,7 +28,7 @@ import {
 
 export default function VaultScreen() {
   const insets = useSafeAreaInsets();
-  const { theme } = useCircadian();
+  const { theme, blend, darkOverride, setDarkOverride } = useCircadian();
   const router = useRouter();
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
@@ -129,6 +130,31 @@ export default function VaultScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+
+        {/* ── APPEARANCE ───────────────────────────────────────────────────── */}
+        <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>appearance</Text>
+
+        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.appearanceRow}>
+            <View style={styles.appearanceText}>
+              <Text style={[styles.appearanceLabel, { color: theme.text }]}>force dark mode</Text>
+              <Text style={[styles.appearanceHint, { color: theme.textMuted }]}>
+                {darkOverride
+                  ? `locked to midnight — circadian at ${Math.round(blend * 100)}%`
+                  : 'follows circadian rhythm automatically'}
+              </Text>
+            </View>
+            <Switch
+              value={darkOverride}
+              onValueChange={(v) => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setDarkOverride(v);
+              }}
+              trackColor={{ false: theme.border, true: theme.accent }}
+              thumbColor={darkOverride ? theme.surface : theme.textMuted}
+            />
+          </View>
+        </View>
 
         {/* ── PRIVACY ARCHITECTURE ─────────────────────────────────────────── */}
         <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>privacy architecture</Text>
@@ -366,6 +392,10 @@ const styles = StyleSheet.create({
   vaultTier: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '700', flex: 1 },
   vaultTech: { fontFamily: 'CourierPrime', fontSize: 10 },
   vaultDesc: { fontFamily: 'CourierPrime', fontSize: 11, lineHeight: 16, marginLeft: 14 },
+  appearanceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 16 },
+  appearanceText: { flex: 1, paddingRight: 16 },
+  appearanceLabel: { fontFamily: 'CourierPrime-Bold', fontSize: 13, letterSpacing: 0.5 },
+  appearanceHint: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5, marginTop: 2 },
   assurance: { borderWidth: 1, borderRadius: 10, padding: 14, marginTop: 4 },
   assuranceText: { fontFamily: 'CourierPrime', fontSize: 11, lineHeight: 18, textAlign: 'center' },
 

@@ -9,6 +9,7 @@ import {
   msUntilNextMinute,
 } from '@/constants/circadian';
 import { MorningBloom, MidnightGarden, interpolateTheme, ThemeTokens } from '@/constants/theme';
+import { Surface } from '@/utils/storage';
 
 export interface CircadianState {
   phase: CircadianPhase;
@@ -16,6 +17,8 @@ export interface CircadianState {
   theme: ThemeTokens;
   phaseConfig: typeof CIRCADIAN_PHASES[CircadianPhase];
   isGoldenHour: boolean;
+  darkOverride: boolean;
+  setDarkOverride: (v: boolean) => void;
 }
 
 function computeState(): { phase: CircadianPhase; blend: number } {
@@ -28,7 +31,17 @@ function computeState(): { phase: CircadianPhase; blend: number } {
 
 export function useCircadian(): CircadianState {
   const [state, setState] = useState<{ phase: CircadianPhase; blend: number }>(computeState);
+  const [darkOverride, setDarkOverrideState] = useState<boolean>(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    Surface.getDarkOverride().then(setDarkOverrideState).catch(() => {});
+  }, []);
+
+  const setDarkOverride = useCallback((v: boolean) => {
+    setDarkOverrideState(v);
+    Surface.setDarkOverride(v).catch(() => {});
+  }, []);
 
   const schedule = useCallback(() => {
     const next = computeState();
@@ -56,13 +69,16 @@ export function useCircadian(): CircadianState {
     };
   }, [schedule]);
 
-  const theme = interpolateTheme(MorningBloom, MidnightGarden, state.blend);
+  const effectiveBlend = darkOverride ? 1 : state.blend;
+  const theme = interpolateTheme(MorningBloom, MidnightGarden, effectiveBlend);
 
   return {
     phase: state.phase,
-    blend: state.blend,
+    blend: effectiveBlend,
     theme,
     phaseConfig: CIRCADIAN_PHASES[state.phase],
-    isGoldenHour: state.phase === 'goldenHour',
+    isGoldenHour: !darkOverride && state.phase === 'goldenHour',
+    darkOverride,
+    setDarkOverride,
   };
 }
