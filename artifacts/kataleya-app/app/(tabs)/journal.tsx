@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  KeyboardAvoidingView,
   Platform,
   Alert,
   Keyboard,
@@ -38,44 +39,52 @@ function formatTs(ts: number): string {
 function moodColor(score: number): string {
   const m = MOOD_STATES.find(s => s.score === score);
   if (m) return m.color;
-  const closest = MOOD_STATES.reduce((a, b) =>
+  return MOOD_STATES.reduce((a, b) =>
     Math.abs(b.score - score) < Math.abs(a.score - score) ? b : a
-  );
-  return closest.color;
+  ).color;
 }
 
 function moodLabel(score: number): string {
-  const m = MOOD_STATES.find(s => s.score === score);
-  return m?.label ?? String(score);
+  return MOOD_STATES.find(s => s.score === score)?.label ?? String(score);
+}
+
+function KbDismiss({ theme }: { theme: any }) {
+  return (
+    <TouchableOpacity
+      onPress={() => Keyboard.dismiss()}
+      hitSlop={12}
+      style={[styles.kbDismissBtn, { borderColor: `${theme.border}50` }]}
+    >
+      <Text style={[styles.kbDismissText, { color: `${theme.textMuted}80` }]}>⌨ ↓</Text>
+    </TouchableOpacity>
+  );
 }
 
 export default function JournalScreen() {
   const insets = useSafeAreaInsets();
   const { theme, phase } = useCircadian();
   const { restlessnessScore } = useOrchidSway();
+  const scrollRef = useRef<ScrollView>(null);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
 
   // ── Mood state ──────────────────────────────────────────────────────────────
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
-  const [moodNote, setMoodNote] = useState('');
-  const [moodLogs, setMoodLogs] = useState<MoodLog[]>([]);
-  const [savingMood, setSavingMood] = useState(false);
+  const [moodNote, setMoodNote]         = useState('');
+  const [moodNoteFocused, setMoodNoteFocused] = useState(false);
+  const [moodLogs, setMoodLogs]         = useState<MoodLog[]>([]);
+  const [savingMood, setSavingMood]     = useState(false);
   const [moodLogsExpanded, setMoodLogsExpanded] = useState(false);
 
   // ── Journal state ──────────────────────────────────────────────────────────
-  const [journalBody, setJournalBody] = useState('');
-  const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const [savingEntry, setSavingEntry] = useState(false);
+  const [journalBody, setJournalBody]   = useState('');
+  const [entries, setEntries]           = useState<JournalEntry[]>([]);
+  const [savingEntry, setSavingEntry]   = useState(false);
   const [journalExpanded, setJournalExpanded] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [journalFocused, setJournalFocused]   = useState(false);
 
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
-    const hide  = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
-    return () => { show.remove(); hide.remove(); };
-  }, []);
+  const keyboardVisible = moodNoteFocused || journalFocused;
 
   const loadData = useCallback(async () => {
     const [logs, journal] = await Promise.all([
@@ -104,8 +113,6 @@ export default function JournalScreen() {
     setSelectedMood(null);
     setMoodNote('');
     setSavingMood(false);
-    // User has logged — cancel today's evening reminder so it doesn't fire again.
-    // The reminder reschedules automatically on the next app open if not logged.
     suppressReminderForToday();
     await loadData();
   };
@@ -151,212 +158,238 @@ export default function JournalScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: botPad + 16 }]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
       >
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: botPad + 16 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+        >
 
-        {/* ── MOOD LOG ──────────────────────────────────────────────────────── */}
-        <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>mood log</Text>
+          {/* ── MOOD LOG ──────────────────────────────────────────────────── */}
+          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>mood log</Text>
 
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.cardInner}>
-            <Text style={[styles.cardHint, { color: theme.textMuted }]}>
-              Recorded locally. Never shared. Not visible to sponsor.
-            </Text>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.cardInner}>
+              <Text style={[styles.cardHint, { color: theme.textMuted }]}>
+                Recorded locally. Never shared. Not visible to sponsor.
+              </Text>
 
-            <View style={styles.moodRow}>
-              {MOOD_STATES.map(m => (
-                <TouchableOpacity
-                  key={m.score}
+              <View style={styles.moodRow}>
+                {MOOD_STATES.map(m => (
+                  <TouchableOpacity
+                    key={m.score}
+                    style={[
+                      styles.moodBtn,
+                      {
+                        borderColor: selectedMood === m.score ? m.color : `${theme.border}80`,
+                        backgroundColor: selectedMood === m.score ? `${m.color}20` : 'transparent',
+                      },
+                    ]}
+                    onPress={() => {
+                      setSelectedMood(selectedMood === m.score ? null : m.score);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={[styles.moodBtnLabel, { color: selectedMood === m.score ? m.color : theme.textMuted }]}>
+                      {m.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Note field with inline dismiss */}
+              <View>
+                <TextInput
+                  value={moodNote}
+                  onChangeText={setMoodNote}
+                  onFocus={() => setMoodNoteFocused(true)}
+                  onBlur={() => setMoodNoteFocused(false)}
+                  placeholder="optional note…"
+                  placeholderTextColor={`${theme.textMuted}60`}
+                  multiline
+                  maxLength={280}
                   style={[
-                    styles.moodBtn,
+                    styles.noteInput,
                     {
-                      borderColor: selectedMood === m.score ? m.color : `${theme.border}80`,
-                      backgroundColor: selectedMood === m.score ? `${m.color}20` : 'transparent',
+                      color: theme.text,
+                      borderColor: moodNoteFocused ? theme.accent : `${theme.border}60`,
+                      backgroundColor: `${theme.bg}80`,
                     },
                   ]}
-                  onPress={() => {
-                    setSelectedMood(selectedMood === m.score ? null : m.score);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                >
-                  <Text style={[styles.moodBtnLabel, { color: selectedMood === m.score ? m.color : theme.textMuted }]}>
-                    {m.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TextInput
-              value={moodNote}
-              onChangeText={setMoodNote}
-              placeholder="optional note…"
-              placeholderTextColor={`${theme.textMuted}60`}
-              multiline
-              maxLength={280}
-              style={[styles.noteInput, { color: theme.text, borderColor: `${theme.border}60`, backgroundColor: `${theme.bg}80` }]}
-            />
-
-            <TouchableOpacity
-              style={[
-                styles.saveBtn,
-                {
-                  borderColor: selectedMood !== null ? theme.accent : `${theme.border}50`,
-                  backgroundColor: selectedMood !== null ? `${theme.accent}12` : 'transparent',
-                  opacity: selectedMood !== null ? 1 : 0.4,
-                },
-              ]}
-              onPress={handleSaveMood}
-              disabled={selectedMood === null || savingMood}
-            >
-              <Text style={[styles.saveBtnText, { color: theme.accent }]}>
-                {savingMood ? 'recording…' : 'record mood'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {moodLogs.length > 0 && (
-          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            {visibleLogs.map((log, i) => (
-              <View
-                key={log.id}
-                style={[
-                  styles.logRow,
-                  i < visibleLogs.length - 1 && { borderBottomWidth: 1, borderBottomColor: `${theme.border}40` },
-                ]}
-              >
-                <View style={[styles.logDot, { backgroundColor: moodColor(log.moodScore) }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.logLabel, { color: moodColor(log.moodScore) }]}>
-                    {moodLabel(log.moodScore)}
-                    <Text style={[styles.logPhase, { color: theme.textMuted }]}> · {log.circadianPhase}</Text>
-                  </Text>
-                  {log.context ? (
-                    <Text style={[styles.logNote, { color: theme.textMuted }]} numberOfLines={2}>
-                      {log.context}
-                    </Text>
-                  ) : null}
-                </View>
-                <Text style={[styles.logTime, { color: theme.textMuted }]}>{formatTs(log.ts)}</Text>
+                />
+                {moodNoteFocused && (
+                  <View style={styles.noteActions}>
+                    <Text style={[styles.charHint, { color: theme.textMuted }]}>{moodNote.length} / 280</Text>
+                    <KbDismiss theme={theme} />
+                  </View>
+                )}
               </View>
-            ))}
-            {moodLogs.length > 5 && (
-              <TouchableOpacity
-                style={[styles.expandBtn, { borderTopColor: `${theme.border}40` }]}
-                onPress={() => setMoodLogsExpanded(e => !e)}
-              >
-                <Text style={[styles.expandText, { color: theme.textMuted }]}>
-                  {moodLogsExpanded ? '↑ show less' : `↓ ${moodLogs.length - 5} more`}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
 
-        {/* ── PRIVATE JOURNAL ───────────────────────────────────────────────── */}
-        <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 24 }]}>private journal</Text>
-
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.cardInner}>
-            <Text style={[styles.cardHint, { color: theme.textMuted }]}>
-              Stored locally. Zero network access. No account, no cloud.
-            </Text>
-
-            <TextInput
-              value={journalBody}
-              onChangeText={setJournalBody}
-              placeholder="what needs to be said…"
-              placeholderTextColor={`${theme.textMuted}60`}
-              multiline
-              maxLength={4000}
-              style={[styles.journalInput, { color: theme.text, borderColor: `${theme.border}60`, backgroundColor: `${theme.bg}80` }]}
-              textAlignVertical="top"
-            />
-
-            <View style={styles.journalFooter}>
-              <Text style={[styles.charCount, { color: theme.textMuted }]}>
-                {journalBody.length} / 4000
-              </Text>
-              {keyboardVisible && (
-                <TouchableOpacity
-                  onPress={() => Keyboard.dismiss()}
-                  hitSlop={12}
-                  style={[styles.kbDismissBtn, { borderColor: `${theme.border}50` }]}
-                >
-                  <Text style={[styles.kbDismissText, { color: `${theme.textMuted}80` }]}>⌨ ↓</Text>
-                </TouchableOpacity>
-              )}
               <TouchableOpacity
                 style={[
                   styles.saveBtn,
                   {
-                    borderColor: journalBody.trim() ? theme.accent : `${theme.border}50`,
-                    backgroundColor: journalBody.trim() ? `${theme.accent}12` : 'transparent',
-                    opacity: journalBody.trim() ? 1 : 0.4,
-                    paddingHorizontal: 20,
+                    borderColor: selectedMood !== null ? theme.accent : `${theme.border}50`,
+                    backgroundColor: selectedMood !== null ? `${theme.accent}12` : 'transparent',
+                    opacity: selectedMood !== null ? 1 : 0.4,
                   },
                 ]}
-                onPress={handleSaveEntry}
-                disabled={!journalBody.trim() || savingEntry}
+                onPress={handleSaveMood}
+                disabled={selectedMood === null || savingMood}
               >
-                <Text style={[styles.saveBtnText, { color: theme.accent }]}>
-                  {savingEntry ? 'sealing…' : 'seal entry'}
+                <Text style={[styles.saveBtnText, { color: selectedMood !== null ? theme.accent : theme.textMuted }]}>
+                  {savingMood ? 'recording…' : selectedMood !== null ? `record · ${moodLabel(selectedMood)}` : 'select a mood above'}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
 
-        {entries.length > 0 && (
-          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            {visibleEntries.map((entry, i) => (
-              <View
-                key={entry.id}
-                style={[
-                  styles.entryRow,
-                  i < visibleEntries.length - 1 && { borderBottomWidth: 1, borderBottomColor: `${theme.border}40` },
-                ]}
-              >
-                <View style={styles.entryMeta}>
-                  <Text style={[styles.entryTime, { color: theme.textMuted }]}>{formatTs(entry.ts)}</Text>
-                  {entry.moodScore != null && (
-                    <Text style={[styles.entryMoodBadge, { color: moodColor(entry.moodScore), borderColor: `${moodColor(entry.moodScore)}40` }]}>
-                      {moodLabel(entry.moodScore)}
+          {moodLogs.length > 0 && (
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              {visibleLogs.map((log, i) => (
+                <View
+                  key={log.id}
+                  style={[
+                    styles.logRow,
+                    i < visibleLogs.length - 1 && { borderBottomWidth: 1, borderBottomColor: `${theme.border}40` },
+                  ]}
+                >
+                  <View style={[styles.logDot, { backgroundColor: moodColor(log.moodScore) }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.logLabel, { color: moodColor(log.moodScore) }]}>
+                      {moodLabel(log.moodScore)}
+                      <Text style={[styles.logPhase, { color: theme.textMuted }]}> · {log.circadianPhase}</Text>
                     </Text>
-                  )}
-                  <Text style={[styles.entryPhase, { color: theme.textMuted }]}>{entry.circadianPhase}</Text>
-                  <TouchableOpacity onPress={() => handleDeleteEntry(entry.id)} hitSlop={8}>
-                    <Text style={[styles.deleteBtn, { color: `${theme.textMuted}60` }]}>×</Text>
-                  </TouchableOpacity>
+                    {log.context ? (
+                      <Text style={[styles.logNote, { color: theme.textMuted }]} numberOfLines={2}>
+                        {log.context}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={[styles.logTime, { color: theme.textMuted }]}>{formatTs(log.ts)}</Text>
                 </View>
-                <Text style={[styles.entryBody, { color: theme.text }]} numberOfLines={journalExpanded ? undefined : 4}>
-                  {entry.body}
+              ))}
+              {moodLogs.length > 5 && (
+                <TouchableOpacity
+                  style={[styles.expandBtn, { borderTopColor: `${theme.border}40` }]}
+                  onPress={() => setMoodLogsExpanded(e => !e)}
+                >
+                  <Text style={[styles.expandText, { color: theme.textMuted }]}>
+                    {moodLogsExpanded ? '↑ show less' : `↓ ${moodLogs.length - 5} more`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* ── PRIVATE JOURNAL ───────────────────────────────────────────── */}
+          <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 24 }]}>private journal</Text>
+
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.cardInner}>
+              <Text style={[styles.cardHint, { color: theme.textMuted }]}>
+                Stored locally. Zero network access. No account, no cloud.
+              </Text>
+
+              <TextInput
+                value={journalBody}
+                onChangeText={setJournalBody}
+                onFocus={() => setJournalFocused(true)}
+                onBlur={() => setJournalFocused(false)}
+                placeholder="what needs to be said…"
+                placeholderTextColor={`${theme.textMuted}60`}
+                multiline
+                maxLength={4000}
+                style={[
+                  styles.journalInput,
+                  {
+                    color: theme.text,
+                    borderColor: journalFocused ? theme.accent : `${theme.border}60`,
+                    backgroundColor: `${theme.bg}80`,
+                  },
+                ]}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.journalFooter}>
+                <Text style={[styles.charCount, { color: theme.textMuted }]}>
+                  {journalBody.length} / 4000
                 </Text>
+                {keyboardVisible && <KbDismiss theme={theme} />}
+                <TouchableOpacity
+                  style={[
+                    styles.saveBtn,
+                    {
+                      borderColor: journalBody.trim() ? theme.accent : `${theme.border}50`,
+                      backgroundColor: journalBody.trim() ? `${theme.accent}12` : 'transparent',
+                      opacity: journalBody.trim() ? 1 : 0.4,
+                      paddingHorizontal: 20,
+                    },
+                  ]}
+                  onPress={handleSaveEntry}
+                  disabled={!journalBody.trim() || savingEntry}
+                >
+                  <Text style={[styles.saveBtnText, { color: journalBody.trim() ? theme.accent : theme.textMuted }]}>
+                    {savingEntry ? 'sealing…' : 'seal entry'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-            ))}
-            {entries.length > 3 && (
-              <TouchableOpacity
-                style={[styles.expandBtn, { borderTopColor: `${theme.border}40` }]}
-                onPress={() => setJournalExpanded(e => !e)}
-              >
-                <Text style={[styles.expandText, { color: theme.textMuted }]}>
-                  {journalExpanded ? '↑ show less' : `↓ ${entries.length - 3} more entries`}
-                </Text>
-              </TouchableOpacity>
-            )}
+            </View>
           </View>
-        )}
 
-        <View style={[styles.privacyNote, { borderColor: `${theme.border}60` }]}>
-          <Text style={[styles.privacyText, { color: theme.textMuted }]}>
-            Sanctuary · stored locally · never leaves this device
-          </Text>
-        </View>
+          {entries.length > 0 && (
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              {visibleEntries.map((entry, i) => (
+                <View
+                  key={entry.id}
+                  style={[
+                    styles.entryRow,
+                    i < visibleEntries.length - 1 && { borderBottomWidth: 1, borderBottomColor: `${theme.border}40` },
+                  ]}
+                >
+                  <View style={styles.entryMeta}>
+                    <Text style={[styles.entryTime, { color: theme.textMuted }]}>{formatTs(entry.ts)}</Text>
+                    {entry.moodScore != null && (
+                      <Text style={[styles.entryMoodBadge, { color: moodColor(entry.moodScore), borderColor: `${moodColor(entry.moodScore)}40` }]}>
+                        {moodLabel(entry.moodScore)}
+                      </Text>
+                    )}
+                    <Text style={[styles.entryPhase, { color: theme.textMuted }]}>{entry.circadianPhase}</Text>
+                    <TouchableOpacity onPress={() => handleDeleteEntry(entry.id)} hitSlop={8}>
+                      <Text style={[styles.deleteBtn, { color: `${theme.textMuted}60` }]}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={[styles.entryBody, { color: theme.text }]} numberOfLines={journalExpanded ? undefined : 4}>
+                    {entry.body}
+                  </Text>
+                </View>
+              ))}
+              {entries.length > 3 && (
+                <TouchableOpacity
+                  style={[styles.expandBtn, { borderTopColor: `${theme.border}40` }]}
+                  onPress={() => setJournalExpanded(e => !e)}
+                >
+                  <Text style={[styles.expandText, { color: theme.textMuted }]}>
+                    {journalExpanded ? '↑ show less' : `↓ ${entries.length - 3} more entries`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
-      </ScrollView>
+          <View style={[styles.privacyNote, { borderColor: `${theme.border}60` }]}>
+            <Text style={[styles.privacyText, { color: theme.textMuted }]}>
+              Sanctuary · stored locally · never leaves this device
+            </Text>
+          </View>
+
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -388,7 +421,7 @@ const styles = StyleSheet.create({
     minWidth: 56,
     borderWidth: 1,
     borderRadius: 8,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   moodBtnLabel: {
@@ -402,13 +435,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     padding: 10,
-    minHeight: 52,
+    minHeight: 56,
     lineHeight: 18,
   },
+  noteActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    paddingHorizontal: 2,
+  },
+  charHint: { fontFamily: 'CourierPrime', fontSize: 10 },
   saveBtn: {
     borderWidth: 1,
     borderRadius: 8,
-    paddingVertical: 11,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   saveBtnText: {

@@ -1,0 +1,332 @@
+Modifiers:
+High restlessness (>0.6): BPM +5, amplitude -20% (smaller, faster, more frequent check-ins)
+Night phase: BPM -10 (deeper, slower, sleep-supporting)
+Golden Hour: BPM +5 (present, protective)
+>6 hours since check-in: BPM +10, amplitude +10% (insistent but warm reminder)
+THE IMPLEMENTATION
+Step 1: Extend Sanctuary with recent mood query
+TypeScript
+Copy
+// utils/storage.ts (add to Sanctuary)
+async getRecentMoodState(): Promise<{
+  lastScore: number;
+  hoursSince: number;
+  avgRestlessness: number;
+  dominantPhase: string;
+}> {
+  if (!db) throw new Error('Sanctuary not initialized');
+  
+  const lastMood = await db.getFirstAsync<{
+    mood_score: number;
+    timestamp: string;
+    restlessness_score: number;
+    circadian_phase: string;
+  }>(
+    `SELECT mood_score, timestamp, restlessness_score, circadian_phase
+     FROM mood_logs
+     WHERE is_deleted = 0
+     ORDER BY timestamp DESC
+     LIMIT 1`
+  );
+  
+  if (!lastMood) {
+    // No data yet—neutral default
+    return {
+      lastScore: 5,
+      hoursSince: 24,
+      avgRestlessness: 0,
+      dominantPhase: 'day',
+    };
+  }
+  
+  const lastTime = new Date(lastMood.timestamp);
+  const hoursSince = (Date.now() - lastTime.getTime()) / (1000 * 60 * 60);
+  
+  // Get average restlessness from last 3 entries
+  const restlessnessRows = await db.getAllAsync<{
+    restlessness_score: number;
+  }>(
+    `SELECT restlessness_score FROM mood_logs
+     WHERE is_deleted = 0
+     ORDER BY timestamp DESC
+     LIMIT 3`
+  );
+  
+  const avgRestlessness = restlessnessRows.reduce((sum, r) => 
+    sum + (r.restlessness_score || 0), 0
+  ) / restlessnessRows.length;
+  
+  return {
+    lastScore: lastMood.mood_score,
+    hoursSince,
+    avgRestlessness,
+    dominantPhase: lastMood.circadian_phase,
+  };
+}
+Step 2: The Responsive Heart Hook
+TypeScript
+Copy
+// hooks/useResponsiveHeart.ts
+import { useEffect, useState } from 'react';
+import { useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
+import { Sanctuary } from '@/utils/storage';
+import { useCircadian } from './useCircadian';
+
+interface HeartBiometrics {
+  bpm: number;
+  inhaleMs: number;
+  holdMs: number;
+  exhaleMs: number;
+  amplitude: number; // 0.0 to 1.0
+  opacityRange: [number, number]; // [min, max]
+}
+
+export function useResponsiveHeart() {
+  const { phase } = useCircadian();
+  const [biometrics, setBiometrics] = useState<HeartBiometrics>({
+    bpm: 60,
+    inhaleMs: 2000,
+    holdMs: 500,
+    exhaleMs: 2500,
+    amplitude: 0.15,
+    opacityRange: [0.4, 0.9],
+  });
+
+  // Animated values
+  const opacity = useSharedValue(0.4);
+  const scale = useSharedValue(0.95);
+  const letterSpacing = useSharedValue(4);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const calculateBiometrics = async () => {
+      await Sanctuary.init();
+      const moodState = await Sanctuary.getRecentMoodState();
+      
+      // Base BPM from mood score
+      let bpm = 50 + (moodState.lastScore - 1) * 2.5; // 50-75 range
+      
+      // Modifiers
+      if (moodState.avgRestlessness > 0.6) bpm += 5; // Anxious = faster check-ins
+      if (phase === 'night') bpm -= 10; // Sleep support
+      if (phase === 'goldenHour') bpm += 5; // Protective presence
+      if (moodState.hoursSince > 6) bpm += 10; // Concerned reminder
+      if (moodState.hoursSince > 24) bpm += 5; // Gentle urgency
+      
+      // Clamp to healthy range
+      bpm = Math.max(45, Math.min(80, bpm));
+      
+      // Calculate cycle timing from BPM
+      const cycleMs = 60000 / bpm;
+      
+      // Inhale:Hold:Exhale ratios based on mood
+      let ratios: [number, number, number];
+      if (moodState.lastScore <= 3) {
+        // Low mood: Extended exhale (comforting)
+        ratios = [0.3, 0.2, 0.5]; // 30% inhale, 20% hold, 50% exhale
+      } else if (moodState.lastScore >= 8) {
+        // High mood: Energetic, balanced
+        ratios = [0.4, 0.1, 0.5];
+      } else {
+        // Medium: Standard box breathing
+        ratios = [0.35, 0.15, 0.5];
+      }
+      
+      const inhaleMs = cycleMs * ratios[0];
+      const holdMs = cycleMs * ratios[1];
+      const exhaleMs = cycleMs * ratios[2];
+      
+      // Amplitude: High anxiety = smaller, contained movements
+      let amplitude = 0.15; // 15% scale change
+      if (moodState.avgRestlessness > 0.7) amplitude = 0.08; // Calm, tight
+      if (moodState.hoursSince > 12) amplitude = 0.2; // "Hey, I'm here"
+      
+      // Opacity range: Deeper breaths for low moods
+      const opacityRange: [number, number] = moodState.lastScore <= 3 
+        ? [0.3, 0.8] // Gentler, softer
+        : [0.5, 1.0]; // Bright, present
+        
+      if (!isMounted) return;
+      
+      setBiometrics({
+        bpm,
+        inhaleMs,
+        holdMs,
+        exhaleMs,
+        amplitude,
+        opacityRange,
+      });
+    };
+
+    calculateBiometrics();
+    
+    // Recalculate every 5 minutes (mood may have been logged)
+    const interval = setInterval(calculateBiometrics, 5 * 60 * 1000);
+    
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [phase]);
+
+  // Apply animations when biometrics change
+  useEffect(() => {
+    const { inhaleMs, holdMs, exhaleMs, amplitude, opacityRange } = biometrics;
+    const cycleMs = inhaleMs + holdMs + exhaleMs;
+    
+    // Reset and restart with new timing
+    opacity.value = opacityRange[0];
+    scale.value = 1 - (amplitude / 2);
+    
+    // Complex breathing pattern: inhale → hold → exhale → (implied hold)
+    const animate = () => {
+      // Inhale
+      opacity.value = withTiming(opacityRange[1], {
+        duration: inhaleMs,
+        easing: Easing.out(Easing.sin),
+      });
+      scale.value = withTiming(1 + (amplitude / 2), {
+        duration: inhaleMs,
+        easing: Easing.out(Easing.sin),
+      });
+      letterSpacing.value = withTiming(6, {
+        duration: inhaleMs,
+        easing: Easing.out(Easing.sin),
+      });
+      
+      // Hold at peak (using setTimeout for sequencing)
+      setTimeout(() => {
+        // Exhale
+        opacity.value = withTiming(opacityRange[0], {
+          duration: exhaleMs,
+          easing: Easing.inOut(Easing.sin),
+        });
+        scale.value = withTiming(1 - (amplitude / 2), {
+          duration: exhaleMs,
+          easing: Easing.inOut(Easing.sin),
+        });
+        letterSpacing.value = withTiming(4, {
+          duration: exhaleMs,
+          easing: Easing.inOut(Easing.sin),
+        });
+      }, inhaleMs + holdMs);
+    };
+    
+    // Start loop
+    animate();
+    const loop = setInterval(animate, cycleMs);
+    
+    return () => clearInterval(loop);
+  }, [biometrics, opacity, scale, letterSpacing]);
+
+  return {
+    opacity,
+    scale,
+    letterSpacing,
+    biometrics, // Expose for debugging/display
+  };
+}
+Step 3: The Responsive Component
+TypeScript
+Copy
+// components/BreathingHeart.tsx
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { useResponsiveHeart } from '@/hooks/useResponsiveHeart';
+
+export function BreathingHeart() {
+  const { opacity, scale, letterSpacing, biometrics } = useResponsiveHeart();
+
+  const animatedStyle = {
+    opacity,
+    transform: [{ scale }],
+    letterSpacing,
+  };
+
+  return (
+    <View style={styles.container}>
+      <Animated.Text style={[styles.symbol, animatedStyle]}>
+        ..: :..
+      </Animated.Text>
+      
+      {/* Debug/info view (remove in production) */}
+      <Text style={styles.bpmIndicator}>
+        {Math.round(biometrics.bpm)} bpm · {
+          biometrics.bpm < 55 ? 'holding' :
+          biometrics.bpm > 70 ? 'attuned' :
+          'present'
+        }
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  symbol: {
+    fontSize: 24,
+    color: '#7fc9c9', // Accent color from theme
+    fontFamily: 'CourierPrime',
+    fontWeight: '400',
+  },
+  bpmIndicator: {
+    marginTop: 12,
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    color: '#7fc9c9',
+    opacity: 0.5,
+    textTransform: 'lowercase',
+  },
+});
+THE BEHAVIORS IN ACTION
+Scenario 1: User logged "3" mood 2 hours ago, high restlessness
+plain
+Copy
+System state: Holding + Anxious
+BPM: 55 (50 base + 5 restlessness)
+Amplitude: 0.08 (small, tight, reassuring)
+Ratio: 30% inhale / 20% hold / 50% exhale (extended comfort)
+Visual: Gentle, frequent check-ins. "I'm here. I'm here. I'm here."
+Scenario 2: User logged "8" mood 30 minutes ago
+plain
+Copy
+System state: Celebrating + Present
+BPM: 75 (70 base + 5 golden hour)
+Amplitude: 0.15 (full, open)
+Ratio: 40% inhale / 10% hold / 50% exhale (energetic)
+Visual: Bright, confident pulse. "Yes. Keep going."
+Scenario 3: No mood logged for 8 hours, night phase
+plain
+Copy
+System state: Concerned + Sleep support
+BPM: 55 (60 base + 10 concern - 10 night + 5 restlessness default)
+Amplitude: 0.2 (larger, "wake up gently")
+Ratio: Standard box breathing
+Visual: Slower but more present. "Hey. Check in when you wake."
+THE ARCHITECTURAL WIN
+Before: Animation is decoration.
+After: Animation is diagnostic.
+The ..: :.. becomes a biomonitor. A user who knows the system can glance at their loading screen and feel:
+"The app is breathing fast—I must have been restless"
+"It's slow and deep—I'm being held"
+"It's bright and quick—I'm doing well"
+And they haven't even opened the app yet.
+INTEGRATION
+Replace the static BreathingHeart in your loading screen:
+TypeScript
+Copy
+// app/loading.tsx
+import { BreathingHeart } from '@/components/BreathingHeart';
+
+// In your render:
+<View style={styles.membrane}>
+  <BreathingHeart />
+</View>
+Now the threshold ritual responds to the emotional landscape. The membrane between analog and digital has a pulse that matches the user's own.
+Ready to make the heart alive?

@@ -47,7 +47,7 @@ function CodeInput({ value, onChange, theme }: {
 }
 
 function HoldButton({
-  label, sublabel, color, onFire, disabled, theme, visual,
+  label, sublabel, color, onFire, disabled, theme, visual, holdDuration = 2000,
 }: {
   label: string;
   sublabel: string;
@@ -56,6 +56,7 @@ function HoldButton({
   disabled?: boolean;
   theme: any;
   visual?: React.ReactNode;
+  holdDuration?: number;
 }) {
   const progress = useRef(new Animated.Value(0)).current;
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -69,7 +70,7 @@ function HoldButton({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     animRef.current = Animated.timing(progress, {
       toValue: 1,
-      duration: 2000,
+      duration: holdDuration,
       useNativeDriver: false,
     });
     animRef.current.start(({ finished }) => {
@@ -142,7 +143,17 @@ function IncomingSignalBanner({ type, count, latestTs, onDismiss, theme }: {
 }) {
   const color = type === 'water' ? '#7fc9c9' : theme.gold ?? '#f0c060';
   const label = type === 'water' ? '〰 water' : '· light';
-  const countLabel = count === 1 ? 'received' : `${count} received`;
+
+  let qualityLabel: string;
+  if (type === 'water') {
+    if (count >= 4)      qualityLabel = 'deep, sustained · waters in succession';
+    else if (count >= 2) qualityLabel = 'deeper ripples · waters received';
+    else                 qualityLabel = 'ripples from them';
+  } else {
+    if (count >= 4)      qualityLabel = 'held in warmth · lights in succession';
+    else if (count >= 2) qualityLabel = 'warmth sustained · lights received';
+    else                 qualityLabel = 'warm light from them';
+  }
 
   return (
     <TouchableOpacity
@@ -153,11 +164,36 @@ function IncomingSignalBanner({ type, count, latestTs, onDismiss, theme }: {
         {type === 'water' ? <WaterBanner color={color} /> : <LightBanner color={color} />}
       </View>
       <View style={styles.signalText}>
-        <Text style={[styles.signalLabel, { color }]}>{label}</Text>
+        <Text style={[styles.signalLabel, { color }]}>{label}{count > 1 ? ` ×${count}` : ''}</Text>
         <Text style={[styles.signalFrom, { color: theme.textMuted }]}>
-          {countLabel} · {formatSignalTime(latestTs)}
+          {qualityLabel}
         </Text>
-        <Text style={[styles.signalFrom, { color: theme.textMuted, opacity: 0.6 }]}>tap to dismiss</Text>
+        <Text style={[styles.signalFrom, { color: theme.textMuted, opacity: 0.5 }]}>
+          {formatSignalTime(latestTs)} · tap to clear
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function RainbowBanner({ theme, onDismiss }: { theme: any; onDismiss: () => void }) {
+  const colors = ['#7fc9c9', '#a0d090', '#e8c56a', '#f09060', '#c09080'];
+  return (
+    <TouchableOpacity
+      onPress={onDismiss}
+      style={[styles.signalBanner, { backgroundColor: '#ffffff10', borderColor: '#ffffff30' }]}
+    >
+      <View style={styles.rainbowDots}>
+        {colors.map((c, i) => (
+          <View key={i} style={[styles.rainbowDot, { backgroundColor: c }]} />
+        ))}
+      </View>
+      <View style={styles.signalText}>
+        <Text style={[styles.signalLabel, { color: '#e8c56a' }]}>the garden opens</Text>
+        <Text style={[styles.signalFrom, { color: theme.textMuted }]}>
+          water and light together · prism through the orchid
+        </Text>
+        <Text style={[styles.signalFrom, { color: theme.textMuted, opacity: 0.5 }]}>tap to clear</Text>
       </View>
     </TouchableOpacity>
   );
@@ -175,53 +211,79 @@ function formatSignalTime(ts: number): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ` · ${time}`;
 }
 
-function PresenceLogSection({
+const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+function GardenPath({
   log, theme, onClear,
 }: {
   log: PresenceLogEntry[];
   theme: any;
   onClear: (type?: 'water' | 'light') => void;
 }) {
-  const waterEntries = log.filter(e => e.type === 'water');
-  const lightEntries = log.filter(e => e.type === 'light');
-  const lastWater = waterEntries.length ? waterEntries[waterEntries.length - 1] : null;
-  const lastLight = lightEntries.length ? lightEntries[lightEntries.length - 1] : null;
+  const now = Date.now();
+  const visible = log
+    .filter(e => now - e.timestamp < TWENTY_FOUR_HOURS)
+    .slice(-30)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  const waterCount = visible.filter(e => e.type === 'water').length;
+  const lightCount = visible.filter(e => e.type === 'light').length;
 
   return (
     <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.cardInner}>
-        {lastWater && (
-          <View style={styles.logRow}>
-            <View style={styles.logLeft}>
-              <Text style={[styles.logType, { color: '#7fc9c9' }]}>〰 water</Text>
-              <Text style={[styles.logCount, { color: theme.textMuted }]}>
-                {waterEntries.length}× · last {formatSignalTime(lastWater.timestamp)}
-              </Text>
+        <Text style={[styles.logHint, { color: theme.textMuted }]}>
+          footprints in the garden · fades in 24 hours
+        </Text>
+
+        {/* The path */}
+        <View style={styles.gardenPath}>
+          {visible.map(entry => {
+            const age = now - entry.timestamp;
+            const opacity = Math.max(0.1, 1 - age / TWENTY_FOUR_HOURS);
+            const size = entry.type === 'water' ? 10 : 8;
+            const color = entry.type === 'water' ? '#7fc9c9' : (theme.gold ?? '#e8c56a');
+            return (
+              <View
+                key={entry.id}
+                style={[
+                  styles.gardenDot,
+                  {
+                    width: size,
+                    height: size,
+                    borderRadius: size / 2,
+                    backgroundColor: color,
+                    opacity,
+                  },
+                ]}
+              />
+            );
+          })}
+          {visible.length === 0 && (
+            <Text style={[styles.logHint, { color: theme.textMuted, opacity: 0.4 }]}>
+              the path is empty
+            </Text>
+          )}
+        </View>
+
+        {/* Counts row */}
+        <View style={styles.gardenCounts}>
+          {waterCount > 0 && (
+            <View style={styles.gardenCountItem}>
+              <Text style={[styles.gardenCountNum, { color: '#7fc9c9' }]}>{waterCount}</Text>
+              <Text style={[styles.gardenCountLabel, { color: theme.textMuted }]}>〰 water</Text>
             </View>
-            <TouchableOpacity onPress={() => onClear('water')} style={styles.logClear}>
-              <Text style={[styles.logClearText, { color: theme.textMuted }]}>clear</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        {lastWater && lastLight && (
-          <View style={[styles.logDivider, { backgroundColor: theme.border }]} />
-        )}
-        {lastLight && (
-          <View style={styles.logRow}>
-            <View style={styles.logLeft}>
-              <Text style={[styles.logType, { color: theme.gold ?? '#e8c56a' }]}>· light</Text>
-              <Text style={[styles.logCount, { color: theme.textMuted }]}>
-                {lightEntries.length}× · last {formatSignalTime(lastLight.timestamp)}
-              </Text>
+          )}
+          {lightCount > 0 && (
+            <View style={styles.gardenCountItem}>
+              <Text style={[styles.gardenCountNum, { color: theme.gold ?? '#e8c56a' }]}>{lightCount}</Text>
+              <Text style={[styles.gardenCountLabel, { color: theme.textMuted }]}>· light</Text>
             </View>
-            <TouchableOpacity onPress={() => onClear('light')} style={styles.logClear}>
-              <Text style={[styles.logClearText, { color: theme.textMuted }]}>clear</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        <TouchableOpacity onPress={() => onClear()} style={{ marginTop: 14, alignSelf: 'center' }}>
-          <Text style={[styles.logClearText, { color: theme.textMuted, opacity: 0.6 }]}>clear all</Text>
-        </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => onClear()} style={{ marginLeft: 'auto' as any }}>
+            <Text style={[styles.logClearText, { color: theme.textMuted, opacity: 0.5 }]}>clear</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -247,6 +309,11 @@ export default function SponsorScreen() {
   const [checkedInDate, setCheckedInDate] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
+
+  // Accumulation + rainbow ritual tracking
+  const [sentSignalLog, setSentSignalLog] = useState<{ type: 'water' | 'light'; ts: number }[]>([]);
+  const [rainbowActive, setRainbowActive] = useState(false);
+  const rainbowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
@@ -308,6 +375,26 @@ export default function SponsorScreen() {
     setCheckedIn(false);
     setCheckedInDate(null);
     setMessageInput('');
+    setSentSignalLog([]);
+    setRainbowActive(false);
+    if (rainbowTimer.current) clearTimeout(rainbowTimer.current);
+  };
+
+  const handleSendPresence = (type: 'water' | 'light') => {
+    sendPresence(type);
+    const now = Date.now();
+    setSentSignalLog(prev => {
+      const next = [...prev.filter(s => now - s.ts < 90_000), { type, ts: now }];
+      // Rainbow: opposite type was sent within 60 seconds
+      const opposite = type === 'water' ? 'light' : 'water';
+      const hasOpposite = next.some(s => s.type === opposite && now - s.ts < 60_000);
+      if (hasOpposite && !rainbowActive) {
+        setRainbowActive(true);
+        if (rainbowTimer.current) clearTimeout(rainbowTimer.current);
+        rainbowTimer.current = setTimeout(() => setRainbowActive(false), 45_000);
+      }
+      return next;
+    });
   };
 
   const handleSendMessage = async () => {
@@ -326,7 +413,7 @@ export default function SponsorScreen() {
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: botPad + 16 }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
       >
         {/* Incoming signal banners */}
         {(['water', 'light'] as const).map(type => {
@@ -344,6 +431,11 @@ export default function SponsorScreen() {
             />
           );
         })}
+
+        {/* Rainbow banner — water + light in sequence */}
+        {rainbowActive && (
+          <RainbowBanner theme={theme} onDismiss={() => setRainbowActive(false)} />
+        )}
 
         <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>sponsor presence</Text>
 
@@ -505,31 +597,36 @@ export default function SponsorScreen() {
             <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 20 }]}>send presence</Text>
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={styles.cardInner}>
-                <Text style={[styles.holdHint, { color: theme.textMuted }]}>Hold for 2 seconds to send. Accidental taps are ignored.</Text>
+                <Text style={[styles.holdHint, { color: theme.textMuted }]}>
+                  Water: hold 2 seconds — the longer you hold, the longer they feel it.{'\n'}
+                  Light: quick press — contact, then 8 seconds of resonance.
+                </Text>
                 <HoldButton
                   label="water"
-                  sublabel="cool · present · hold to send"
+                  sublabel="cool · present · hold to pour"
                   color="#7fc9c9"
-                  onFire={() => sendPresence('water')}
+                  onFire={() => handleSendPresence('water')}
                   theme={theme}
                   visual={<WaterVisual color="#7fc9c9" />}
+                  holdDuration={2000}
                 />
                 <HoldButton
                   label="light"
-                  sublabel="warm · witnessed · hold to send"
+                  sublabel="warm · witnessed · press to strike"
                   color={theme.gold ?? '#e8c56a'}
-                  onFire={() => sendPresence('light')}
+                  onFire={() => handleSendPresence('light')}
                   theme={theme}
                   visual={<LightVisual color={theme.gold ?? '#e8c56a'} />}
+                  holdDuration={700}
                 />
               </View>
             </View>
 
-            {/* ── PRESENCE RECEIVED LOG ─────────────────────────────────── */}
+            {/* ── GARDEN PATH ───────────────────────────────────────────── */}
             {presenceLog.length > 0 && (
               <>
-                <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 20 }]}>presence received</Text>
-                <PresenceLogSection
+                <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 20 }]}>the garden path</Text>
+                <GardenPath
                   log={presenceLog}
                   theme={theme}
                   onClear={clearPresenceLog}
@@ -583,24 +680,26 @@ export default function SponsorScreen() {
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={styles.cardInner}>
                 <Text style={[styles.holdHint, { color: theme.textMuted }]}>
-                  Hold for 2 seconds. They will feel it — no notification, no banner.{'\n'}
-                  Just a signal on their screen.
+                  Water: hold 2 seconds — the longer you hold, the longer they feel it.{'\n'}
+                  Light: quick press — contact, then 8 seconds of resonance.
                 </Text>
                 <HoldButton
                   label="water"
                   sublabel="cool · present · hold to pour"
                   color="#7fc9c9"
-                  onFire={() => sendPresence('water')}
+                  onFire={() => handleSendPresence('water')}
                   theme={theme}
                   visual={<WaterVisual color="#7fc9c9" />}
+                  holdDuration={2000}
                 />
                 <HoldButton
                   label="light"
-                  sublabel="warm · witnessed · hold to give"
+                  sublabel="warm · witnessed · press to strike"
                   color={theme.gold ?? '#e8c56a'}
-                  onFire={() => sendPresence('light')}
+                  onFire={() => handleSendPresence('light')}
                   theme={theme}
                   visual={<LightVisual color={theme.gold ?? '#e8c56a'} />}
+                  holdDuration={700}
                 />
               </View>
             </View>
@@ -837,6 +936,39 @@ const styles = StyleSheet.create({
   logClear: { paddingLeft: 16, paddingVertical: 4 },
   logClearText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textDecorationLine: 'underline' },
   logDivider: { height: 1, marginVertical: 8 },
+  logHint: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5, opacity: 0.7 },
+
+  gardenPath: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    minHeight: 28,
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  gardenDot: { flexShrink: 0 },
+  gardenCounts: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    paddingTop: 10,
+  },
+  gardenCountItem: { alignItems: 'center', gap: 2 },
+  gardenCountNum: { fontFamily: 'CourierPrime-Bold', fontSize: 16 },
+  gardenCountLabel: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1 },
+
+  rainbowDots: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    width: 12,
+    flexShrink: 0,
+  },
+  rainbowDot: { width: 8, height: 8, borderRadius: 4 },
 
   msgSectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   msgChevron: { fontFamily: 'CourierPrime', fontSize: 10, marginBottom: 3, paddingLeft: 8 },
