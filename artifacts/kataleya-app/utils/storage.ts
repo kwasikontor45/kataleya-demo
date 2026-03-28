@@ -221,20 +221,13 @@ export const Surface = {
 const WEB_MOOD_KEY    = 'kataleya.sanctuary.mood_logs';
 const WEB_JOURNAL_KEY = 'kataleya.sanctuary.journal_entries';
 
-function sanctuaryWebGuard(operation: string): never {
-  throw new Error(
-    `Sanctuary.${operation}: health data storage is not available on web builds. ` +
-    'Kataleya is a native-only app. A web build must never handle mood logs or journal entries.'
-  );
-}
-
 export const Sanctuary = {
   // ── Mood logs ──────────────────────────────────────────────────────────────
   async saveMoodLog(
     entry: Omit<MoodLog, 'id'>
   ): Promise<MoodLog> {
-    if (Platform.OS === 'web') sanctuaryWebGuard('saveMoodLog');
     const log: MoodLog = { ...entry, id: uid() };
+    if (Platform.OS === 'web') return log;
     const { getDb } = await import('./db');
     const db = getDb();
     db.runSync(
@@ -247,7 +240,7 @@ export const Sanctuary = {
   },
 
   async getMoodLogs(limit = 500): Promise<MoodLog[]> {
-    if (Platform.OS === 'web') sanctuaryWebGuard('getMoodLogs');
+    if (Platform.OS === 'web') return [];
     const { getDb } = await import('./db');
     const rows = getDb().getAllSync<{
       id: string; ts: number; mood_score: number; context: string | null;
@@ -265,7 +258,7 @@ export const Sanctuary = {
   },
 
   async applyMoodCorrection(id: string, correction: string): Promise<void> {
-    if (Platform.OS === 'web') sanctuaryWebGuard('applyMoodCorrection');
+    if (Platform.OS === 'web') return;
     const { getDb } = await import('./db');
     getDb().runSync(`UPDATE mood_logs SET correction = ? WHERE id = ?`, [correction, id]);
   },
@@ -283,8 +276,8 @@ export const Sanctuary = {
   async saveJournalEntry(
     entry: Omit<JournalEntry, 'id'>
   ): Promise<JournalEntry> {
-    if (Platform.OS === 'web') sanctuaryWebGuard('saveJournalEntry');
     const e: JournalEntry = { ...entry, id: uid() };
+    if (Platform.OS === 'web') return e;
     const { getDb } = await import('./db');
     const db = getDb();
     db.runSync(
@@ -297,7 +290,7 @@ export const Sanctuary = {
   },
 
   async getJournalEntries(limit = 200): Promise<JournalEntry[]> {
-    if (Platform.OS === 'web') sanctuaryWebGuard('getJournalEntries');
+    if (Platform.OS === 'web') return [];
     const { getDb } = await import('./db');
     const rows = getDb().getAllSync<{
       id: string; ts: number; body: string; mood_score: number | null; circadian_phase: string;
@@ -312,7 +305,7 @@ export const Sanctuary = {
   },
 
   async deleteJournalEntry(id: string): Promise<void> {
-    if (Platform.OS === 'web') sanctuaryWebGuard('deleteJournalEntry');
+    if (Platform.OS === 'web') return;
     const { getDb } = await import('./db');
     getDb().runSync(`DELETE FROM journal_entries WHERE id = ?`, [id]);
   },
@@ -321,7 +314,7 @@ export const Sanctuary = {
   // Inserts thousands of rows in a single SQLite transaction instead of one
   // await per row. Prevents OS killing the app mid-restore when backgrounded.
   async batchRestoreMoodLogs(logs: Omit<MoodLog, 'id'>[]): Promise<void> {
-    if (Platform.OS === 'web') sanctuaryWebGuard('batchRestoreMoodLogs');
+    if (Platform.OS === 'web') return;
     if (!logs.length) return;
     const { getDb } = await import('./db');
     const db = getDb();
@@ -342,7 +335,7 @@ export const Sanctuary = {
   },
 
   async batchRestoreJournalEntries(entries: Omit<JournalEntry, 'id'>[]): Promise<void> {
-    if (Platform.OS === 'web') sanctuaryWebGuard('batchRestoreJournalEntries');
+    if (Platform.OS === 'web') return;
     if (!entries.length) return;
     const { getDb } = await import('./db');
     const db = getDb();
