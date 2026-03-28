@@ -133,32 +133,27 @@ function HoldButton({
   );
 }
 
-function IncomingSignalBanner({ signal, onDismiss, theme }: {
-  signal: { id: string; type: 'water' | 'light'; from: string; timestamp: number };
-  onDismiss: (id: string) => void;
+function IncomingSignalBanner({ type, count, onDismiss, theme }: {
+  type: 'water' | 'light';
+  count: number;
+  onDismiss: (type: 'water' | 'light') => void;
   theme: any;
 }) {
-  const color = signal.type === 'water' ? '#7fc9c9' : theme.gold ?? '#f0c060';
-  const label = signal.type === 'water' ? '〰 water' : '· light';
-  const from = signal.from === 'user' ? 'from them' : 'from sponsor';
-
-  useEffect(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [signal.id]);
+  const color = type === 'water' ? '#7fc9c9' : theme.gold ?? '#f0c060';
+  const label = type === 'water' ? '〰 water' : '· light';
+  const countLabel = count === 1 ? 'received' : `${count} received`;
 
   return (
     <TouchableOpacity
-      onPress={() => onDismiss(signal.id)}
+      onPress={() => onDismiss(type)}
       style={[styles.signalBanner, { backgroundColor: `${color}15`, borderColor: `${color}40` }]}
     >
       <View style={styles.signalIconWrap}>
-        {signal.type === 'water'
-          ? <WaterBanner color={color} />
-          : <LightBanner color={color} />}
+        {type === 'water' ? <WaterBanner color={color} /> : <LightBanner color={color} />}
       </View>
       <View style={styles.signalText}>
         <Text style={[styles.signalLabel, { color }]}>{label}</Text>
-        <Text style={[styles.signalFrom, { color: theme.textMuted }]}>{from} · tap to dismiss</Text>
+        <Text style={[styles.signalFrom, { color: theme.textMuted }]}>{countLabel} · tap to dismiss</Text>
       </View>
     </TouchableOpacity>
   );
@@ -234,7 +229,7 @@ export default function SponsorScreen() {
   const {
     role, connState, inviteCode, status, incomingSignals, presenceLog,
     error, createInvite, acceptInvite, sendPresence, sendCheckIn,
-    disconnect, dismissSignal, clearPresenceLog, isConnected,
+    disconnect, dismissSignal, dismissSignalsByType, clearPresenceLog, isConnected,
   } = useSponsorChannel();
 
   const [roleChoice, setRoleChoice] = useState<RoleChoice>(null);
@@ -315,9 +310,19 @@ export default function SponsorScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Incoming signal banners */}
-        {incomingSignals.map(sig => (
-          <IncomingSignalBanner key={sig.id} signal={sig} onDismiss={dismissSignal} theme={theme} />
-        ))}
+        {(['water', 'light'] as const).map(type => {
+          const count = incomingSignals.filter(s => s.type === type).length;
+          if (!count) return null;
+          return (
+            <IncomingSignalBanner
+              key={type}
+              type={type}
+              count={count}
+              onDismiss={dismissSignalsByType}
+              theme={theme}
+            />
+          );
+        })}
 
         <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>sponsor presence</Text>
 

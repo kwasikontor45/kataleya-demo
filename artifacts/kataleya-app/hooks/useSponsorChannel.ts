@@ -256,6 +256,10 @@ export function useSponsorChannel() {
     setIncomingSignals(prev => prev.filter(s => s.id !== id));
   }, []);
 
+  const dismissSignalsByType = useCallback((type: 'water' | 'light') => {
+    setIncomingSignals(prev => prev.filter(s => s.type !== type));
+  }, []);
+
   const clearPresenceLog = useCallback(async (type?: 'water' | 'light') => {
     await Surface.clearPresenceLog(type);
     setPresenceLog(await Surface.getPresenceLog());
@@ -276,6 +280,7 @@ export function useSponsorChannel() {
     sendCheckIn,
     disconnect,
     dismissSignal,
+    dismissSignalsByType,
     clearPresenceLog,
     isConnected: connState === 'connected',
   };
