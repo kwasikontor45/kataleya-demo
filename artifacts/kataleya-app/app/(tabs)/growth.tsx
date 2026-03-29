@@ -1,139 +1,160 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Platform,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useCircadian } from '@/hooks/useCircadian';
 import { useSobriety } from '@/hooks/useSobriety';
 import { useInsights } from '@/hooks/useInsights';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
+import { NeonCard, NEON_RGB } from '@/components/NeonCard';
+
+function phaseAccentRgb(phase: string): string {
+  if (phase === 'goldenHour') return NEON_RGB.amber;
+  if (phase === 'night')      return NEON_RGB.violet;
+  if (phase === 'dawn')       return NEON_RGB.pink;
+  return NEON_RGB.cyan;
+}
+
+// Confidence → glow intensity for insight cards
+function confidenceToIntensity(confidence: number): number {
+  return 0.04 + confidence * 0.1;
+}
 
 export default function GrowthScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { theme } = useCircadian();
+  const { theme, phase } = useCircadian();
   const { sobriety } = useSobriety();
   const { insights, loading: insightsLoading, dataAgeDays, hasEnoughData } = useInsights();
+  const accentRgb = phaseAccentRgb(phase);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: botPad + 16 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>season of growth</Text>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: botPad + 16 }]} showsVerticalScrollIndicator={false}>
 
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          {sobriety.milestones.map((m, i) => (
-            <View
-              key={m.days}
-              style={[
-                styles.milestoneRow,
-                i < sobriety.milestones.length - 1 && { borderBottomWidth: 1, borderBottomColor: `${theme.border}60` },
-                !m.achieved && { opacity: 0.35 },
-              ]}
-            >
-              <View style={styles.milestoneLeft}>
-                <View
-                  style={[
-                    styles.dot,
-                    { backgroundColor: m.achieved ? theme.accent : theme.border },
-                    m.achieved && { shadowColor: theme.accent, shadowRadius: 6, shadowOpacity: 0.5, elevation: 3 },
-                  ]}
-                />
-                <Text style={[styles.milestoneLabel, { color: theme.text }]}>{m.label}</Text>
-              </View>
-              <Text style={[styles.milestoneDays, { color: theme.textMuted }]}>
-                {m.days} {m.days === 1 ? 'day' : 'days'}
-              </Text>
-            </View>
-          ))}
-        </View>
+        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)` }]}>season of growth</Text>
 
+        {/* Milestone dot timeline */}
+        <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.04} borderIntensity={0.14} style={styles.timelineCard}>
+          <View style={styles.timelineInner}>
+            {sobriety.milestones.map((m, i) => {
+              const isActive = m.achieved && (i === sobriety.milestones.length - 1 || !sobriety.milestones[i + 1].achieved);
+              const isLast = i === sobriety.milestones.length - 1;
+              return (
+                <View key={m.days} style={styles.milestoneItem}>
+                  <View style={styles.milestoneLeft}>
+                    {/* Connecting line */}
+                    {!isLast && (
+                      <View style={[styles.milestoneLine, {
+                        backgroundColor: m.achieved && sobriety.milestones[i + 1]?.achieved
+                          ? `rgba(${accentRgb},0.4)`
+                          : `rgba(${accentRgb},0.08)`,
+                      }]} />
+                    )}
+                    {/* Dot */}
+                    <View style={[
+                      styles.milestoneDot,
+                      {
+                        width: isActive ? 12 : 8,
+                        height: isActive ? 12 : 8,
+                        borderRadius: isActive ? 6 : 4,
+                        backgroundColor: m.achieved ? `rgba(${accentRgb},0.9)` : `rgba(${accentRgb},0.12)`,
+                        borderWidth: isActive ? 2 : 0,
+                        borderColor: `rgba(${accentRgb},0.5)`,
+                      },
+                    ]} />
+                  </View>
+                  <View style={[styles.milestoneContent, { opacity: m.achieved ? 1 : 0.3 }]}>
+                    <Text style={[styles.milestoneLabel, { color: isActive ? `rgba(${accentRgb},0.95)` : theme.text }]}>
+                      {m.label}
+                    </Text>
+                    <Text style={[styles.milestoneDays, { color: `${theme.textMuted}70` }]}>
+                      {m.days} {m.days === 1 ? 'day' : 'days'}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </NeonCard>
+
+        {/* Next milestone */}
         {sobriety.nextMilestone && (
           <>
-            <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 24 }]}>next bloom</Text>
-            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>next bloom</Text>
+            <NeonCard theme={theme} accentRgb={accentRgb} style={styles.nextCard}>
               <View style={styles.nextBloom}>
-                <Text style={[styles.nextDays, { color: theme.accent }]}>
+                <Text style={[styles.nextDays, { color: `rgba(${accentRgb},0.95)` }]}>
                   {sobriety.nextMilestone.days - sobriety.daysSober}
                 </Text>
-                <Text style={[styles.nextLabel, { color: theme.textMuted }]}>
+                <Text style={[styles.nextLabel, { color: `rgba(${accentRgb},0.5)` }]}>
                   days until {sobriety.nextMilestone.label}
                 </Text>
-                <View style={[styles.progressTrack, { backgroundColor: theme.border }]}>
-                  <View
-                    style={[styles.progressFill, { width: `${sobriety.progressToNext * 100}%`, backgroundColor: theme.accent }]}
-                  />
+                <View style={[styles.progressTrack, { backgroundColor: `rgba(${accentRgb},0.1)` }]}>
+                  <View style={[styles.progressFill, { width: `${sobriety.progressToNext * 100}%`, backgroundColor: `rgba(${accentRgb},0.65)` }]} />
                 </View>
               </View>
-            </View>
+            </NeonCard>
           </>
         )}
 
+        {/* No date set */}
         {!sobriety.startDate && (
-          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <NeonCard theme={theme} accentRgb={accentRgb} style={styles.emptyCard}>
             <View style={styles.emptyBlock}>
-              <Text style={[styles.emptyGlyph, { color: `${theme.accent}50` }]}>⟡</Text>
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                the season hasn't begun yet.{'\n'}
-                plant your date in the sanctuary and growth appears here.
+              <Text style={[styles.emptyGlyph, { color: `rgba(${accentRgb},0.25)` }]}>⟡</Text>
+              <Text style={[styles.emptyText, { color: `${theme.textMuted}70` }]}>
+                the season hasn't begun yet.{'\n'}plant your date in the sanctuary and growth appears here.
               </Text>
             </View>
-          </View>
+          </NeonCard>
         )}
 
-        {/* ── Insights section ────────────────────────────────────────── */}
+        {/* Insights */}
         {!insightsLoading && (
           <>
-            <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 24 }]}>patterns</Text>
+            <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>patterns</Text>
 
             {!hasEnoughData ? (
-              <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <Text style={[styles.insightEmpty, { color: theme.textMuted }]}>
-                  patterns form in silence.{'\n'}
-                  log your mood for a few days and they'll surface here — no server, no model, just your data.
+              <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.1}>
+                <View style={styles.emptyBlock}>
+                  <Text style={[styles.emptyGlyph, { color: `rgba(${accentRgb},0.2)` }]}>⟡</Text>
+                  <Text style={[styles.insightEmpty, { color: `${theme.textMuted}70` }]}>
+                    patterns form in silence.{'\n'}log your mood for a few days and they'll surface here — no server, no model, just your data.
+                  </Text>
+                </View>
+              </NeonCard>
+            ) : insights.length === 0 ? (
+              <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.1}>
+                <Text style={[styles.insightEmpty, { color: `${theme.textMuted}70` }]}>
+                  no patterns strong enough to surface yet. keep logging.
                 </Text>
-              </View>
+              </NeonCard>
             ) : (
               <>
-                {insights.length === 0 ? (
-                  <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                    <Text style={[styles.insightEmpty, { color: theme.textMuted }]}>
-                      No patterns strong enough to surface yet. Keep logging.
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                    {insights.map((ins, i) => (
-                      <View
-                        key={ins.id}
-                        style={[
-                          styles.insightRow,
-                          i < insights.length - 1 && { borderBottomWidth: 1, borderBottomColor: `${theme.border}60` },
-                        ]}
-                      >
-                        <Text style={[styles.insightText, { color: theme.text }]}>{ins.message}</Text>
-                        <Text style={[styles.insightMeta, { color: theme.textMuted }]}>
-                          {ins.n} observations · {Math.round(ins.confidence * 100)}% confidence
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
+                {insights.map(ins => (
+                  <NeonCard
+                    key={ins.id}
+                    theme={theme}
+                    accentRgb={accentRgb}
+                    fillIntensity={confidenceToIntensity(ins.confidence)}
+                    borderIntensity={0.1 + ins.confidence * 0.15}
+                    style={styles.insightCard}
+                  >
+                    <View style={styles.insightInner}>
+                      <Text style={[styles.insightText, { color: `${theme.text}ee` }]}>{ins.message}</Text>
+                      <Text style={[styles.insightMeta, { color: `rgba(${accentRgb},0.45)` }]}>
+                        {ins.n} observations · {Math.round(ins.confidence * 100)}% confidence
+                      </Text>
+                    </View>
+                  </NeonCard>
+                ))}
                 {dataAgeDays > 30 && (
-                  <Text style={[styles.insightAgeNote, { color: theme.textMuted }]}>
-                    Based on your logs from {dataAgeDays} days ago. Log today to refresh.
+                  <Text style={[styles.ageNote, { color: `${theme.textMuted}60` }]}>
+                    based on your logs from {dataAgeDays} days ago. log today to refresh.
                   </Text>
                 )}
               </>
@@ -141,12 +162,12 @@ export default function GrowthScreen() {
           </>
         )}
 
-        <View style={[styles.privacyNote, { borderColor: `${theme.border}60` }]}>
-          <Text style={[styles.privacyText, { color: theme.textMuted }]}>
+        <View style={[styles.privacyNote, { borderColor: `rgba(${accentRgb},0.1)` }]}>
+          <Text style={[styles.privacyText, { color: `${theme.textMuted}45` }]}>
             all growth data lives only on this device
           </Text>
           <TouchableOpacity onPress={() => router.push('/privacy')} hitSlop={8}>
-            <Text style={[styles.privacyLink, { color: `${theme.textMuted}55` }]}>privacy →</Text>
+            <Text style={[styles.privacyLink, { color: `rgba(${accentRgb},0.35)` }]}>privacy →</Text>
           </TouchableOpacity>
         </View>
 
@@ -158,132 +179,33 @@ export default function GrowthScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingHorizontal: 20, gap: 8 },
-  sectionLabel: {
-    fontFamily: 'CourierPrime',
-    fontSize: 10,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  card: {
-    borderWidth: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  milestoneRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  milestoneLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    flexShrink: 0,
-  },
-  milestoneLabel: {
-    fontFamily: 'CourierPrime',
-    fontSize: 13,
-    flexShrink: 1,
-  },
-  milestoneDays: {
-    fontFamily: 'CourierPrime',
-    fontSize: 11,
-    letterSpacing: 0.5,
-    flexShrink: 0,
-    marginLeft: 8,
-  },
-  nextBloom: {
-    padding: 20,
-    alignItems: 'center',
-    gap: 8,
-  },
-  nextDays: {
-    fontFamily: 'CourierPrime',
-    fontSize: 48,
-    fontWeight: '700',
-    lineHeight: 56,
-  },
-  nextLabel: {
-    fontFamily: 'CourierPrime',
-    fontSize: 12,
-    letterSpacing: 1,
-  },
-  progressTrack: {
-    height: 2,
-    width: '100%',
-    borderRadius: 1,
-    marginTop: 8,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 1,
-  },
+  sectionLabel: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 4 },
+  timelineCard: { width: '100%' },
+  timelineInner: { padding: 16, gap: 0 },
+  milestoneItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, minHeight: 44 },
+  milestoneLeft: { alignItems: 'center', width: 12, paddingTop: 4 },
+  milestoneLine: { position: 'absolute', top: 16, width: 1, height: 36 },
+  milestoneDot: { flexShrink: 0 },
+  milestoneContent: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12 },
+  milestoneLabel: { fontFamily: 'CourierPrime', fontSize: 13 },
+  milestoneDays: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 0.5 },
+  nextCard: { width: '100%' },
+  nextBloom: { padding: 20, alignItems: 'center', gap: 8 },
+  nextDays: { fontFamily: 'CourierPrime', fontSize: 48, fontWeight: '700', lineHeight: 56 },
+  nextLabel: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 1 },
+  progressTrack: { height: 2, width: '100%', borderRadius: 1, marginTop: 8, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 1 },
+  emptyCard: { width: '100%' },
   emptyBlock: { padding: 24, alignItems: 'center', gap: 12 },
   emptyGlyph: { fontSize: 28, lineHeight: 34 },
-  emptyText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 21,
-  },
-  privacyNote: {
-    borderTopWidth: 1,
-    paddingTop: 16,
-    marginTop: 8,
-    alignItems: 'center',
-    gap: 6,
-  },
-  privacyText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 10,
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-  privacyLink: {
-    fontFamily: 'CourierPrime',
-    fontSize: 10,
-    letterSpacing: 1.5,
-  },
-  insightEmpty: {
-    fontFamily: 'CourierPrime',
-    fontSize: 13,
-    lineHeight: 20,
-    textAlign: 'center',
-    padding: 20,
-  },
-  insightRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 4,
-  },
-  insightText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  insightMeta: {
-    fontFamily: 'CourierPrime',
-    fontSize: 10,
-    letterSpacing: 0.5,
-  },
-  insightAgeNote: {
-    fontFamily: 'CourierPrime',
-    fontSize: 11,
-    letterSpacing: 0.5,
-    textAlign: 'center',
-    lineHeight: 16,
-    marginTop: 4,
-    opacity: 0.7,
-  },
+  emptyText: { fontFamily: 'CourierPrime', fontSize: 13, textAlign: 'center', lineHeight: 21 },
+  insightCard: { width: '100%' },
+  insightInner: { padding: 16, gap: 6 },
+  insightEmpty: { fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 20, textAlign: 'center', padding: 20 },
+  insightText: { fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 20 },
+  insightMeta: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5 },
+  ageNote: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 0.5, textAlign: 'center', lineHeight: 16, marginTop: 4 },
+  privacyNote: { borderTopWidth: 1, paddingTop: 16, marginTop: 8, alignItems: 'center', gap: 6 },
+  privacyText: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1, textAlign: 'center' },
+  privacyLink: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1.5 },
 });
-

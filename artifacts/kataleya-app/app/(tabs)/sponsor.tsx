@@ -1,15 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Pressable,
-  Animated,
-  Platform,
-  Keyboard,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, Pressable, Animated, Platform, Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -19,47 +11,50 @@ import { useSponsorChannel } from '@/hooks/useSponsorChannel';
 import { WaterVisual, LightVisual, WaterBanner, LightBanner } from '@/components/SignalIcons';
 import { sponsorWater, sponsorLight } from '@/utils/hapticBloom';
 import type { PresenceLogEntry } from '@/hooks/useSponsorChannel';
+import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 
 type RoleChoice = 'user' | 'sponsor' | null;
 
-function CodeInput({ value, onChange, theme }: {
-  value: string;
-  onChange: (v: string) => void;
-  theme: any;
+const WATER_RGB = NEON_RGB.cyan;    // 127,201,201
+const LIGHT_RGB = NEON_RGB.amber;   // 232,197,106
+const DANGER_RGB = '255,107,107';
+
+function phaseAccentRgb(phase: string): string {
+  if (phase === 'goldenHour') return NEON_RGB.amber;
+  if (phase === 'night')      return NEON_RGB.violet;
+  if (phase === 'dawn')       return NEON_RGB.pink;
+  return NEON_RGB.cyan;
+}
+
+function CodeInput({ value, onChange, theme, accentRgb }: {
+  value: string; onChange: (v: string) => void; theme: any; accentRgb: string;
 }) {
   return (
     <TextInput
       value={value}
       onChangeText={t => onChange(t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
       placeholder="XXXXXX"
-      placeholderTextColor={theme.textMuted}
+      placeholderTextColor={`rgba(${accentRgb},0.3)`}
       autoCapitalize="characters"
       autoCorrect={false}
       maxLength={6}
       returnKeyType="done"
       style={[styles.codeInput, {
-        color: theme.accent,
-        borderColor: value.length === 6 ? theme.accent : theme.border,
-        backgroundColor: theme.surface,
+        color: `rgba(${accentRgb},0.95)`,
+        borderColor: value.length === 6 ? `rgba(${accentRgb},0.6)` : `rgba(${accentRgb},0.2)`,
+        backgroundColor: `rgba(${accentRgb},0.05)`,
       }]}
     />
   );
 }
 
 function HoldButton({
-  label, sublabel, color, onFire, disabled, theme, visual, holdDuration = 2000,
+  label, sublabel, colorRgb, onFire, disabled, theme, visual, holdDuration = 2000,
 }: {
-  label: string;
-  sublabel: string;
-  color: string;
-  onFire: () => void;
-  disabled?: boolean;
-  theme: any;
-  visual?: React.ReactNode;
-  holdDuration?: number;
+  label: string; sublabel: string; colorRgb: string; onFire: () => void;
+  disabled?: boolean; theme: any; visual?: React.ReactNode; holdDuration?: number;
 }) {
   const progress = useRef(new Animated.Value(0)).current;
-  const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
   const [holding, setHolding] = useState(false);
   const [fired, setFired] = useState(false);
@@ -68,33 +63,27 @@ function HoldButton({
     if (disabled || fired) return;
     setHolding(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    animRef.current = Animated.timing(progress, {
-      toValue: 1,
-      duration: holdDuration,
-      useNativeDriver: false,
-    });
+    animRef.current = Animated.timing(progress, { toValue: 1, duration: holdDuration, useNativeDriver: false });
     animRef.current.start(({ finished }) => {
       if (finished) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        onFire();
-        setFired(true);
-        setHolding(false);
+        onFire(); setFired(true); setHolding(false);
         setTimeout(() => {
           setFired(false);
           Animated.timing(progress, { toValue: 0, duration: 400, useNativeDriver: false }).start();
         }, 3000);
       }
     });
-  }, [disabled, fired, onFire, progress]);
+  }, [disabled, fired, onFire, progress, holdDuration]);
 
   const cancel = useCallback(() => {
     if (fired) return;
-    setHolding(false);
-    animRef.current?.stop();
+    setHolding(false); animRef.current?.stop();
     Animated.timing(progress, { toValue: 0, duration: 300, useNativeDriver: false }).start();
   }, [fired, progress]);
 
   const fill = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+  const active = fired || holding;
 
   return (
     <Pressable
@@ -103,29 +92,22 @@ function HoldButton({
       style={[
         styles.holdBtn,
         {
-          borderColor: fired ? color : holding ? color : theme.border,
-          backgroundColor: fired ? `${color}25` : theme.surface,
+          borderColor: `rgba(${colorRgb},${active ? 0.55 : 0.2})`,
+          backgroundColor: `rgba(${colorRgb},${active ? 0.1 : 0.05})`,
           opacity: disabled ? 0.4 : 1,
         },
       ]}
     >
       <View style={styles.holdBtnInner}>
-        <Animated.View
-          style={[
-            styles.holdFill,
-            { width: fill, backgroundColor: `${color}30` },
-          ]}
-        />
+        <Animated.View style={[styles.holdFill, { width: fill, backgroundColor: `rgba(${colorRgb},0.15)` }]} />
         <View style={styles.holdBtnContent}>
           {visual && !fired && (
-            <View style={styles.holdBtnVisual} pointerEvents="none">
-              {visual}
-            </View>
+            <View style={styles.holdBtnVisual} pointerEvents="none">{visual}</View>
           )}
-          <Text style={[styles.holdBtnLabel, { color: fired ? color : holding ? color : theme.text }]}>
+          <Text style={[styles.holdBtnLabel, { color: `rgba(${colorRgb},${active ? 1 : 0.75})` }]}>
             {fired ? `${label} sent` : label}
           </Text>
-          <Text style={[styles.holdBtnSub, { color: theme.textMuted }]}>
+          <Text style={[styles.holdBtnSub, { color: `rgba(${colorRgb},${active ? 0.65 : 0.4})` }]}>
             {fired ? 'received on their device' : holding ? 'keep holding…' : sublabel}
           </Text>
         </View>
@@ -135,65 +117,48 @@ function HoldButton({
 }
 
 function IncomingSignalBanner({ type, count, latestTs, onDismiss, theme }: {
-  type: 'water' | 'light';
-  count: number;
-  latestTs: number;
-  onDismiss: (type: 'water' | 'light') => void;
-  theme: any;
+  type: 'water' | 'light'; count: number; latestTs: number;
+  onDismiss: (type: 'water' | 'light') => void; theme: any;
 }) {
-  const color = type === 'water' ? '#7fc9c9' : theme.gold ?? '#f0c060';
+  const colorRgb = type === 'water' ? WATER_RGB : LIGHT_RGB;
   const label = type === 'water' ? '〰 water' : '· light';
-
   let qualityLabel: string;
   if (type === 'water') {
-    if (count >= 4)      qualityLabel = 'deep, sustained · waters in succession';
-    else if (count >= 2) qualityLabel = 'deeper ripples · waters received';
-    else                 qualityLabel = 'ripples from them';
+    if (count >= 4)       qualityLabel = 'deep, sustained · waters in succession';
+    else if (count >= 2)  qualityLabel = 'deeper ripples · waters received';
+    else                  qualityLabel = 'ripples from them';
   } else {
-    if (count >= 4)      qualityLabel = 'held in warmth · lights in succession';
-    else if (count >= 2) qualityLabel = 'warmth sustained · lights received';
-    else                 qualityLabel = 'warm light from them';
+    if (count >= 4)       qualityLabel = 'held in warmth · lights in succession';
+    else if (count >= 2)  qualityLabel = 'warmth sustained · lights received';
+    else                  qualityLabel = 'warm light from them';
   }
-
   return (
-    <TouchableOpacity
-      onPress={() => onDismiss(type)}
-      style={[styles.signalBanner, { backgroundColor: `${color}15`, borderColor: `${color}40` }]}
-    >
+    <TouchableOpacity onPress={() => onDismiss(type)}
+      style={[styles.signalBanner, { backgroundColor: `rgba(${colorRgb},0.08)`, borderColor: `rgba(${colorRgb},0.3)` }]}>
       <View style={styles.signalIconWrap}>
-        {type === 'water' ? <WaterBanner color={color} /> : <LightBanner color={color} />}
+        {type === 'water' ? <WaterBanner color={`rgba(${colorRgb},0.85)`} /> : <LightBanner color={`rgba(${colorRgb},0.85)`} />}
       </View>
       <View style={styles.signalText}>
-        <Text style={[styles.signalLabel, { color }]}>{label}{count > 1 ? ` ×${count}` : ''}</Text>
-        <Text style={[styles.signalFrom, { color: theme.textMuted }]}>
-          {qualityLabel}
-        </Text>
-        <Text style={[styles.signalFrom, { color: theme.textMuted, opacity: 0.5 }]}>
-          {formatSignalTime(latestTs)} · tap to clear
-        </Text>
+        <Text style={[styles.signalLabel, { color: `rgba(${colorRgb},0.9)` }]}>{label}{count > 1 ? ` ×${count}` : ''}</Text>
+        <Text style={[styles.signalFrom, { color: `${theme.textMuted}cc` }]}>{qualityLabel}</Text>
+        <Text style={[styles.signalFrom, { color: `${theme.textMuted}70` }]}>{formatSignalTime(latestTs)} · tap to clear</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
 function RainbowBanner({ theme, onDismiss }: { theme: any; onDismiss: () => void }) {
-  const colors = ['#7fc9c9', '#a0d090', '#e8c56a', '#f09060', '#c09080'];
+  const colors = ['127,201,201', '160,208,144', '232,197,106', '240,144,96', '192,144,128'];
   return (
-    <TouchableOpacity
-      onPress={onDismiss}
-      style={[styles.signalBanner, { backgroundColor: '#ffffff10', borderColor: '#ffffff30' }]}
-    >
+    <TouchableOpacity onPress={onDismiss}
+      style={[styles.signalBanner, { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.18)' }]}>
       <View style={styles.rainbowDots}>
-        {colors.map((c, i) => (
-          <View key={i} style={[styles.rainbowDot, { backgroundColor: c }]} />
-        ))}
+        {colors.map((c, i) => <View key={i} style={[styles.rainbowDot, { backgroundColor: `rgba(${c},0.8)` }]} />)}
       </View>
       <View style={styles.signalText}>
-        <Text style={[styles.signalLabel, { color: '#e8c56a' }]}>the garden opens</Text>
-        <Text style={[styles.signalFrom, { color: theme.textMuted }]}>
-          water and light together · prism through the orchid
-        </Text>
-        <Text style={[styles.signalFrom, { color: theme.textMuted, opacity: 0.5 }]}>tap to clear</Text>
+        <Text style={[styles.signalLabel, { color: `rgba(${LIGHT_RGB},0.9)` }]}>the garden opens</Text>
+        <Text style={[styles.signalFrom, { color: `${theme.textMuted}cc` }]}>water and light together · prism through the garden</Text>
+        <Text style={[styles.signalFrom, { color: `${theme.textMuted}70` }]}>tap to clear</Text>
       </View>
     </TouchableOpacity>
   );
@@ -202,10 +167,7 @@ function RainbowBanner({ theme, onDismiss }: { theme: any; onDismiss: () => void
 function formatSignalTime(ts: number): string {
   const d = new Date(ts);
   const today = new Date();
-  const isToday =
-    d.getDate() === today.getDate() &&
-    d.getMonth() === today.getMonth() &&
-    d.getFullYear() === today.getFullYear();
+  const isToday = d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
   const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   if (isToday) return `today · ${time}`;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ` · ${time}`;
@@ -213,90 +175,60 @@ function formatSignalTime(ts: number): string {
 
 const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 
-function GardenPath({
-  log, theme, onClear,
-}: {
-  log: PresenceLogEntry[];
-  theme: any;
-  onClear: (type?: 'water' | 'light') => void;
+function GardenPath({ log, theme, accentRgb, onClear }: {
+  log: PresenceLogEntry[]; theme: any; accentRgb: string; onClear: (type?: 'water' | 'light') => void;
 }) {
   const now = Date.now();
-  const visible = log
-    .filter(e => now - e.timestamp < TWENTY_FOUR_HOURS)
-    .slice(-30)
-    .sort((a, b) => a.timestamp - b.timestamp);
-
+  const visible = log.filter(e => now - e.timestamp < TWENTY_FOUR_HOURS).slice(-30).sort((a, b) => a.timestamp - b.timestamp);
   const waterCount = visible.filter(e => e.type === 'water').length;
   const lightCount = visible.filter(e => e.type === 'light').length;
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.04} borderIntensity={0.14}>
       <View style={styles.cardInner}>
-        <Text style={[styles.logHint, { color: theme.textMuted }]}>
-          footprints in the garden · fades in 24 hours
-        </Text>
-
-        {/* The path */}
+        <Text style={[styles.hint, { color: `rgba(${accentRgb},0.4)` }]}>footprints in the garden · fades in 24 hours</Text>
         <View style={styles.gardenPath}>
           {visible.map(entry => {
             const age = now - entry.timestamp;
             const opacity = Math.max(0.1, 1 - age / TWENTY_FOUR_HOURS);
             const size = entry.type === 'water' ? 10 : 8;
-            const color = entry.type === 'water' ? '#7fc9c9' : (theme.gold ?? '#e8c56a');
+            const rgb = entry.type === 'water' ? WATER_RGB : LIGHT_RGB;
             return (
-              <View
-                key={entry.id}
-                style={[
-                  styles.gardenDot,
-                  {
-                    width: size,
-                    height: size,
-                    borderRadius: size / 2,
-                    backgroundColor: color,
-                    opacity,
-                  },
-                ]}
-              />
+              <View key={entry.id} style={[styles.gardenDot, { width: size, height: size, borderRadius: size / 2, backgroundColor: `rgba(${rgb},${opacity})` }]} />
             );
           })}
-          {visible.length === 0 && (
-            <Text style={[styles.logHint, { color: theme.textMuted, opacity: 0.4 }]}>
-              the path is empty
-            </Text>
-          )}
+          {visible.length === 0 && <Text style={[styles.hint, { color: `rgba(${accentRgb},0.3)` }]}>the path is empty</Text>}
         </View>
-
-        {/* Counts row */}
         <View style={styles.gardenCounts}>
           {waterCount > 0 && (
             <View style={styles.gardenCountItem}>
-              <Text style={[styles.gardenCountNum, { color: '#7fc9c9' }]}>{waterCount}</Text>
-              <Text style={[styles.gardenCountLabel, { color: theme.textMuted }]}>〰 water</Text>
+              <Text style={[styles.gardenCountNum, { color: `rgba(${WATER_RGB},0.9)` }]}>{waterCount}</Text>
+              <Text style={[styles.gardenCountLabel, { color: `rgba(${WATER_RGB},0.5)` }]}>〰 water</Text>
             </View>
           )}
           {lightCount > 0 && (
             <View style={styles.gardenCountItem}>
-              <Text style={[styles.gardenCountNum, { color: theme.gold ?? '#e8c56a' }]}>{lightCount}</Text>
-              <Text style={[styles.gardenCountLabel, { color: theme.textMuted }]}>· light</Text>
+              <Text style={[styles.gardenCountNum, { color: `rgba(${LIGHT_RGB},0.9)` }]}>{lightCount}</Text>
+              <Text style={[styles.gardenCountLabel, { color: `rgba(${LIGHT_RGB},0.5)` }]}>· light</Text>
             </View>
           )}
           <TouchableOpacity onPress={() => onClear()} style={{ marginLeft: 'auto' as any }}>
-            <Text style={[styles.logClearText, { color: theme.textMuted, opacity: 0.5 }]}>clear</Text>
+            <Text style={[styles.clearText, { color: `rgba(${accentRgb},0.35)` }]}>clear</Text>
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </NeonCard>
   );
 }
 
 export default function SponsorScreen() {
   const insets = useSafeAreaInsets();
-  const { theme } = useCircadian();
+  const { theme, phase } = useCircadian();
+  const accentRgb = phaseAccentRgb(phase);
   const {
     role, connState, inviteCode, status, incomingSignals, presenceLog,
-    messages, hasPeerKey,
-    error, createInvite, acceptInvite, sendPresence, sendMessage, sendCheckIn,
-    disconnect, dismissSignal, dismissSignalsByType, clearPresenceLog,
+    messages, hasPeerKey, error, createInvite, acceptInvite, sendPresence,
+    sendMessage, sendCheckIn, disconnect, dismissSignalsByType, clearPresenceLog,
     deleteMessage, clearMessages, isConnected,
   } = useSponsorChannel();
 
@@ -309,12 +241,15 @@ export default function SponsorScreen() {
   const [checkedInDate, setCheckedInDate] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
-
-  // Accumulation + rainbow ritual tracking
   const [sentSignalLog, setSentSignalLog] = useState<{ type: 'water' | 'light'; ts: number }[]>([]);
   const [rainbowActive, setRainbowActive] = useState(false);
   const rainbowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const threadScrollRef = useRef<ScrollView>(null);
+
+  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
+  const today = new Date().toDateString();
+  const checkedInToday = checkedIn && checkedInDate === today;
 
   useEffect(() => {
     if (chatOpen && messages.length > 0) {
@@ -322,25 +257,9 @@ export default function SponsorScreen() {
     }
   }, [messages.length, chatOpen]);
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
+  useEffect(() => { if (status) { setCheckedIn(status.checkedIn); setCheckedInDate(status.checkedInDate); } }, [status]);
+  useEffect(() => { if (isConnected && role) setRoleChoice(role); }, [isConnected, role]);
 
-  const today = new Date().toDateString();
-  const checkedInToday = checkedIn && checkedInDate === today;
-
-  useEffect(() => {
-    if (status) {
-      setCheckedIn(status.checkedIn);
-      setCheckedInDate(status.checkedInDate);
-    }
-  }, [status]);
-
-  useEffect(() => {
-    if (isConnected && role) setRoleChoice(role);
-  }, [isConnected, role]);
-
-  // Fire sponsor presence haptics exactly once per unique incoming signal.
-  // Tracked by signal ID so dismissal + re-render doesn't re-fire.
   const firedSignalIds = useRef(new Set<string>());
   useEffect(() => {
     for (const signal of incomingSignals) {
@@ -352,47 +271,30 @@ export default function SponsorScreen() {
     }
   }, [incomingSignals]);
 
-  const handleCreateInvite = async () => {
-    setCreating(true);
-    await createInvite();
-    setCreating(false);
-  };
-
+  const handleCreateInvite = async () => { setCreating(true); await createInvite(); setCreating(false); };
   const handleAccept = async () => {
     if (codeInput.length < 6) return;
-    Keyboard.dismiss();
-    setAccepting(true);
-    await acceptInvite(codeInput);
-    setAccepting(false);
+    Keyboard.dismiss(); setAccepting(true); await acceptInvite(codeInput); setAccepting(false);
   };
-
   const handleCheckIn = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const newState = !checkedInToday;
-    setCheckedIn(newState);
-    setCheckedInDate(newState ? today : null);
+    setCheckedIn(newState); setCheckedInDate(newState ? today : null);
     if (newState) await sendCheckIn();
   };
-
   const handleDisconnect = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     await disconnect();
-    setRoleChoice(null);
-    setCodeInput('');
-    setCheckedIn(false);
-    setCheckedInDate(null);
-    setMessageInput('');
-    setSentSignalLog([]);
+    setRoleChoice(null); setCodeInput(''); setCheckedIn(false);
+    setCheckedInDate(null); setMessageInput(''); setSentSignalLog([]);
     setRainbowActive(false);
     if (rainbowTimer.current) clearTimeout(rainbowTimer.current);
   };
-
   const handleSendPresence = (type: 'water' | 'light') => {
     sendPresence(type);
     const now = Date.now();
     setSentSignalLog(prev => {
       const next = [...prev.filter(s => now - s.ts < 90_000), { type, ts: now }];
-      // Rainbow: opposite type was sent within 60 seconds
       const opposite = type === 'water' ? 'light' : 'water';
       const hasOpposite = next.some(s => s.type === opposite && now - s.ts < 60_000);
       if (hasOpposite && !rainbowActive) {
@@ -403,14 +305,10 @@ export default function SponsorScreen() {
       return next;
     });
   };
-
   const handleSendMessage = async () => {
     if (!messageInput.trim() || sendingMsg) return;
-    Keyboard.dismiss();
-    setSendingMsg(true);
-    await sendMessage(messageInput);
-    setMessageInput('');
-    setSendingMsg(false);
+    Keyboard.dismiss(); setSendingMsg(true);
+    await sendMessage(messageInput); setMessageInput(''); setSendingMsg(false);
   };
 
   const effectiveRole = isConnected ? role : roleChoice;
@@ -426,326 +324,261 @@ export default function SponsorScreen() {
         {(['water', 'light'] as const).map(type => {
           const group = incomingSignals.filter(s => s.type === type);
           if (!group.length) return null;
-          const latestTs = Math.max(...group.map(s => s.timestamp));
           return (
-            <IncomingSignalBanner
-              key={type}
-              type={type}
-              count={group.length}
-              latestTs={latestTs}
-              onDismiss={dismissSignalsByType}
-              theme={theme}
-            />
+            <IncomingSignalBanner key={type} type={type} count={group.length}
+              latestTs={Math.max(...group.map(s => s.timestamp))}
+              onDismiss={dismissSignalsByType} theme={theme} />
           );
         })}
+        {rainbowActive && <RainbowBanner theme={theme} onDismiss={() => setRainbowActive(false)} />}
 
-        {/* Rainbow banner — water + light in sequence */}
-        {rainbowActive && (
-          <RainbowBanner theme={theme} onDismiss={() => setRainbowActive(false)} />
-        )}
+        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)` }]}>sponsor presence</Text>
 
-        <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>sponsor presence</Text>
-
-        {/* ── ROLE PICKER (no connection yet) ───────────────────────────── */}
+        {/* ── ROLE PICKER ── */}
         {!isConnected && !roleChoice && (
-          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <NeonCard theme={theme} accentRgb={accentRgb}>
             <View style={styles.cardInner}>
-              <Text style={[styles.cardTitle, { color: theme.text }]}>Who are you in this session?</Text>
-              <Text style={[styles.cardBody, { color: theme.textMuted }]}>
-                One device is the person in recovery.{'\n'}The other is their sponsor.
+              <Text style={[styles.cardTitle, { color: theme.text }]}>who are you in this session?</Text>
+              <Text style={[styles.cardBody, { color: `${theme.textMuted}cc` }]}>
+                one device is the person in recovery.{'\n'}the other is their sponsor.
               </Text>
               <View style={styles.roleRow}>
                 <TouchableOpacity
-                  style={[styles.roleBtn, { borderColor: theme.accent, backgroundColor: `${theme.accent}12` }]}
-                  onPress={() => setRoleChoice('user')}
-                >
-                  <Text style={[styles.roleBtnTitle, { color: theme.accent }]}>I am in recovery</Text>
-                  <Text style={[styles.roleBtnSub, { color: theme.textMuted }]}>generate invite code</Text>
+                  style={[styles.roleBtn, { borderColor: `rgba(${accentRgb},0.45)`, backgroundColor: `rgba(${accentRgb},0.08)` }]}
+                  onPress={() => setRoleChoice('user')}>
+                  <Text style={[styles.roleBtnTitle, { color: `rgba(${accentRgb},0.9)` }]}>i am in recovery</Text>
+                  <Text style={[styles.roleBtnSub, { color: `rgba(${accentRgb},0.45)` }]}>generate invite code</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.roleBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                  onPress={() => setRoleChoice('sponsor')}
-                >
-                  <Text style={[styles.roleBtnTitle, { color: theme.text }]}>I am the sponsor</Text>
-                  <Text style={[styles.roleBtnSub, { color: theme.textMuted }]}>enter invite code</Text>
+                  style={[styles.roleBtn, { borderColor: `rgba(${accentRgb},0.15)`, backgroundColor: `rgba(${accentRgb},0.04)` }]}
+                  onPress={() => setRoleChoice('sponsor')}>
+                  <Text style={[styles.roleBtnTitle, { color: `${theme.text}cc` }]}>i am the sponsor</Text>
+                  <Text style={[styles.roleBtnSub, { color: `${theme.textMuted}99` }]}>enter invite code</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          </NeonCard>
         )}
 
-        {/* ── USER: INVITE FLOW ──────────────────────────────────────────── */}
+        {/* ── USER: INVITE FLOW ── */}
         {!isConnected && effectiveRole === 'user' && connState !== 'inviting' && (
-          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <NeonCard theme={theme} accentRgb={accentRgb}>
             <View style={styles.cardInner}>
-              <Text style={[styles.cardTitle, { color: theme.text }]}>Create an invite</Text>
-              <Text style={[styles.cardBody, { color: theme.textMuted }]}>
-                A 6-character code is generated on the server.{'\n'}Share it with your sponsor in person or via Signal.
+              <Text style={[styles.cardTitle, { color: theme.text }]}>create an invite</Text>
+              <Text style={[styles.cardBody, { color: `${theme.textMuted}cc` }]}>
+                a 6-character code is generated on the server.{'\n'}share it with your sponsor in person or via signal.
               </Text>
-              {error && <Text style={[styles.errorText, { color: '#ff6b6b' }]}>{error}</Text>}
+              {error && <Text style={[styles.errorText, { color: `rgba(${DANGER_RGB},0.9)` }]}>{error}</Text>}
               <TouchableOpacity
-                style={[styles.primaryBtn, { borderColor: theme.accent, backgroundColor: `${theme.accent}15` }]}
-                onPress={handleCreateInvite}
-                disabled={creating}
-              >
-                <Text style={[styles.primaryBtnText, { color: theme.accent }]}>
-                  {creating ? 'generating…' : 'Generate Invite Code'}
+                style={[styles.primaryBtn, { borderColor: `rgba(${accentRgb},0.45)`, backgroundColor: `rgba(${accentRgb},0.1)` }]}
+                onPress={handleCreateInvite} disabled={creating}>
+                <Text style={[styles.primaryBtnText, { color: `rgba(${accentRgb},0.9)` }]}>
+                  {creating ? 'generating…' : 'generate invite code'}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setRoleChoice(null)}>
-                <Text style={[styles.backLink, { color: theme.textMuted }]}>← back</Text>
+                <Text style={[styles.backLink, { color: `rgba(${accentRgb},0.4)` }]}>← back</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </NeonCard>
         )}
 
-        {/* ── USER: AWAITING SPONSOR ─────────────────────────────────────── */}
+        {/* ── USER: AWAITING SPONSOR ── */}
         {!isConnected && connState === 'inviting' && inviteCode && (
-          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <NeonCard theme={theme} accentRgb={accentRgb} borderIntensity={0.35} fillIntensity={0.06}>
             <View style={styles.cardInner}>
-              <Text style={[styles.codeLabel, { color: theme.textMuted }]}>your invite code</Text>
-              <Text style={[styles.codeDisplay, { color: theme.accent }]}>{inviteCode}</Text>
-              <Text style={[styles.cardBody, { color: theme.textMuted }]}>
-                Share this with your sponsor.{'\n'}
-                It expires in 48 hours.{'\n'}
-                Waiting for them to accept…
+              <Text style={[styles.codeLabel, { color: `rgba(${accentRgb},0.5)` }]}>your invite code</Text>
+              <Text style={[styles.codeDisplay, { color: `rgba(${accentRgb},0.95)` }]}>{inviteCode}</Text>
+              <Text style={[styles.cardBody, { color: `${theme.textMuted}cc` }]}>
+                share this with your sponsor.{'\n'}it expires in 48 hours.{'\n'}waiting for them to accept…
               </Text>
-              <View style={[styles.waitingDot, { backgroundColor: `${theme.accent}30`, borderColor: `${theme.accent}50` }]}>
-                <Text style={[styles.waitingText, { color: theme.textMuted }]}>· waiting ·</Text>
+              <View style={[styles.waitingPill, { backgroundColor: `rgba(${accentRgb},0.08)`, borderColor: `rgba(${accentRgb},0.2)` }]}>
+                <Text style={[styles.waitingText, { color: `rgba(${accentRgb},0.55)` }]}>· waiting ·</Text>
               </View>
             </View>
-          </View>
+          </NeonCard>
         )}
 
-        {/* ── SPONSOR: ENTER CODE ────────────────────────────────────────── */}
+        {/* ── SPONSOR: ENTER CODE ── */}
         {!isConnected && effectiveRole === 'sponsor' && (
-          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <NeonCard theme={theme} accentRgb={accentRgb}>
             <View style={styles.cardInner}>
-              <Text style={[styles.cardTitle, { color: theme.text }]}>Enter invite code</Text>
-              <Text style={[styles.cardBody, { color: theme.textMuted }]}>
-                The person in recovery will share a 6-character code with you.
+              <Text style={[styles.cardTitle, { color: theme.text }]}>enter invite code</Text>
+              <Text style={[styles.cardBody, { color: `${theme.textMuted}cc` }]}>
+                the person in recovery will share a 6-character code with you.
               </Text>
-              <CodeInput value={codeInput} onChange={setCodeInput} theme={theme} />
-              {error && <Text style={[styles.errorText, { color: '#ff6b6b' }]}>{error}</Text>}
+              <CodeInput value={codeInput} onChange={setCodeInput} theme={theme} accentRgb={accentRgb} />
+              {error && <Text style={[styles.errorText, { color: `rgba(${DANGER_RGB},0.9)` }]}>{error}</Text>}
               <TouchableOpacity
-                style={[
-                  styles.primaryBtn,
-                  {
-                    borderColor: codeInput.length === 6 ? theme.accent : theme.border,
-                    backgroundColor: codeInput.length === 6 ? `${theme.accent}15` : `${theme.border}10`,
-                    opacity: codeInput.length === 6 ? 1 : 0.5,
-                  },
-                ]}
-                onPress={handleAccept}
-                disabled={codeInput.length < 6 || accepting}
-              >
-                <Text style={[styles.primaryBtnText, { color: theme.accent }]}>
-                  {accepting ? 'connecting…' : 'Connect as Sponsor'}
+                style={[styles.primaryBtn, {
+                  borderColor: `rgba(${accentRgb},${codeInput.length === 6 ? 0.45 : 0.15})`,
+                  backgroundColor: `rgba(${accentRgb},${codeInput.length === 6 ? 0.1 : 0.04})`,
+                  opacity: codeInput.length === 6 ? 1 : 0.5,
+                }]}
+                onPress={handleAccept} disabled={codeInput.length < 6 || accepting}>
+                <Text style={[styles.primaryBtnText, { color: `rgba(${accentRgb},0.9)` }]}>
+                  {accepting ? 'connecting…' : 'connect as sponsor'}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setRoleChoice(null)}>
-                <Text style={[styles.backLink, { color: theme.textMuted }]}>← back</Text>
+                <Text style={[styles.backLink, { color: `rgba(${accentRgb},0.4)` }]}>← back</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </NeonCard>
         )}
 
-        {/* ── CONNECTED: USER VIEW ───────────────────────────────────────── */}
+        {/* ── CONNECTED: USER VIEW ── */}
         {isConnected && role === 'user' && (
           <>
-            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {/* Status card */}
+            <NeonCard theme={theme} accentRgb={NEON_RGB.cyan} fillIntensity={0.04} borderIntensity={0.18}>
               <View style={styles.cardInner}>
                 <View style={styles.connectedHeader}>
-                  <View style={[styles.connDot, { backgroundColor: theme.success ?? '#4ade80' }]} />
-                  <Text style={[styles.connectedTitle, { color: theme.text }]}>Sponsor connected</Text>
+                  <View style={[styles.connDot, { backgroundColor: `rgba(${NEON_RGB.cyan},0.9)` }]} />
+                  <Text style={[styles.connectedTitle, { color: `rgba(${NEON_RGB.cyan},0.9)` }]}>sponsor connected</Text>
                 </View>
-                <Text style={[styles.codeLabel, { color: theme.textMuted }]}>your channel code</Text>
-                <Text style={[styles.codeSmall, { color: theme.accent }]}>{inviteCode}</Text>
+                <Text style={[styles.codeLabel, { color: `rgba(${NEON_RGB.cyan},0.4)` }]}>channel code</Text>
+                <Text style={[styles.codeSmall, { color: `rgba(${NEON_RGB.cyan},0.7)` }]}>{inviteCode}</Text>
                 {status && (
-                  <Text style={[styles.cardBody, { color: theme.textMuted }]}>
-                    Orchid stage: {status.orchidStage}{'\n'}
-                    Sponsor present: {status.sponsorPresent ? 'yes' : 'no'}
+                  <Text style={[styles.cardBody, { color: `${theme.textMuted}99` }]}>
+                    stage: {status.orchidStage} · sponsor present: {status.sponsorPresent ? 'yes' : 'no'}
                   </Text>
                 )}
               </View>
-            </View>
+            </NeonCard>
 
-            <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 20 }]}>daily check-in</Text>
-            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {/* Daily check-in */}
+            <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 20 }]}>daily check-in</Text>
+            <NeonCard theme={theme} accentRgb={checkedInToday ? NEON_RGB.cyan : accentRgb}>
               <View style={styles.cardInner}>
                 <View style={styles.checkRow}>
-                  <View style={[styles.checkDot, { backgroundColor: checkedInToday ? (theme.success ?? '#4ade80') : theme.border }]} />
+                  <View style={[styles.checkDot, { backgroundColor: checkedInToday ? `rgba(${NEON_RGB.cyan},0.9)` : `rgba(${accentRgb},0.25)` }]} />
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.checkTitle, { color: theme.text }]}>
+                    <Text style={[styles.checkTitle, { color: checkedInToday ? `rgba(${NEON_RGB.cyan},0.9)` : theme.text }]}>
                       {checkedInToday ? 'checked in today' : 'not checked in'}
                     </Text>
-                    <Text style={[styles.checkSub, { color: theme.textMuted }]}>
-                      Sponsor sees: yes/no only. Nothing else.
+                    <Text style={[styles.checkSub, { color: `${theme.textMuted}80` }]}>
+                      sponsor sees: yes/no only. nothing else.
                     </Text>
                   </View>
                   <TouchableOpacity
-                    style={[
-                      styles.checkBtn,
-                      {
-                        borderColor: checkedInToday ? (theme.success ?? '#4ade80') : theme.accent,
-                        backgroundColor: checkedInToday ? `${theme.success ?? '#4ade80'}15` : `${theme.accent}10`,
-                      },
-                    ]}
-                    onPress={handleCheckIn}
-                  >
-                    <Text style={[styles.checkBtnText, { color: checkedInToday ? (theme.success ?? '#4ade80') : theme.accent }]}>
+                    style={[styles.checkBtn, {
+                      borderColor: checkedInToday ? `rgba(${NEON_RGB.cyan},0.45)` : `rgba(${accentRgb},0.35)`,
+                      backgroundColor: checkedInToday ? `rgba(${NEON_RGB.cyan},0.1)` : `rgba(${accentRgb},0.08)`,
+                    }]}
+                    onPress={handleCheckIn}>
+                    <Text style={[styles.checkBtnText, { color: checkedInToday ? `rgba(${NEON_RGB.cyan},0.9)` : `rgba(${accentRgb},0.9)` }]}>
                       {checkedInToday ? '✓ done' : 'check in'}
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
-            </View>
+            </NeonCard>
 
-            <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 20 }]}>send presence</Text>
-            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {/* Send presence */}
+            <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 20 }]}>send presence</Text>
+            <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.12}>
               <View style={styles.cardInner}>
-                <Text style={[styles.holdHint, { color: theme.textMuted }]}>
-                  Water: hold 2 seconds — the longer you hold, the longer they feel it.{'\n'}
-                  Light: quick press — contact, then 8 seconds of resonance.
+                <Text style={[styles.holdHint, { color: `${theme.textMuted}80` }]}>
+                  water: hold 2 seconds — the longer you hold, the longer they feel it.{'\n'}
+                  light: quick press — contact, then 8 seconds of resonance.
                 </Text>
-                <HoldButton
-                  label="water"
-                  sublabel="cool · present · hold to pour"
-                  color="#7fc9c9"
-                  onFire={() => handleSendPresence('water')}
-                  theme={theme}
-                  visual={<WaterVisual color="#7fc9c9" />}
-                  holdDuration={2000}
-                />
-                <HoldButton
-                  label="light"
-                  sublabel="warm · witnessed · press to strike"
-                  color={theme.gold ?? '#e8c56a'}
-                  onFire={() => handleSendPresence('light')}
-                  theme={theme}
-                  visual={<LightVisual color={theme.gold ?? '#e8c56a'} />}
-                  holdDuration={700}
-                />
+                <HoldButton label="water" sublabel="cool · present · hold to pour" colorRgb={WATER_RGB}
+                  onFire={() => handleSendPresence('water')} theme={theme}
+                  visual={<WaterVisual color={`rgba(${WATER_RGB},0.7)`} />} holdDuration={2000} />
+                <HoldButton label="light" sublabel="warm · witnessed · press to strike" colorRgb={LIGHT_RGB}
+                  onFire={() => handleSendPresence('light')} theme={theme}
+                  visual={<LightVisual color={`rgba(${LIGHT_RGB},0.7)`} />} holdDuration={700} />
               </View>
-            </View>
+            </NeonCard>
 
-            {/* ── GARDEN PATH ───────────────────────────────────────────── */}
+            {/* Garden path */}
             {presenceLog.length > 0 && (
               <>
-                <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 20 }]}>the garden path</Text>
-                <GardenPath
-                  log={presenceLog}
-                  theme={theme}
-                  onClear={clearPresenceLog}
-                />
+                <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 20 }]}>the garden path</Text>
+                <GardenPath log={presenceLog} theme={theme} accentRgb={accentRgb} onClear={clearPresenceLog} />
               </>
             )}
           </>
         )}
 
-        {/* ── CONNECTED: SPONSOR VIEW ────────────────────────────────────── */}
+        {/* ── CONNECTED: SPONSOR VIEW ── */}
         {isConnected && role === 'sponsor' && (
           <>
-            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <NeonCard theme={theme} accentRgb={NEON_RGB.violet} fillIntensity={0.04} borderIntensity={0.18}>
               <View style={styles.cardInner}>
                 <View style={styles.connectedHeader}>
-                  <View style={[styles.connDot, { backgroundColor: theme.success ?? '#4ade80' }]} />
-                  <Text style={[styles.connectedTitle, { color: theme.text }]}>You are witnessing</Text>
+                  <View style={[styles.connDot, { backgroundColor: `rgba(${NEON_RGB.violet},0.9)` }]} />
+                  <Text style={[styles.connectedTitle, { color: `rgba(${NEON_RGB.violet},0.9)` }]}>you are witnessing</Text>
                 </View>
                 {status ? (
                   <>
                     <View style={styles.statusGrid}>
                       <View style={styles.statusItem}>
-                        <Text style={[styles.statusValue, {
-                          color: status.checkedIn ? (theme.success ?? '#4ade80') : theme.textMuted
-                        }]}>
+                        <Text style={[styles.statusValue, { color: status.checkedIn ? `rgba(${NEON_RGB.cyan},0.9)` : `${theme.textMuted}80` }]}>
                           {status.checkedIn ? 'yes' : 'no'}
                         </Text>
-                        <Text style={[styles.statusKey, { color: theme.textMuted }]}>checked in today</Text>
+                        <Text style={[styles.statusKey, { color: `${theme.textMuted}70` }]}>checked in today</Text>
                       </View>
                       <View style={styles.statusItem}>
-                        <Text style={[styles.statusValue, { color: theme.accent }]}>{status.orchidStage}</Text>
-                        <Text style={[styles.statusKey, { color: theme.textMuted }]}>orchid stage</Text>
+                        <Text style={[styles.statusValue, { color: `rgba(${NEON_RGB.violet},0.85)` }]}>{status.orchidStage}</Text>
+                        <Text style={[styles.statusKey, { color: `${theme.textMuted}70` }]}>stage</Text>
                       </View>
                       <View style={styles.statusItem}>
-                        <Text style={[styles.statusValue, { color: theme.text }]}>{status.milestones}</Text>
-                        <Text style={[styles.statusKey, { color: theme.textMuted }]}>milestones</Text>
+                        <Text style={[styles.statusValue, { color: `${theme.text}cc` }]}>{status.milestones}</Text>
+                        <Text style={[styles.statusKey, { color: `${theme.textMuted}70` }]}>milestones</Text>
                       </View>
                     </View>
-                    <Text style={[styles.cardBody, { color: theme.textMuted }]}>
-                      You cannot see mood logs, journal entries, sobriety date, or substance type.{'\n'}
-                      You are a witness — not a watcher.
+                    <Text style={[styles.cardBody, { color: `${theme.textMuted}80` }]}>
+                      you cannot see mood logs, journal entries, sobriety date, or substance type.{'\n'}you are a witness — not a watcher.
                     </Text>
                   </>
                 ) : (
-                  <Text style={[styles.cardBody, { color: theme.textMuted }]}>Waiting for their data…</Text>
+                  <Text style={[styles.cardBody, { color: `${theme.textMuted}99` }]}>waiting for their data…</Text>
                 )}
               </View>
-            </View>
+            </NeonCard>
 
-            <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 20 }]}>send presence</Text>
-            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 20 }]}>send presence</Text>
+            <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.12}>
               <View style={styles.cardInner}>
-                <Text style={[styles.holdHint, { color: theme.textMuted }]}>
-                  Water: hold 2 seconds — the longer you hold, the longer they feel it.{'\n'}
-                  Light: quick press — contact, then 8 seconds of resonance.
+                <Text style={[styles.holdHint, { color: `${theme.textMuted}80` }]}>
+                  water: hold 2 seconds — the longer you hold, the longer they feel it.{'\n'}
+                  light: quick press — contact, then 8 seconds of resonance.
                 </Text>
-                <HoldButton
-                  label="water"
-                  sublabel="cool · present · hold to pour"
-                  color="#7fc9c9"
-                  onFire={() => handleSendPresence('water')}
-                  theme={theme}
-                  visual={<WaterVisual color="#7fc9c9" />}
-                  holdDuration={2000}
-                />
-                <HoldButton
-                  label="light"
-                  sublabel="warm · witnessed · press to strike"
-                  color={theme.gold ?? '#e8c56a'}
-                  onFire={() => handleSendPresence('light')}
-                  theme={theme}
-                  visual={<LightVisual color={theme.gold ?? '#e8c56a'} />}
-                  holdDuration={700}
-                />
+                <HoldButton label="water" sublabel="cool · present · hold to pour" colorRgb={WATER_RGB}
+                  onFire={() => handleSendPresence('water')} theme={theme}
+                  visual={<WaterVisual color={`rgba(${WATER_RGB},0.7)`} />} holdDuration={2000} />
+                <HoldButton label="light" sublabel="warm · witnessed · press to strike" colorRgb={LIGHT_RGB}
+                  onFire={() => handleSendPresence('light')} theme={theme}
+                  visual={<LightVisual color={`rgba(${LIGHT_RGB},0.7)`} />} holdDuration={700} />
               </View>
-            </View>
+            </NeonCard>
           </>
         )}
 
-        {/* ── E2E ENCRYPTED MESSAGES ──────────────────────────────────────── */}
+        {/* ── E2E MESSAGES ── */}
         {isConnected && (
           <>
-            {/* Tappable header — collapses/expands thread */}
-            <TouchableOpacity
-              onPress={() => setChatOpen(o => !o)}
-              style={styles.msgSectionHeader}
-              activeOpacity={0.6}
-            >
-              <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 16 }]}>
-                messages · end-to-end encrypted
-                {messages.length > 0 ? ` (${messages.length})` : ''}
+            <TouchableOpacity onPress={() => setChatOpen(o => !o)} style={styles.msgSectionHeader} activeOpacity={0.6}>
+              <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 16 }]}>
+                messages · end-to-end encrypted{messages.length > 0 ? ` (${messages.length})` : ''}
               </Text>
-              <Text style={[styles.msgChevron, { color: theme.textMuted }]}>
-                {chatOpen ? '▲' : '▼'}
-              </Text>
+              <Text style={[styles.msgChevron, { color: `rgba(${accentRgb},0.4)` }]}>{chatOpen ? '▲' : '▼'}</Text>
             </TouchableOpacity>
 
             {chatOpen && (
-              <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                {/* Thread header with clear-all */}
+              <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.14}>
                 {messages.length > 0 && (
                   <View style={styles.msgThreadHeader}>
-                    <Text style={[styles.msgThreadCount, { color: theme.textMuted }]}>
+                    <Text style={[styles.msgThreadCount, { color: `rgba(${accentRgb},0.4)` }]}>
                       {messages.length} message{messages.length !== 1 ? 's' : ''} · hold to delete
                     </Text>
                     <TouchableOpacity onPress={clearMessages}>
-                      <Text style={[styles.logClearText, { color: theme.textMuted }]}>clear all</Text>
+                      <Text style={[styles.clearText, { color: `rgba(${accentRgb},0.35)` }]}>clear all</Text>
                     </TouchableOpacity>
                   </View>
                 )}
-
-                {/* Message thread */}
                 <ScrollView
                   ref={threadScrollRef}
                   style={styles.msgThread}
@@ -753,113 +586,88 @@ export default function SponsorScreen() {
                   showsVerticalScrollIndicator={false}
                   nestedScrollEnabled
                   onContentSizeChange={() => {
-                    if (messages.length > 0) {
-                      threadScrollRef.current?.scrollToEnd({ animated: false });
-                    }
+                    if (messages.length > 0) threadScrollRef.current?.scrollToEnd({ animated: false });
                   }}
                 >
                   {messages.length === 0 ? (
-                    <Text style={[styles.msgEmpty, { color: theme.textMuted }]}>
-                      {hasPeerKey
-                        ? 'no messages yet. say something.'
-                        : 'waiting for key exchange…'}
+                    <Text style={[styles.msgEmpty, { color: `rgba(${accentRgb},0.35)` }]}>
+                      {hasPeerKey ? 'no messages yet. say something.' : 'waiting for key exchange…'}
                     </Text>
                   ) : (
                     messages.slice(-40).map(msg => (
                       <TouchableOpacity
                         key={msg.id}
-                        onLongPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                          deleteMessage(msg.id);
-                        }}
+                        onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); deleteMessage(msg.id); }}
                         delayLongPress={500}
                         activeOpacity={0.75}
                         style={[
                           styles.msgBubble,
                           msg.from === 'me'
-                            ? [styles.msgBubbleMe, { backgroundColor: `${theme.accent}22`, borderColor: `${theme.accent}40` }]
-                            : [styles.msgBubbleThem, { backgroundColor: `${theme.border}30`, borderColor: `${theme.border}60` }],
+                            ? { alignSelf: 'flex-end', backgroundColor: `rgba(${accentRgb},0.12)`, borderColor: `rgba(${accentRgb},0.3)` }
+                            : { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' },
                         ]}
                       >
-                        <Text style={[styles.msgText, { color: theme.text }]}>{msg.text}</Text>
-                        <Text style={[styles.msgTime, { color: theme.textMuted }]}>
-                          {formatSignalTime(msg.timestamp)}
-                        </Text>
+                        <Text style={[styles.msgText, { color: `${theme.text}ee` }]}>{msg.text}</Text>
+                        <Text style={[styles.msgTime, { color: `rgba(${accentRgb},0.35)` }]}>{formatSignalTime(msg.timestamp)}</Text>
                       </TouchableOpacity>
                     ))
                   )}
                 </ScrollView>
-
-                {/* Input row */}
-                <View style={[styles.msgInputRow, { borderTopColor: `${theme.border}50` }]}>
+                <View style={[styles.msgInputRow, { borderTopColor: `rgba(${accentRgb},0.1)` }]}>
                   <TextInput
                     value={messageInput}
                     onChangeText={setMessageInput}
-                    placeholder={hasPeerKey ? 'type a message…' : 'waiting for key exchange…'}
-                    placeholderTextColor={theme.textMuted}
-                    style={[styles.msgInput, { color: theme.text, backgroundColor: `${theme.border}20` }]}
-                    multiline
-                    maxLength={500}
-                    editable={hasPeerKey}
-                    returnKeyType="send"
-                    onSubmitEditing={handleSendMessage}
-                    blurOnSubmit
+                    placeholder={hasPeerKey ? 'message...' : 'waiting for key exchange…'}
+                    placeholderTextColor={`rgba(${accentRgb},0.25)`}
+                    style={[styles.msgInput, { color: theme.text, backgroundColor: `rgba(${accentRgb},0.05)` }]}
+                    multiline maxLength={500} editable={hasPeerKey}
+                    returnKeyType="send" onSubmitEditing={handleSendMessage} blurOnSubmit
                   />
                   <TouchableOpacity
                     onPress={handleSendMessage}
                     disabled={!messageInput.trim() || !hasPeerKey || sendingMsg}
-                    style={[
-                      styles.msgSendBtn,
-                      {
-                        backgroundColor: messageInput.trim() && hasPeerKey
-                          ? `${theme.accent}30`
-                          : `${theme.border}20`,
-                        borderColor: messageInput.trim() && hasPeerKey
-                          ? `${theme.accent}60`
-                          : `${theme.border}40`,
-                      },
-                    ]}
+                    style={[styles.msgSendBtn, {
+                      backgroundColor: messageInput.trim() && hasPeerKey ? `rgba(${accentRgb},0.15)` : `rgba(${accentRgb},0.05)`,
+                      borderColor: messageInput.trim() && hasPeerKey ? `rgba(${accentRgb},0.45)` : `rgba(${accentRgb},0.12)`,
+                    }]}
                   >
-                    <Text style={[styles.msgSendText, {
-                      color: messageInput.trim() && hasPeerKey ? theme.accent : theme.textMuted,
-                    }]}>
+                    <Text style={[styles.msgSendText, { color: `rgba(${accentRgb},${messageInput.trim() && hasPeerKey ? 0.9 : 0.3})` }]}>
                       {sendingMsg ? '…' : '→'}
                     </Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </NeonCard>
             )}
           </>
         )}
 
-        {/* ── DISCONNECT ──────────────────────────────────────────────────── */}
+        {/* ── DISCONNECT ── */}
         {isConnected && (
           <>
-            <Text style={[styles.sectionLabel, { color: '#ff6b6b80', marginTop: 24 }]}>connection</Text>
-            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: '#ff404040' }]}>
+            <Text style={[styles.sectionLabel, { color: `rgba(${DANGER_RGB},0.5)`, marginTop: 24 }]}>connection</Text>
+            <NeonCard theme={theme} accentRgb={DANGER_RGB} fillIntensity={0.03} borderIntensity={0.18}>
               <View style={styles.cardInner}>
-                <Text style={[styles.cardBody, { color: theme.textMuted }]}>
-                  Closing this connection removes the channel from the relay server immediately.
-                  {role === 'user' ? ' Your sponsor loses visibility.' : ' You lose access to their check-in.'}
+                <Text style={[styles.cardBody, { color: `${theme.textMuted}99` }]}>
+                  closing this connection removes the channel from the relay server immediately.
+                  {role === 'user' ? ' your sponsor loses visibility.' : ' you lose access to their check-in.'}
                 </Text>
                 <TouchableOpacity
-                  style={[styles.dangerBtn, { borderColor: '#ff404060' }]}
-                  onPress={handleDisconnect}
-                >
-                  <Text style={[styles.dangerBtnText, { color: '#ff6b6b' }]}>
-                    {role === 'user' ? 'Remove Sponsor' : 'Close Connection'}
+                  style={[styles.dangerBtn, { borderColor: `rgba(${DANGER_RGB},0.4)`, backgroundColor: `rgba(${DANGER_RGB},0.06)` }]}
+                  onPress={handleDisconnect}>
+                  <Text style={[styles.dangerBtnText, { color: `rgba(${DANGER_RGB},0.8)` }]}>
+                    {role === 'user' ? 'remove sponsor' : 'close connection'}
                   </Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </NeonCard>
           </>
         )}
 
-        <View style={[styles.footerNote, { borderColor: `${theme.border}50` }]}>
-          <Text style={[styles.footerText, { color: theme.textMuted }]}>
-            Signals are relayed and discarded — not stored permanently.{'\n'}
-            Messages are end-to-end encrypted. The server sees only ciphertext.{'\n'}
-            No accounts. No logs.
+        <View style={[styles.footerNote, { borderColor: `rgba(${accentRgb},0.1)` }]}>
+          <Text style={[styles.footerText, { color: `${theme.textMuted}55` }]}>
+            signals are relayed and discarded — not stored permanently.{'\n'}
+            messages are end-to-end encrypted. the server sees only ciphertext.{'\n'}
+            no accounts. no logs.
           </Text>
         </View>
       </ScrollView>
@@ -870,144 +678,76 @@ export default function SponsorScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingHorizontal: 20, gap: 8 },
-  sectionLabel: {
-    fontFamily: 'CourierPrime',
-    fontSize: 10,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  card: { borderWidth: 1, borderRadius: 12, overflow: 'hidden' },
+  sectionLabel: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 4 },
   cardInner: { padding: 18, gap: 12 },
-  cardTitle: { fontFamily: 'CourierPrime', fontSize: 16, fontWeight: '700' },
-  cardBody: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19, opacity: 0.85 },
+  cardTitle: { fontFamily: 'CourierPrime', fontSize: 15, fontWeight: '700', textTransform: 'lowercase' },
+  cardBody: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19 },
+  hint: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5, lineHeight: 15 },
   errorText: { fontFamily: 'CourierPrime', fontSize: 12 },
   primaryBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 13, paddingHorizontal: 20, alignItems: 'center' },
-  primaryBtnText: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase' },
+  primaryBtnText: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 2, textTransform: 'lowercase' },
   backLink: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textAlign: 'center' },
-
   roleRow: { flexDirection: 'row', gap: 10 },
   roleBtn: { flex: 1, borderWidth: 1, borderRadius: 10, padding: 14, gap: 4, alignItems: 'center' },
-  roleBtnTitle: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  roleBtnTitle: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '700', textAlign: 'center', textTransform: 'lowercase' },
   roleBtnSub: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1, textAlign: 'center' },
-
   codeLabel: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase' },
   codeDisplay: { fontFamily: 'CourierPrime', fontSize: 32, fontWeight: '700', letterSpacing: 8, textAlign: 'center' },
   codeSmall: { fontFamily: 'CourierPrime', fontSize: 20, fontWeight: '700', letterSpacing: 5, textAlign: 'center' },
-  codeInput: {
-    borderWidth: 1, borderRadius: 8,
-    paddingVertical: 14, paddingHorizontal: 18,
-    fontFamily: 'CourierPrime', fontSize: 22,
-    letterSpacing: 8, textAlign: 'center',
-  },
-
-  waitingDot: { borderWidth: 1, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  codeInput: { borderWidth: 1, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 18, fontFamily: 'CourierPrime', fontSize: 22, letterSpacing: 8, textAlign: 'center' },
+  waitingPill: { borderWidth: 1, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
   waitingText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 3 },
-
   connectedHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   connDot: { width: 8, height: 8, borderRadius: 4 },
-  connectedTitle: { fontFamily: 'CourierPrime', fontSize: 15, fontWeight: '700' },
-
+  connectedTitle: { fontFamily: 'CourierPrime', fontSize: 14, fontWeight: '700', textTransform: 'lowercase' },
   statusGrid: { flexDirection: 'row', gap: 8 },
   statusItem: { flex: 1, alignItems: 'center', gap: 4, padding: 10 },
   statusValue: { fontFamily: 'CourierPrime', fontSize: 15, fontWeight: '700' },
   statusKey: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 1.5, textAlign: 'center', textTransform: 'uppercase' },
-
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   checkDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
-  checkTitle: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '700' },
+  checkTitle: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '700', textTransform: 'lowercase' },
   checkSub: { fontFamily: 'CourierPrime', fontSize: 10, lineHeight: 14, marginTop: 2 },
   checkBtn: { borderWidth: 1, borderRadius: 7, paddingVertical: 8, paddingHorizontal: 12 },
-  checkBtnText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1.5 },
-
+  checkBtnText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1.5, textTransform: 'lowercase' },
   holdHint: { fontFamily: 'CourierPrime', fontSize: 11, lineHeight: 17, textAlign: 'center' },
-  holdBtn: {
-    borderWidth: 1, borderRadius: 10, overflow: 'hidden',
-  },
+  holdBtn: { borderWidth: 1, borderRadius: 12, overflow: 'hidden' },
   holdBtnInner: { flex: 1, flexDirection: 'row', position: 'relative' },
   holdFill: { position: 'absolute', top: 0, left: 0, bottom: 0 },
-  holdBtnContent: { flex: 1, paddingVertical: 14, paddingHorizontal: 16, justifyContent: 'center', gap: 6, zIndex: 1 },
+  holdBtnContent: { flex: 1, paddingVertical: 16, paddingHorizontal: 18, justifyContent: 'center', gap: 6, zIndex: 1 },
   holdBtnVisual: { alignItems: 'center', overflow: 'hidden' },
-  holdBtnLabel: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
+  holdBtnLabel: { fontFamily: 'CourierPrime', fontSize: 14, fontWeight: '700', letterSpacing: 2, textTransform: 'lowercase' },
   holdBtnSub: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5 },
-
-  signalBanner: {
-    borderWidth: 1, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    marginBottom: 8,
-  },
+  signalBanner: { borderWidth: 1, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 8 },
   signalIconWrap: { flexShrink: 0 },
   signalText: { flex: 1, gap: 3 },
-  signalLabel: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '700', letterSpacing: 2 },
+  signalLabel: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '700', letterSpacing: 2, textTransform: 'lowercase' },
   signalFrom: { fontFamily: 'CourierPrime', fontSize: 10 },
-
+  gardenPath: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, minHeight: 28, alignItems: 'center', paddingVertical: 6 },
+  gardenDot: { flexShrink: 0 },
+  gardenCounts: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 4, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 10 },
+  gardenCountItem: { alignItems: 'center', gap: 2 },
+  gardenCountNum: { fontFamily: 'CourierPrime', fontSize: 16, fontWeight: '700' },
+  gardenCountLabel: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1 },
+  clearText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1 },
+  rainbowDots: { flexDirection: 'column', alignItems: 'center', gap: 4, paddingVertical: 4, width: 12, flexShrink: 0 },
+  rainbowDot: { width: 8, height: 8, borderRadius: 4 },
   dangerBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
-  dangerBtnText: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase' },
-
+  dangerBtnText: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 2, textTransform: 'lowercase' },
   footerNote: { borderTopWidth: 1, paddingTop: 16, marginTop: 8, alignItems: 'center' },
   footerText: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1, textAlign: 'center', lineHeight: 16 },
-
-  logRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 },
-  logLeft: { flex: 1, gap: 3 },
-  logType: { fontFamily: 'CourierPrime-Bold', fontSize: 13, letterSpacing: 2 },
-  logCount: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 0.5 },
-  logClear: { paddingLeft: 16, paddingVertical: 4 },
-  logClearText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textDecorationLine: 'underline' },
-  logDivider: { height: 1, marginVertical: 8 },
-  logHint: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5, opacity: 0.7 },
-
-  gardenPath: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    minHeight: 28,
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  gardenDot: { flexShrink: 0 },
-  gardenCounts: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
-    paddingTop: 10,
-  },
-  gardenCountItem: { alignItems: 'center', gap: 2 },
-  gardenCountNum: { fontFamily: 'CourierPrime-Bold', fontSize: 16 },
-  gardenCountLabel: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1 },
-
-  rainbowDots: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    width: 12,
-    flexShrink: 0,
-  },
-  rainbowDot: { width: 8, height: 8, borderRadius: 4 },
-
   msgSectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   msgChevron: { fontFamily: 'CourierPrime', fontSize: 10, marginBottom: 3, paddingLeft: 8 },
   msgThreadHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 },
   msgThreadCount: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5 },
   msgThread: { maxHeight: 300, minHeight: 60 },
   msgThreadContent: { padding: 14, gap: 8 },
-  msgEmpty: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textAlign: 'center', opacity: 0.6, paddingVertical: 8 },
+  msgEmpty: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textAlign: 'center', paddingVertical: 8 },
   msgBubble: { borderWidth: 1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 13, maxWidth: '82%', gap: 4 },
-  msgBubbleMe: { alignSelf: 'flex-end' },
-  msgBubbleThem: { alignSelf: 'flex-start' },
   msgText: { fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 19 },
-  msgTime: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 0.5, opacity: 0.6 },
+  msgTime: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 0.5 },
   msgInputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, borderTopWidth: 1, padding: 12 },
-  msgInput: {
-    flex: 1, fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 19,
-    borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12, maxHeight: 100,
-  },
-  msgSendBtn: {
-    borderWidth: 1, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 14,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  msgInput: { flex: 1, fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 19, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12, maxHeight: 100 },
+  msgSendBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   msgSendText: { fontFamily: 'CourierPrime', fontSize: 16, fontWeight: '700' },
 });
