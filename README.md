@@ -10,6 +10,8 @@
                                   [WARN]  ...  HEART_RATE_VARIABILITY_DETECTED
                                
                             #---  DNA_SYNC_2028---#---ARCHITECT_OF_CHAOS  ---# 
-<img width="687" height="449" alt="2026-03-30 07 52 16" src="https://github.com/user-attachments/assets/86ef30bb-5be4-4fca-b7fa-6e4398f902b2" />                           
-                            
+< div style="text-align: center"> 
+<img width="687" height="449" alt="2026-03-30 07 52 16" src="https://github.com/user-attachments/assets/86ef30bb-5be4-4fca-b7fa-6e4398f902b2" alt="ghost-in-the-machine-protocol" />                           
+</div>
+
     Securing@signal => Sampling@reality => Bridging@threshold => Encoding@memory => Sanctuary: initial-pulse-encrypted;
