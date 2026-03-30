@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
+  Animated,
+  Easing,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -88,6 +90,29 @@ export default function SanctuaryScreen() {
   const [showGrounding, setShowGrounding] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+
+  // Day count pulse — gentle breath at BPM rate
+  const dayPulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const breathe = () => {
+      Animated.sequence([
+        Animated.timing(dayPulse, {
+          toValue: 1.04,
+          duration: 2200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(dayPulse, {
+          toValue: 1.0,
+          duration: 2200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => { if (finished) breathe(); });
+    };
+    breathe();
+    return () => dayPulse.stopAnimation();
+  }, [dayPulse]);
 
   const [pickerDate, setPickerDate] = useState<Date>(
     sobriety.startDate ? new Date(sobriety.startDate) : new Date()
@@ -203,9 +228,9 @@ export default function SanctuaryScreen() {
         {/* Timer */}
         {sobriety.startDate ? (
           <View style={styles.timerSection}>
-            <Text style={[styles.dayCount, { color: `rgba(${accentRgb}, 0.95)` }]}>
+            <Animated.Text style={[styles.dayCount, { color: `rgba(${accentRgb}, 0.95)`, transform: [{ scale: dayPulse }] }]}>
               {sobriety.daysSober}
-            </Text>
+            </Animated.Text>
             <Text style={[styles.dayLabel, { color: `rgba(${accentRgb}, 0.45)` }]}>
               days in sanctuary
             </Text>

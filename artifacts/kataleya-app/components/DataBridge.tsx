@@ -37,8 +37,28 @@ interface Props {
   showBridge?: boolean;
 }
 
+const STATE_CYCLES: Record<string, string[]> = {
+  holding:     ['holding', 'sampling', 'listening', 'waiting', 'still'],
+  present:     ['present', 'encoding', 'sampling', 'reading', 'secure'],
+  attuned:     ['attuned', 'syncing', 'encoding', 'aligned', 'resonant'],
+  celebrating: ['celebrating', 'transmitting', 'radiant', 'blooming', 'open'],
+};
+
 export function DataBridge({ phase, theme, size = 'large', showBridge = false }: Props) {
   const { opacity, scale, letterSpacing, systemState } = useResponsiveHeart(phase);
+  const [cycleWord, setCycleWord] = useState(systemState);
+  const cycleIndex = useRef(0);
+
+  useEffect(() => {
+    const words = STATE_CYCLES[systemState] ?? [systemState];
+    cycleIndex.current = 0;
+    setCycleWord(words[0]);
+    const interval = setInterval(() => {
+      cycleIndex.current = (cycleIndex.current + 1) % words.length;
+      setCycleWord(words[cycleIndex.current]);
+    }, 2200);
+    return () => clearInterval(interval);
+  }, [systemState]);
 
   const symbolStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -120,7 +140,7 @@ export function DataBridge({ phase, theme, size = 'large', showBridge = false }:
           ..: :..
         </AnimatedText>
         <Text style={[styles.stateLabel, { color: `${theme.accent}50` }]}>
-          {systemState}
+          {cycleWord}
         </Text>
       </View>
     );

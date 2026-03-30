@@ -40,14 +40,34 @@ export function BreathingExercise({ visible, onClose, theme }: Props) {
   const [cycles, setCycles] = useState(0);
   const [done, setDone] = useState(false);
 
-  const scaleAnim = useRef(new Animated.Value(1.0)).current;
-  const glowAnim  = useRef(new Animated.Value(0.3)).current;
+  const scaleAnim  = useRef(new Animated.Value(1.0)).current;
+  const glowAnim   = useRef(new Animated.Value(0.3)).current;
+  // Staggered ring anims — each ring breathes independently
+  const ring1Scale = useRef(new Animated.Value(1.0)).current;
+  const ring2Scale = useRef(new Animated.Value(1.0)).current;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const phase = PHASES[phaseIdx];
 
   const animateToPhase = useCallback((idx: number) => {
     const p = PHASES[idx];
+    // Ring 1 follows with 180ms delay, ring 2 with 360ms — staggered breathing
+    setTimeout(() => {
+      Animated.timing(ring1Scale, {
+        toValue: p.scale * 1.06,
+        duration: 1100,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }).start();
+    }, 180);
+    setTimeout(() => {
+      Animated.timing(ring2Scale, {
+        toValue: p.scale * 1.12,
+        duration: 1300,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }).start();
+    }, 360);
     Animated.parallel([
       Animated.timing(scaleAnim, {
         toValue: p.scale,
@@ -149,14 +169,14 @@ export function BreathingExercise({ visible, onClose, theme }: Props) {
             width: RING2, height: RING2, borderRadius: RING2 / 2,
             borderColor: phase.color + '22',
             opacity: glowAnim,
-            transform: [{ scale: scaleAnim }],
+            transform: [{ scale: ring2Scale }],
           }]} />
           {/* Outer ring 1 */}
           <Animated.View style={[styles.ring, {
             width: RING1, height: RING1, borderRadius: RING1 / 2,
             borderColor: phase.color + '44',
             opacity: glowAnim,
-            transform: [{ scale: scaleAnim }],
+            transform: [{ scale: ring1Scale }],
           }]} />
           {/* Main orb */}
           <Animated.View style={[styles.orb, {
