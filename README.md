@@ -6,7 +6,7 @@
 
 `..: :..`
 
-<br><br>
+<br>
 
 [INIT]   ...  LOADING ADAPTIVE_DNA PROTOCOL
 [OK]     ...  1843_LOVELACE_NOTES_DECRYPTED
