@@ -1,17 +1,20 @@
-#--- containment-as-architecture ---#--- privacy-first ---#--- circadian-aware ---# ~ 60-bpm ---#
-  
-                                                 ..: :..                                                                                              
-                                         
-                                  [INIT]  ...  LOADING ADAPTIVE_DNA PROTOCOL
-                                  [OK]    ...  1843_LOVELACE_NOTES_DECRYPTED
-                                  [OK]    ...  COMPILER_VERSION_GRACE HOPPER
-                                  [OK]    ...  SPACESHIP_SYSTEMS_NOMINAL
-                                  [OK]    ...  BREATHE_TOOL_ACTIVE
-                                  [WARN]  ...  HEART_RATE_VARIABILITY_DETECTED
-                               
-                            #---  DNA_SYNC_2028---#---ARCHITECT_OF_CHAOS  ---# 
-< div style="text-align: center;"> 
-<img width="687" height="449" alt="2026-03-30 07 52 16" src="https://github.com/user-attachments/assets/86ef30bb-5be4-4fca-b7fa-6e4398f902b2" />                           
-</div>
+<div align="center">
 
-    Securing@signal => Sampling@reality => Bridging@threshold => Encoding@memory => Sanctuary: initial-pulse-encrypted;
+`#--- containment-as-architecture ---#--- privacy-first ---#--- circadian-aware ---# ~ 60-bpm ---#`
+
+`..: :..`
+
+```text
+[INIT] ... LOADING ADAPTIVE_DNA PROTOCOL
+[OK]   ... 1843_LOVELACE_NOTES_DECRYPTED
+[OK]   ... COMPILER_VERSION_GRACE HOPPER
+[OK]   ... SPACESHIP_SYSTEMS_NOMINAL
+[OK]   ... BREATHE_TOOL_ACTIVE
+[WARN] ... HEART_RATE_VARIABILITY_DETECTED
+#--- DNA_SYNC_2028---#---ARCHITECT_OF_CHAOS ---#
+
+<img width="687" alt="2026-03-30 07 52 16" src="https://github.com/user-attachments/assets/86ef30bb-5be4-4fca-b7fa-6e4398f902b2" />
+
+Securing@signal => Sampling@reality => Bridging@threshold => Encoding@memory => Sanctuary: initial-pulse-encrypted;
+
+</div>
