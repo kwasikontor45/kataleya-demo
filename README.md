@@ -1,6 +1,6 @@
 containment as architecture: privacy-first -- DNA_SYNC_2028 -- beyond logic, and binary - [ 060 bpm ] - circadian adaptive ~
                              
-                             [ SYSTEM_BOOT_LOG => SIG_ID// ..: :.. ]
+                             [ SYSTEM_BOOT_LOG: SIG_ID// ..: :.. ]
 
                              [INIT] ... LOADING ADAPTIVE_DNA PROTOCOL
                              [OK]   ... 1843_LOVELACE_NOTES_DECRYPTED
@@ -12,6 +12,6 @@ containment as architecture: privacy-first -- DNA_SYNC_2028 -- beyond logic, and
                             [OK]    ... SPACESHIP_SYSTEMS_NOMINAL
                             [OK]    ... BREATHE_TOOL_ACTIVE
                          
-[securing: signal ---> sampling: reality ---> bridging: threshold ---> encoding: memory ---> sanctuary: initial pulse encrypted]
+[securing: signal => sampling: reality => bridging: threshold => encoding: memory => sanctuary: initial pulse encrypted]
                             
                             #--- ARCHITECT_OF_CHAOS ---#
