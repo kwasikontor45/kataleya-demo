@@ -1,25 +1,24 @@
-<div align="center">
+<p align="center">
 
-<pre>#--- containment-as-architecture ---#--- privacy-first ---#--- circadian-aware ---#--- ~60-bpm ---#</pre>
-
-<br><br>
-
-<pre>..: :..</pre>
+`#--- containment-as-architecture ---#--- privacy-first ---#--- circadian-aware ---#--- ~60-bpm ---#`
 
 <br><br>
 
-<pre>
+`..: :..`
+
+<br><br>
+
 [INIT]   ...  LOADING ADAPTIVE_DNA PROTOCOL
 [OK]     ...  1843_LOVELACE_NOTES_DECRYPTED
 [OK]     ...  COMPILER_VERSION_GRACE_HOPPER
 [OK]     ...  SPACESHIP_SYSTEMS_NOMINAL
 [OK]     ...  BREATHE_TOOL_ACTIVE
 [WARN]   ...  HEART_RATE_VARIABILITY_DETECTED
-</pre>
+
 
 <br>
 
-<pre>#--- DNA_SYNC_2028 ---#--- ARCHITECT_OF_CHAOS ---#</pre>
+`#--- DNA_SYNC_2028 ---#--- ARCHITECT_OF_CHAOS ---#`
 
 <br><br>
 
@@ -27,6 +26,6 @@
 
 <br><br>
 
-<pre>Securing@signal  =>  Sampling@reality  =>  Bridging@threshold  =>  Encoding@memory  =>  <b>Sanctuary</b> — <i>initial-pulse-encrypted</i></pre>
+`Securing@signal => Sampling@reality => Bridging@threshold => Encoding@memory =>` **Sanctuary** — *initial-pulse-encrypted*
 
-</div>
+</p>
