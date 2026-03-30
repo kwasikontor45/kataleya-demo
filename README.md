@@ -6,9 +6,7 @@
 
 <code>..: :..</code>
 
-<br><br>
-
-```
+<br><br> ```
 [INIT]   ...  LOADING ADAPTIVE_DNA PROTOCOL
 [OK]     ...  1843_LOVELACE_NOTES_DECRYPTED
 [OK]     ...  COMPILER_VERSION_GRACE_HOPPER
@@ -16,7 +14,6 @@
 [OK]     ...  BREATHE_TOOL_ACTIVE
 [WARN]   ...  HEART_RATE_VARIABILITY_DETECTED
 ```
-
 <br>
 
 <code>#--- DNA_SYNC_2028 ---#--- ARCHITECT_OF_CHAOS ---#</code>
@@ -27,6 +24,6 @@
 
 <br><br>
 
-`Securing@signal` &nbsp;`=>`&nbsp; `Sampling@reality` &nbsp;`=>`&nbsp; `Bridging@threshold` &nbsp;`=>`&nbsp; `Encoding@memory` &nbsp;`=>`&nbsp; **Sanctuary** — *initial-pulse-encrypted*
+`Securing@signal` &nbsp;`=>`&nbsp; `Sampling@reality` &nbsp;`=>`&nbsp; `Bridging@threshold` &nbsp;`=>`&nbsp; `Encoding@memory` &nbsp;`=>`&nbsp; `Sanctuary: initial-pulse-encrypted`
 
 </div>
