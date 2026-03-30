@@ -1,8 +1,8 @@
-                                                 ..: :..
+                                                  ..: :..
 
-            containment as architecture  -  privacy by design  -  060 bpm  - circadian adaptive
-            SYSTEM_BOOT_LOG  ---#  DNA_SYNC_2028  #---  SIG_ID                      
-
+            [containment as architecture  -  privacy by design  -  060 bpm  - circadian adaptive]
+                                          ---#  DNA_SYNC_2028  #---                      
+                                         
                                [INIT]   ... LOADING ADAPTIVE_DNA PROTOCOL
                                [ OK ]   ... 1843_LOVELACE_NOTES_DECRYPTED
                                [ OK ]   ... COMPILER_VERSION_GRACE HOPPER
@@ -12,7 +12,6 @@
                               [WARN]    ... HEART_RATE_VARIABILITY_DETECTED
                               [ OK ]    ... SPACESHIP_SYSTEMS_NOMINAL
                               [ OK ]    ... BREATHE_TOOL_ACTIVE
-                         
+
+                                          #--- ARCHITECT_OF_CHAOS ---#
 [securing: signal => sampling: reality => bridging: threshold => encoding: memory => sanctuary: initial pulse encrypted]
-                            
-                                      #--- ARCHITECT_OF_CHAOS ---#
