@@ -1,20 +1,22 @@
 <div align="center">
 
-`#--- containment-as-architecture ---#--- privacy-first ---#--- circadian-aware ---# ~ 60-bpm ---#`
+<p><code>#--- containment-as-architecture ---#--- privacy-first ---#--- circadian-aware ---# ~ 60-bpm ---#</code></p>
 
-`..: :..`
+<p>..: :..</p>
 
-```text
+<pre>
 [INIT] ... LOADING ADAPTIVE_DNA PROTOCOL
 [OK]   ... 1843_LOVELACE_NOTES_DECRYPTED
 [OK]   ... COMPILER_VERSION_GRACE HOPPER
 [OK]   ... SPACESHIP_SYSTEMS_NOMINAL
 [OK]   ... BREATHE_TOOL_ACTIVE
 [WARN] ... HEART_RATE_VARIABILITY_DETECTED
-#--- DNA_SYNC_2028---#---ARCHITECT_OF_CHAOS ---#
+</pre>
 
-<img width="687" alt="2026-03-30 07 52 16" src="https://github.com/user-attachments/assets/86ef30bb-5be4-4fca-b7fa-6e4398f902b2" />
+<p><code>#--- DNA_SYNC_2028---#---ARCHITECT_OF_CHAOS ---#</code></p>
 
-Securing@signal => Sampling@reality => Bridging@threshold => Encoding@memory => Sanctuary: initial-pulse-encrypted;
+<img width="687" alt="2026-03-30 07 52 16" src="https://github.com/user-attachments/assets/86ef30bb-5be4-4fca-b7fa-6e4398f902b2">
+
+<p><em>Securing@signal => Sampling@reality => Bridging@threshold => Encoding@memory => Sanctuary: initial-pulse-encrypted;</em></p>
 
 </div>
