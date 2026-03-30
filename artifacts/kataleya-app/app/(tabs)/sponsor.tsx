@@ -12,6 +12,10 @@ import { WaterVisual, LightVisual, WaterBanner, LightBanner } from '@/components
 import { sponsorWater, sponsorLight } from '@/utils/hapticBloom';
 import type { PresenceLogEntry } from '@/hooks/useSponsorChannel';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
+import { Image } from 'react-native';
+
+const WATER_IMG = require('@/assets/images/water.gif');
+const LIGHT_IMG = require('@/assets/images/light.gif');
 
 type RoleChoice = 'user' | 'sponsor' | null;
 
@@ -49,38 +53,45 @@ function CodeInput({ value, onChange, theme, accentRgb }: {
 }
 
 function HoldButton({
-  label, sublabel, colorRgb, onFire, disabled, theme, visual, holdDuration = 2000,
+  label, sublabel, colorRgb, onFire, disabled, theme, visual, holdDuration = 2000, bgImage,
 }: {
   label: string; sublabel: string; colorRgb: string; onFire: () => void;
   disabled?: boolean; theme: any; visual?: React.ReactNode; holdDuration?: number;
+  bgImage?: any;
 }) {
   const progress = useRef(new Animated.Value(0)).current;
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
   const [holding, setHolding] = useState(false);
   const [fired, setFired] = useState(false);
+  const imgOpacity = useRef(new Animated.Value(0)).current;
 
   const begin = useCallback(() => {
     if (disabled || fired) return;
     setHolding(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Fade in background image
+    Animated.timing(imgOpacity, { toValue: 0.28, duration: 600, useNativeDriver: true }).start();
     animRef.current = Animated.timing(progress, { toValue: 1, duration: holdDuration, useNativeDriver: false });
     animRef.current.start(({ finished }) => {
       if (finished) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onFire(); setFired(true); setHolding(false);
+        // Keep image visible briefly after fire, then fade
         setTimeout(() => {
+          Animated.timing(imgOpacity, { toValue: 0, duration: 800, useNativeDriver: true }).start();
           setFired(false);
           Animated.timing(progress, { toValue: 0, duration: 400, useNativeDriver: false }).start();
         }, 3000);
       }
     });
-  }, [disabled, fired, onFire, progress, holdDuration]);
+  }, [disabled, fired, onFire, progress, holdDuration, imgOpacity]);
 
   const cancel = useCallback(() => {
     if (fired) return;
     setHolding(false); animRef.current?.stop();
+    Animated.timing(imgOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start();
     Animated.timing(progress, { toValue: 0, duration: 300, useNativeDriver: false }).start();
-  }, [fired, progress]);
+  }, [fired, progress, imgOpacity]);
 
   const fill = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
   const active = fired || holding;
@@ -99,6 +110,13 @@ function HoldButton({
       ]}
     >
       <View style={styles.holdBtnInner}>
+        {bgImage && (
+          <Animated.Image
+            source={bgImage}
+            style={[styles.holdBgImage, { opacity: imgOpacity }]}
+            resizeMode="cover"
+          />
+        )}
         <Animated.View style={[styles.holdFill, { width: fill, backgroundColor: `rgba(${colorRgb},0.15)` }]} />
         <View style={styles.holdBtnContent}>
           {visual && !fired && (
@@ -485,10 +503,12 @@ export default function SponsorScreen() {
                 </Text>
                 <HoldButton label="water" sublabel="cool · present · hold to pour" colorRgb={WATER_RGB}
                   onFire={() => handleSendPresence('water')} theme={theme}
-                  visual={<WaterVisual color={`rgba(${WATER_RGB},0.7)`} />} holdDuration={2000} />
+                  visual={<WaterVisual color={`rgba(${WATER_RGB},0.7)`} />} holdDuration={2000}
+                  bgImage={WATER_IMG} />
                 <HoldButton label="light" sublabel="warm · witnessed · press to strike" colorRgb={LIGHT_RGB}
                   onFire={() => handleSendPresence('light')} theme={theme}
-                  visual={<LightVisual color={`rgba(${LIGHT_RGB},0.7)`} />} holdDuration={700} />
+                  visual={<LightVisual color={`rgba(${LIGHT_RGB},0.7)`} />} holdDuration={700}
+                  bgImage={LIGHT_IMG} />
               </View>
             </NeonCard>
 
@@ -548,10 +568,12 @@ export default function SponsorScreen() {
                 </Text>
                 <HoldButton label="water" sublabel="cool · present · hold to pour" colorRgb={WATER_RGB}
                   onFire={() => handleSendPresence('water')} theme={theme}
-                  visual={<WaterVisual color={`rgba(${WATER_RGB},0.7)`} />} holdDuration={2000} />
+                  visual={<WaterVisual color={`rgba(${WATER_RGB},0.7)`} />} holdDuration={2000}
+                  bgImage={WATER_IMG} />
                 <HoldButton label="light" sublabel="warm · witnessed · press to strike" colorRgb={LIGHT_RGB}
                   onFire={() => handleSendPresence('light')} theme={theme}
-                  visual={<LightVisual color={`rgba(${LIGHT_RGB},0.7)`} />} holdDuration={700} />
+                  visual={<LightVisual color={`rgba(${LIGHT_RGB},0.7)`} />} holdDuration={700}
+                  bgImage={LIGHT_IMG} />
               </View>
             </NeonCard>
           </>
@@ -712,6 +734,7 @@ const styles = StyleSheet.create({
   checkBtnText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1.5, textTransform: 'lowercase' },
   holdHint: { fontFamily: 'CourierPrime', fontSize: 11, lineHeight: 17, textAlign: 'center' },
   holdBtn: { borderWidth: 1, borderRadius: 12, overflow: 'hidden' },
+  holdBgImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
   holdBtnInner: { flex: 1, flexDirection: 'row', position: 'relative' },
   holdFill: { position: 'absolute', top: 0, left: 0, bottom: 0 },
   holdBtnContent: { flex: 1, paddingVertical: 16, paddingHorizontal: 18, justifyContent: 'center', gap: 6, zIndex: 1 },
