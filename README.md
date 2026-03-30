@@ -1,4 +1,4 @@
-#---#  containment as architecture  -  privacy by design  -  060 bpm  - circadian adaptive  #---
+# ---  containment as architecture  -  privacy by design  -  060 bpm  - circadian adaptive  ---
   
                                                ..: :..                                                                                              
                                          
