@@ -1,8 +1,8 @@
                                                   ..: :..
 
-  [containment as architecture  -  privacy by design  -  060 bpm  - circadian adaptive]
+  containment as architecture  -  privacy by design  -  060 bpm  - circadian adaptive
   
-                                          ---#  DNA_SYNC_2028  #---                      
+                                        [---#  DNA_SYNC_2028  #---]                      
                                          
                                [INIT]   ... LOADING ADAPTIVE_DNA PROTOCOL
                                [ OK ]   ... 1843_LOVELACE_NOTES_DECRYPTED
