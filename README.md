@@ -7,7 +7,7 @@
                                [ OK ]   ... 1843_LOVELACE_NOTES_DECRYPTED
                                [ OK ]   ... COMPILER_VERSION_GRACE HOPPER
                              
-<img width="687" height="449" alt="2026-03-30 07 52 16" src="https://github.com/user-attachments/assets/86ef30bb-5be4-4fca-b7fa-6e4398f902b2" />
+            <img width="687" height="449" alt="2026-03-30 07 52 16" src="https://github.com/user-attachments/assets/86ef30bb-5be4-4fca-b7fa-6e4398f902b2" />
                             
                               [WARN]    ... HEART_RATE_VARIABILITY_DETECTED
                               [ OK ]    ... SPACESHIP_SYSTEMS_NOMINAL
