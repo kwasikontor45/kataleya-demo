@@ -1,3 +1,3 @@
 containment as architecture || DNA_SYNC_2028 // SIG_ID: ..: privacy-first :.. A DIGITAL SANCTUARY || beyond logic, and binary...
 <img width="1019" height="651" alt="IMG_0007" src="https://github.com/user-attachments/assets/c9b83242-7b83-4578-ba61-60642060c195" />
- [ securing: signal ---> sampling: chaotic-reality ---> bridging: threshold ---> encoding: memory ---> sanctuary: initial pulse ready ]
+ [ securing: signal ---> sampling: reality ---> bridging: threshold ---> encoding: memory ---> sanctuary: initial pulse ready ]
