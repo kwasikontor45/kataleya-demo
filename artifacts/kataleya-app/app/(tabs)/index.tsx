@@ -22,9 +22,6 @@ import { useResponsiveHeart } from '@/hooks/useResponsiveHeart';
 import { DataBridge } from '@/components/DataBridge';
 import { GhostPulseOrb } from '@/components/GhostPulseOrb';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
-import { Image } from 'react-native';
-
-const BUTTERFLY_IMG = require('@/assets/images/butterfly.jpg');
 import { CircadianBadge } from '@/components/CircadianBadge';
 import { BreathingExercise } from '@/components/BreathingExercise';
 import { GroundingExercise } from '@/components/GroundingExercise';
@@ -93,8 +90,6 @@ export default function SanctuaryScreen() {
   const [showGrounding, setShowGrounding] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
-  const [butterflyDismissed, setButterflyDismissed] = useState(false);
-  const [showButterfly, setShowButterfly] = useState(false);
 
   // Day count pulse — gentle breath at BPM rate
   const dayPulse = useRef(new Animated.Value(1)).current;
@@ -127,21 +122,6 @@ export default function SanctuaryScreen() {
 
   useEffect(() => {
     Surface.getName().then(n => setUserName(n ?? null));
-  }, []);
-
-  // Detect sustained low mood — show butterfly card
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const { Sanctuary } = await import('@/utils/storage');
-        const logs = await Sanctuary.getMoodLogs(10);
-        if (logs.length < 4) return;
-        const recent = logs.slice(0, 5);
-        const avg = recent.reduce((s, l) => s + l.moodScore, 0) / recent.length;
-        if (avg <= 4.5) setShowButterfly(true);
-      } catch {}
-    };
-    check();
   }, []);
 
   // Load predictive suggestion once per mount
@@ -480,41 +460,6 @@ export default function SanctuaryScreen() {
           </NeonCard>
         )}
 
-        {/* ── BUTTERFLY CARD — surfaces when mood has been low ── */}
-        {showButterfly && !butterflyDismissed && (
-          <NeonCard
-            theme={theme}
-            glowColor="violet"
-            borderIntensity={0.2}
-            fillIntensity={0.06}
-            style={styles.butterflyCard}
-          >
-            <Image
-              source={BUTTERFLY_IMG}
-              style={styles.butterflyImage}
-              resizeMode="cover"
-            />
-            <View style={styles.butterflyOverlay}>
-              <Text style={[styles.butterflyQuote, { color: 'rgba(255,255,255,0.88)' }]}>
-                butterflies rest when it rains{'
-'}because it damages their wings.
-              </Text>
-              <Text style={[styles.butterflyQuoteSub, { color: 'rgba(255,255,255,0.6)' }]}>
-                it's okay to rest during the storms of life.{'
-'}you will fly again when it's over.
-              </Text>
-              <TouchableOpacity
-                onPress={() => setButterflyDismissed(true)}
-                style={[styles.butterflyDismiss, { borderColor: 'rgba(255,255,255,0.25)' }]}
-              >
-                <Text style={[styles.butterflyDismissText, { color: 'rgba(255,255,255,0.5)' }]}>
-                  i know
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </NeonCard>
-        )}
-
         {/* ── MINDFULNESS TILES — NeonCard grid ── */}
         <View style={styles.mindfulSection}>
           <Text style={[styles.mindfulLabel, { color: `rgba(${accentRgb}, 0.35)` }]}>
@@ -785,40 +730,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     maxWidth: 280,
-  },
-  butterflyCard: { width: '100%', overflow: 'hidden' },
-  butterflyImage: { width: '100%', height: 180 },
-  butterflyOverlay: {
-    padding: 16,
-    gap: 8,
-    backgroundColor: 'rgba(14,12,20,0.55)',
-  },
-  butterflyQuote: {
-    fontFamily: 'CourierPrime',
-    fontSize: 13,
-    lineHeight: 20,
-    letterSpacing: 0.3,
-    textAlign: 'center',
-  },
-  butterflyQuoteSub: {
-    fontFamily: 'CourierPrime',
-    fontSize: 11,
-    lineHeight: 17,
-    textAlign: 'center',
-  },
-  butterflyDismiss: {
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 20,
-    marginTop: 4,
-  },
-  butterflyDismissText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 10,
-    letterSpacing: 2,
-    textTransform: 'lowercase',
   },
   privacyLink: {
     fontFamily: 'CourierPrime',
