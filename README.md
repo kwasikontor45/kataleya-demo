@@ -3,18 +3,17 @@
 		<pre>
 			#--- containment-as-architecture ---#--- privacy-first ---#--- circadian-aware ---#--- ~60-bpm ---#
 			<br>
-			..: :..
-			<br> <div align="center">
-			[INIT]   ...  LOADING ADAPTIVE_DNA PROTOCOL
-			[OK]     ...  1843_LOVELACE_NOTES_DECRYPTED
-			[OK]     ...  COMPILER_VERSION_GRACE_HOPPER
-			[OK]     ...  SPACESHIP_SYSTEMS_NOMINAL
-			[OK]     ...  BREATHE_TOOL_ACTIVE
-			[WARN]   ...  HEART_RATE_VARIABILITY_DETECTED
-			</div> <br>
-			#--- DNA_SYNC_2028 ---#--- ARCHITECT_OF_CHAOS ---#
+			..: :..	
+			[INIT]	...	LOADING ADAPTIVE_DNA PROTOCOL
+			[OK]	...	1843_LOVELACE_NOTES_DECRYPTED
+			[OK]	...	COMPILER_VERSION_GRACE_HOPPER
+			[OK]	...	SPACESHIP_SYSTEMS_NOMINAL
+			[OK]	...	BREATHE_TOOL_ACTIVE
+			[WARN]	...	HEART_RATE_VARIABILITY_DETECTED
+			<br>
+			#--- DNA_SYNC_2028 ... ARCHITECT_OF_CHAOS ---#
 			<img width="480" alt="butterfly-dna" src="https://github.com/user-attachments/assets/86ef30bb-5be4-4fca-b7fa-6e4398f902b2" />
-			<sub> Securing@signal => Sampling@reality => Bridging@threshold => Encoding@memory => Sanctuary@initial-pulse-encrypted </sub>
+			<code> <sub> Securing@signal => Sampling@reality => Bridging@threshold => Encoding@memory => Sanctuary@initial-pulse-encrypted </sub> </code>
 		</pre>
 	</div>
 </div>
