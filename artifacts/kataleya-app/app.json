@@ -40,7 +40,7 @@
       "expo-font",
       "expo-web-browser",
       "expo-sensors",
-      "expo-sqlite",
+ 
       "expo-secure-store",
       [
         "expo-notifications",
