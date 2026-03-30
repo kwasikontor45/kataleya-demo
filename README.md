@@ -14,4 +14,4 @@
                               [ OK ]    ... BREATHE_TOOL_ACTIVE
 
                                           #--- ARCHITECT_OF_CHAOS ---#
-[securing: signal => sampling: reality => bridging: threshold => encoding: memory => sanctuary: initial pulse encrypted]
+[securing: signal => sampling: reality => bridging: threshold => encoding: memory => sanctuary: initial-pulse-encrypted]
