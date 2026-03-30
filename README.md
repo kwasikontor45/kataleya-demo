@@ -3,7 +3,9 @@
 <pre>
   
   #--- containment-as-architecture ---#--- privacy-first ---#--- circadian-aware ---#--- ~60-bpm ---#
-                ..: :..
+	<br>
+	..: :..
+	<br>
   [INIT]   ...  LOADING ADAPTIVE_DNA PROTOCOL
   [OK]     ...  1843_LOVELACE_NOTES_DECRYPTED
   [OK]     ...  COMPILER_VERSION_GRACE_HOPPER
