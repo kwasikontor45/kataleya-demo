@@ -12,7 +12,7 @@
 	 	[OK]   ... BREATHE_TOOL_ACTIVE
 		  			[WARN]  ... HEART_RATE_VARIABILITY_DETECTED <br>
 					<b> #--- DNA_SYNC_2028 ... ARCHITECT_OF_CHAOS ---# </b>
-				<i><sub>securing=>signal ~ sampling=>reality ~ bridging=>threshold ~ encoding@memory</sub></i>
+				<i><sub>	securing=>signal ~ sampling=>reality ~ bridging=>threshold ~ encoding@memory</sub></i>
 						<b>☠️--Sanctuary//		..: 💀 :..	\\InitialPulseEncrypted--☠️</b>
 		</pre>
 	</div>
