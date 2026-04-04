@@ -97,6 +97,7 @@ export default function SanctuaryScreen() {
   // Heart pill — idle breath + panic intensify
   const pillPulse  = useRef(new Animated.Value(1)).current;
   const pillGlow   = useRef(new Animated.Value(0.4)).current;
+  const ecgAnim    = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const breathe = () => {
       Animated.sequence([
