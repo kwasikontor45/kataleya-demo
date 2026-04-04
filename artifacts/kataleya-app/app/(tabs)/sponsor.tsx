@@ -13,6 +13,7 @@ import { sponsorWater, sponsorLight } from '@/utils/hapticBloom';
 import type { PresenceLogEntry } from '@/hooks/useSponsorChannel';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { Image } from 'react-native';
+import * as Sharing from 'expo-sharing';
 
 const WATER_IMG = require('@/assets/images/water.gif');
 const LIGHT_IMG = require('@/assets/images/light.gif');
@@ -251,6 +252,8 @@ export default function SponsorScreen() {
   } = useSponsorChannel();
 
   const [roleChoice, setRoleChoice] = useState<RoleChoice>(null);
+  const [proximity, setProximity] = useState<'together' | 'remote' | null>(null);
+  const [relayOpen, setRelayOpen] = useState(false);
   const [codeInput, setCodeInput] = useState('');
   const [accepting, setAccepting] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -290,6 +293,18 @@ export default function SponsorScreen() {
   }, [incomingSignals]);
 
   const handleCreateInvite = async () => { setCreating(true); await createInvite(); setCreating(false); };
+  const handleShareCode = async (code: string) => {
+    try {
+      const msg = `my kataleya invite code: ${code}\n\nopen sponsor tab → i am the sponsor → enter this code. expires in 48 hours.`;
+      if (await Sharing.isAvailableAsync()) {
+        const { FileSystem } = await import('expo-file-system');
+        const uri = FileSystem.cacheDirectory + 'kataleya-invite.txt';
+        await FileSystem.writeAsStringAsync(uri, msg);
+        await Sharing.shareAsync(uri, { mimeType: 'text/plain', dialogTitle: 'share invite code' });
+      }
+    } catch (e) { console.error('share failed', e); }
+  };
+
   const handleAccept = async () => {
     if (codeInput.length < 6) return;
     Keyboard.dismiss(); setAccepting(true); await acceptInvite(codeInput); setAccepting(false);
@@ -378,24 +393,98 @@ export default function SponsorScreen() {
           </NeonCard>
         )}
 
-        {/* ── USER: INVITE FLOW ── */}
-        {!isConnected && effectiveRole === 'user' && connState !== 'inviting' && (
+        {/* ── USER: PROXIMITY CHOICE ── */}
+        {!isConnected && effectiveRole === 'user' && connState !== 'inviting' && !proximity && (
           <NeonCard theme={theme} accentRgb={accentRgb}>
             <View style={styles.cardInner}>
-              <Text style={[styles.cardTitle, { color: theme.text }]}>create an invite</Text>
+              <Text style={[styles.cardTitle, { color: theme.text }]}>invite your sponsor</Text>
               <Text style={[styles.cardBody, { color: `${theme.textMuted}cc` }]}>
-                a 6-character code is generated on the server.{'\n'}share it with your sponsor in person or via signal.
+                are you with them right now, or are they somewhere else?
+              </Text>
+              <View style={styles.roleRow}>
+                <TouchableOpacity
+                  style={[styles.roleBtn, { borderColor: `rgba(${accentRgb},0.45)`, backgroundColor: `rgba(${accentRgb},0.08)` }]}
+                  onPress={() => setProximity('together')}>
+                  <Text style={[styles.roleBtnTitle, { color: `rgba(${accentRgb},0.9)` }]}>we’re together</Text>
+                  <Text style={[styles.roleBtnSub, { color: `rgba(${accentRgb},0.45)` }]}>same room</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.roleBtn, { borderColor: `rgba(${accentRgb},0.18)`, backgroundColor: `rgba(${accentRgb},0.04)` }]}
+                  onPress={() => setProximity('remote')}>
+                  <Text style={[styles.roleBtnTitle, { color: `${theme.text}cc` }]}>they’re remote</Text>
+                  <Text style={[styles.roleBtnSub, { color: `${theme.textMuted}99` }]}>miles away</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity onPress={() => setRoleChoice(null)}>
+                <Text style={[styles.backLink, { color: `rgba(${accentRgb},0.35)` }]}>← back</Text>
+              </TouchableOpacity>
+            </View>
+          </NeonCard>
+        )}
+
+        {/* ── TOGETHER — large code to show/photograph ── */}
+        {!isConnected && effectiveRole === 'user' && connState !== 'inviting' && proximity === 'together' && (
+          <NeonCard theme={theme} accentRgb={accentRgb}>
+            <View style={styles.cardInner}>
+              <Text style={[styles.cardTitle, { color: theme.text }]}>show your sponsor this screen</Text>
+              <Text style={[styles.cardBody, { color: `${theme.textMuted}cc` }]}>
+                hand them your phone or hold it toward them.{'\n'}they enter this code on their device.
               </Text>
               {error && <Text style={[styles.errorText, { color: `rgba(${DANGER_RGB},0.9)` }]}>{error}</Text>}
-              <TouchableOpacity
-                style={[styles.primaryBtn, { borderColor: `rgba(${accentRgb},0.45)`, backgroundColor: `rgba(${accentRgb},0.1)` }]}
-                onPress={handleCreateInvite} disabled={creating}>
-                <Text style={[styles.primaryBtnText, { color: `rgba(${accentRgb},0.9)` }]}>
-                  {creating ? 'generating…' : 'generate invite code'}
-                </Text>
+              {!inviteCode ? (
+                <TouchableOpacity
+                  style={[styles.primaryBtn, { borderColor: `rgba(${accentRgb},0.45)`, backgroundColor: `rgba(${accentRgb},0.1)` }]}
+                  onPress={handleCreateInvite} disabled={creating}>
+                  <Text style={[styles.primaryBtnText, { color: `rgba(${accentRgb},0.9)` }]}>
+                    {creating ? 'generating…' : 'generate code'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={[styles.bigCodeWrap, { borderColor: `rgba(${accentRgb},0.3)`, backgroundColor: `rgba(${accentRgb},0.06)` }]}>
+                  <Text style={[styles.bigCode, { color: `rgba(${accentRgb},0.95)` }]}>{inviteCode}</Text>
+                  <Text style={[styles.bigCodeHint, { color: `${theme.textMuted}70` }]}>sponsor tab → i am the sponsor → enter this</Text>
+                </View>
+              )}
+              <TouchableOpacity onPress={() => setProximity(null)}>
+                <Text style={[styles.backLink, { color: `rgba(${accentRgb},0.35)` }]}>← back</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setRoleChoice(null)}>
-                <Text style={[styles.backLink, { color: `rgba(${accentRgb},0.4)` }]}>← back</Text>
+            </View>
+          </NeonCard>
+        )}
+
+        {/* ── REMOTE — generate + share via Signal/iMessage ── */}
+        {!isConnected && effectiveRole === 'user' && connState !== 'inviting' && proximity === 'remote' && (
+          <NeonCard theme={theme} accentRgb={accentRgb}>
+            <View style={styles.cardInner}>
+              <Text style={[styles.cardTitle, { color: theme.text }]}>send your sponsor a code</Text>
+              <Text style={[styles.cardBody, { color: `${theme.textMuted}cc` }]}>
+                a 6-character code. share it over Signal, iMessage, or a phone call.{'\n'}expires in 48 hours.
+              </Text>
+              {error && <Text style={[styles.errorText, { color: `rgba(${DANGER_RGB},0.9)` }]}>{error}</Text>}
+              {!inviteCode ? (
+                <TouchableOpacity
+                  style={[styles.primaryBtn, { borderColor: `rgba(${accentRgb},0.45)`, backgroundColor: `rgba(${accentRgb},0.1)` }]}
+                  onPress={handleCreateInvite} disabled={creating}>
+                  <Text style={[styles.primaryBtnText, { color: `rgba(${accentRgb},0.9)` }]}>
+                    {creating ? 'generating…' : 'generate code'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <View style={[styles.bigCodeWrap, { borderColor: `rgba(${accentRgb},0.3)`, backgroundColor: `rgba(${accentRgb},0.06)` }]}>
+                    <Text style={[styles.bigCode, { color: `rgba(${accentRgb},0.95)` }]}>{inviteCode}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.primaryBtn, { borderColor: `rgba(${accentRgb},0.55)`, backgroundColor: `rgba(${accentRgb},0.12)` }]}
+                    onPress={() => handleShareCode(inviteCode)}>
+                    <Text style={[styles.primaryBtnText, { color: `rgba(${accentRgb},0.95)` }]}>
+                      share via signal / imessage →
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+              <TouchableOpacity onPress={() => setProximity(null)}>
+                <Text style={[styles.backLink, { color: `rgba(${accentRgb},0.35)` }]}>← back</Text>
               </TouchableOpacity>
             </View>
           </NeonCard>
@@ -464,6 +553,38 @@ export default function SponsorScreen() {
                 )}
               </View>
             </NeonCard>
+
+
+            {/* ── RELAY TRANSPARENCY ── */}
+            <TouchableOpacity onPress={() => setRelayOpen(o => !o)} style={styles.relayToggle} hitSlop={8} activeOpacity={0.7}>
+              <Text style={[styles.relayToggleText, { color: `${theme.textMuted}50` }]}>
+                {relayOpen ? '▲ ' : '▼ '}what the relay server sees right now
+              </Text>
+            </TouchableOpacity>
+            {relayOpen && (
+              <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.1}>
+                <View style={styles.relayCard}>
+                  <Text style={[styles.relayTitle, { color: `rgba(${accentRgb},0.45)` }]}>relay server · live</Text>
+                  {[
+                    ['channel code',    inviteCode || '—'],
+                    ['checked in today', status?.checkedIn ? 'yes' : 'no'],
+                    ['recovery stage',  status?.orchidStage || '—'],
+                    ['milestone count', String(status?.milestones ?? '—')],
+                    ['messages',        'encrypted blobs — server cannot read'],
+                    ['mood logs',       'not transmitted — stays on device'],
+                    ['journal entries', 'not transmitted — stays on device'],
+                    ['your name',       'not transmitted — stays on device'],
+                    ['sobriety date',   'not transmitted — stays on device'],
+                    ['private keys',    'never leave this phone'],
+                  ].map(([field, value], i) => (
+                    <View key={i} style={[styles.relayRow, i > 0 && { borderTopWidth: 1, borderTopColor: `rgba(${accentRgb},0.07)` }]}>
+                      <Text style={[styles.relayField, { color: `${theme.textMuted}65` }]}>{field}</Text>
+                      <Text style={[styles.relayValue, { color: `rgba(${accentRgb},0.75)` }]}>{value}</Text>
+                    </View>
+                  ))}
+                </View>
+              </NeonCard>
+            )}
 
             {/* Daily check-in */}
             <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 20 }]}>daily check-in</Text>
@@ -773,4 +894,15 @@ const styles = StyleSheet.create({
   msgInput: { flex: 1, fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 19, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12, maxHeight: 100 },
   msgSendBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   msgSendText: { fontFamily: 'CourierPrime', fontSize: 16, fontWeight: '700' },
+
+  bigCodeWrap: { borderWidth: 1, borderRadius: 12, paddingVertical: 22, paddingHorizontal: 20, alignItems: 'center', gap: 8 },
+  bigCode: { fontFamily: 'CourierPrime', fontSize: 40, fontWeight: '700', letterSpacing: 10 },
+  bigCodeHint: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1, textAlign: 'center' },
+  relayToggle: { alignItems: 'center', paddingVertical: 8 },
+  relayToggleText: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 2 },
+  relayCard: { padding: 14 },
+  relayTitle: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 10 },
+  relayRow: { flexDirection: 'row', paddingVertical: 8, gap: 8 },
+  relayField: { fontFamily: 'CourierPrime', fontSize: 10, flex: 1 },
+  relayValue: { fontFamily: 'CourierPrime', fontSize: 10, flex: 1.3, textAlign: 'right' },
 });
