@@ -1,5 +1,5 @@
 'use no memo';
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { ThemeTokens } from '@/constants/theme';
 import { Sanctuary, Surface, Fortress } from '@/utils/storage';
+import { HoldToConfirm } from '@/components/HoldToConfirm';
 
 type BurnReason = 'no_longer_serves' | 'begin_again' | 'not_this_way' | 'private' | null;
 
@@ -21,100 +22,60 @@ interface Props {
 
 const REASONS = [
   { id: 'no_longer_serves' as const, label: 'The data no longer serves me' },
-  { id: 'begin_again' as const, label: 'I need to begin again' },
-  { id: 'not_this_way' as const, label: 'I do not want to be known this way' },
-  { id: 'private' as const, label: '[No reason / Private]' },
+  { id: 'begin_again'      as const, label: 'I need to begin again' },
+  { id: 'not_this_way'     as const, label: 'I do not want to be known this way' },
+  { id: 'private'          as const, label: '[No reason / Private]' },
 ];
+
+const DANGER_RGB = '255,80,80';
 
 export function BurningRitual({ theme, onComplete, onCancel }: Props) {
   const [selectedReason, setSelectedReason] = useState<BurnReason>(null);
-  const [isHolding, setIsHolding] = useState(false);
-  // confirming: hold completed — waiting for explicit user confirmation before wipe
+  // confirming: hold completed — waiting for explicit final tap before wipe
   const [confirming, setConfirming] = useState(false);
   const [burned, setBurned] = useState(false);
-  const progress = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef<Animated.CompositeAnimation | null>(null);
 
-  const startHold = () => {
-    if (!selectedReason) return;
-    setIsHolding(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-    progressAnim.current = Animated.timing(progress, {
-      toValue: 100,
-      duration: 3000,
-      useNativeDriver: false,
-    });
-    progressAnim.current.start(({ finished }) => {
-      if (finished) {
-        // Hold complete — enter confirmation gate; do NOT wipe yet
-        setIsHolding(false);
-        setConfirming(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      }
-    });
-  };
-
-  const endHold = () => {
-    if (burned || confirming) return;
-    setIsHolding(false);
-    if (progressAnim.current) progressAnim.current.stop();
-    Animated.timing(progress, {
-      toValue: 0,
-      duration: 400,
-      useNativeDriver: false,
-    }).start();
+  // ── Hold complete → confirmation gate ─────────────────────────────────────
+  const handleHoldComplete = () => {
+    setConfirming(true);
   };
 
   const cancelConfirmation = () => {
     setConfirming(false);
-    // Reset progress bar so the user can try again or walk away
-    Animated.timing(progress, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
   };
 
+  // ── Confirmed: execute the 3-phase burn ───────────────────────────────────
   const executeBurn = async () => {
     setBurned(true);
 
-    // ── Phase 1: Tombstone ─────────────────────────────────────────────────
-    // Written FIRST — before any destructive action. If the app is killed
-    // during the subsequent native wipes, this key survives in AsyncStorage
-    // and the next launch detects + completes the burn automatically.
+    // Phase 1 — Tombstone
+    // Written FIRST. If the OS kills the process during Phase 2,
+    // this key survives and triggers recovery on next launch.
     await Surface.writeBurnTombstone();
 
     try {
-      // ── Phase 2: Parallel native vault wipes ────────────────────────────
-      // Sanctuary (SQLite) and Fortress (Keychain) are independent. Run them
-      // concurrently to minimize the window where data partially exists.
-      // wipeSQLiteData does NOT touch Surface, so the tombstone stays alive.
+      // Phase 2 — Parallel native vault wipes
+      // Sanctuary (SQLite) and Fortress (Keychain) are independent.
+      // Neither touches Surface, so the tombstone stays alive.
       await Promise.all([
         Sanctuary.wipeSQLiteData(),
         Fortress.clear(),
       ]);
 
-      // ── Phase 3: Surface wipe (last) ─────────────────────────────────────
-      // Only executed once both native vaults confirm empty. This also erases
-      // the tombstone — a clean burn leaves no trace in any vault.
+      // Phase 3 — Surface wipe (last)
+      // Only runs after both native vaults confirm empty.
+      // This erases the tombstone — a clean burn leaves no trace.
       await Surface.clearAll();
     } catch (error) {
-      // Native wipe interrupted. The tombstone in Surface survives here
-      // because Surface.clearAll() was never reached. Next launch will detect
-      // the tombstone and re-attempt the wipe before rendering any UI.
-      console.error('Critical: Burn interrupted during native phase', error);
+      // Native wipe interrupted — tombstone in Surface survives.
+      // Next launch detects it and re-attempts before rendering any UI.
+      console.error('Critical: burn interrupted during native phase', error);
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const progressWidth = progress.interpolate({
-    inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
-  });
-
-  // ── Post-burn: completion screen ──────────────────────────────────────────
+  // ── Post-burn completion screen ───────────────────────────────────────────
   if (burned) {
     return (
       <View style={[styles.container, styles.afterContainer, { backgroundColor: theme.bg }]}>
@@ -132,7 +93,6 @@ export function BurningRitual({ theme, onComplete, onCancel }: Props) {
           >
             <Text style={[styles.afterBtnText, { color: theme.accent }]}>Begin Again</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
             style={[styles.afterBtn, { borderColor: theme.border }]}
             onPress={onComplete}
@@ -148,7 +108,7 @@ export function BurningRitual({ theme, onComplete, onCancel }: Props) {
     );
   }
 
-  // ── Confirmation gate: shown after hold completes, before wipe executes ───
+  // ── Confirmation gate — shown after hold completes, before wipe executes ──
   if (confirming) {
     return (
       <View style={[styles.container, styles.confirmContainer, { backgroundColor: theme.bg }]}>
@@ -181,7 +141,7 @@ export function BurningRitual({ theme, onComplete, onCancel }: Props) {
     );
   }
 
-  // ── Default: hold gesture screen ─────────────────────────────────────────
+  // ── Default: reason selection + hold gesture ──────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <TouchableOpacity onPress={onCancel} style={styles.cancelBtn}>
@@ -190,10 +150,8 @@ export function BurningRitual({ theme, onComplete, onCancel }: Props) {
 
       <Text style={[styles.title, { color: theme.danger }]}>Burn the Garden</Text>
       <Text style={[styles.subtitle, { color: theme.text, opacity: 0.75 }]}>
-        You are about to destroy all records.{'\n'}This cannot be undone. No one can recover it.
+        You are about to destroy all records.{'\n'}This cannot be undone. We cannot recover it. No one can.
       </Text>
-
-      <Text style={[styles.reasonLabel, { color: theme.textMuted }]}>Why are you burning?</Text>
 
       <View style={styles.reasons}>
         {REASONS.map(r => (
@@ -213,44 +171,17 @@ export function BurningRitual({ theme, onComplete, onCancel }: Props) {
         ))}
       </View>
 
-      <View style={styles.igniteArea}>
-        <Text style={[styles.holdLabel, { color: theme.textMuted }]}>
-          {isHolding ? 'burning...' : 'hold to ignite'}
-        </Text>
-
-        <View style={[styles.progressTrack, { backgroundColor: theme.border }]}>
-          <Animated.View
-            style={[
-              styles.progressFill,
-              { width: progressWidth, backgroundColor: isHolding ? theme.danger : theme.gold },
-            ]}
-          />
-        </View>
-
-        <TouchableOpacity
-          onPressIn={startHold}
-          onPressOut={endHold}
-          disabled={!selectedReason}
-          activeOpacity={1}
-          style={[
-            styles.igniteBtn,
-            {
-              borderColor: selectedReason ? theme.danger : theme.border,
-              opacity: selectedReason ? 1 : 0.3,
-              backgroundColor: isHolding ? `${theme.danger}20` : 'transparent',
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.igniteText,
-              { color: isHolding ? theme.danger : selectedReason ? theme.text : theme.textMuted },
-            ]}
-          >
-            {isHolding ? 'BURNING...' : 'HOLD TO IGNITE'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* ── Hold to ignite — uses shared HoldToConfirm, danger mode ── */}
+      <HoldToConfirm
+        label="hold to ignite"
+        holdingLabel="burning..."
+        accentRgb={DANGER_RGB}
+        duration={3000}
+        dangerMode
+        disabled={!selectedReason}
+        onConfirm={handleHoldComplete}
+        style={styles.igniteWrapper}
+      />
     </View>
   );
 }
@@ -261,14 +192,8 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 60,
   },
-  cancelBtn: {
-    marginBottom: 32,
-  },
-  cancelText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 12,
-    letterSpacing: 1,
-  },
+  cancelBtn: { marginBottom: 32 },
+  cancelText: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 1 },
   title: {
     fontFamily: 'CourierPrime',
     fontSize: 22,
@@ -282,60 +207,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 32,
   },
-  reasonLabel: {
-    fontFamily: 'CourierPrime',
-    fontSize: 11,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: 12,
-  },
-  reasons: {
-    gap: 8,
-    marginBottom: 40,
-  },
-  reasonBtn: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-  },
-  reasonText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 13,
-  },
-  igniteArea: {
-    alignItems: 'center',
-    gap: 16,
-  },
-  holdLabel: {
-    fontFamily: 'CourierPrime',
-    fontSize: 10,
-    letterSpacing: 2,
-    textTransform: 'lowercase',
-  },
-  progressTrack: {
-    width: '100%',
-    height: 2,
-    borderRadius: 1,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 1,
-  },
-  igniteBtn: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    width: '100%',
-    alignItems: 'center',
-  },
-  igniteText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 12,
-    letterSpacing: 2.5,
-  },
-  // ── Confirmation gate styles (calm, no animation) ────────────────────────
+  reasons: { gap: 8, marginBottom: 40 },
+  reasonBtn: { borderWidth: 1, borderRadius: 8, padding: 14 },
+  reasonText: { fontFamily: 'CourierPrime', fontSize: 13 },
+  igniteWrapper: { marginTop: 'auto' as any },
+
+  // ── Confirmation gate ─────────────────────────────────────────────────────
   confirmContainer: {
     justifyContent: 'center',
     gap: 40,
@@ -349,9 +226,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.9,
   },
-  confirmActions: {
-    gap: 12,
-  },
+  confirmActions: { gap: 12 },
   confirmEraseBtn: {
     borderWidth: 1,
     borderRadius: 8,
@@ -376,7 +251,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
-  // ── Post-burn completion screen ───────────────────────────────────────────
+
+  // ── Post-burn completion ──────────────────────────────────────────────────
   afterContainer: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -396,10 +272,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: 'center',
   },
-  afterActions: {
-    width: '100%',
-    gap: 10,
-  },
+  afterActions: { width: '100%', gap: 10 },
   afterBtn: {
     borderWidth: 1,
     borderRadius: 8,
