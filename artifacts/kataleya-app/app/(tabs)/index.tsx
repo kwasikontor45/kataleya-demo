@@ -659,8 +659,10 @@ export default function SanctuaryScreen() {
                 the garden walls
               </Text>
               <Text style={[styles.sheetTitle, { color: theme.text }]}>
-                your data is yours.{'
-'}completely.
+                your data is yours.
+              </Text>
+              <Text style={[styles.sheetTitle, { color: theme.text }]}>
+                completely.
               </Text>
               <Text style={[styles.sheetSubtitle, { color: `${theme.textMuted}bb` }]}>
                 kataleya was designed to know as little about you as possible.
