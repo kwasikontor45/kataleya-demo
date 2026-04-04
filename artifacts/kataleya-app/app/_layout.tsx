@@ -30,15 +30,15 @@ function RootLayoutNav() {
       screenOptions={{
         headerShown: false,
         animation: 'fade',
-        contentStyle: { backgroundColor: '#0e0c14' },
+        contentStyle: { backgroundColor: '#1a1a2e' },
       }}
     >
-      <Stack.Screen name="bridge" options={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: '#0e0c14' } }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false, contentStyle: { backgroundColor: '#0e0c14' } }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false, contentStyle: { backgroundColor: '#0e0c14' } }} />
+      <Stack.Screen name="bridge" options={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: '#1a1a2e' } }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false, contentStyle: { backgroundColor: '#1a1a2e' } }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false, contentStyle: { backgroundColor: '#1a1a2e' } }} />
       <Stack.Screen name="burn" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="cover" options={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: '#000000' } }} />
-      <Stack.Screen name="privacy" options={{ headerShown: false, contentStyle: { backgroundColor: '#0e0c14' } }} />
+      <Stack.Screen name="privacy" options={{ headerShown: false, contentStyle: { backgroundColor: '#1a1a2e' } }} />
     </Stack>
   );
 }
@@ -63,7 +63,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0e0c14' }}>
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#1a1a2e' }}>
             <KeyboardProvider>
               <RootLayoutNav />
             </KeyboardProvider>

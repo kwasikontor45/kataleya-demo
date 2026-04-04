@@ -1,3 +1,219 @@
+#!/bin/bash
+# kataleya-theme-merge.sh
+# Run from: ~/kataleya
+# Writes the merged HTML+Kataleya palette across all affected files.
+# Usage: bash ~/kataleya-theme-merge.sh
+
+set -e
+APP="artifacts/kataleya-app"
+
+echo "→ Merging HTML prototype palette into Kataleya..."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. constants/theme.ts
+# ─────────────────────────────────────────────────────────────────────────────
+cat > "$APP/constants/theme.ts" << 'ENDOFFILE'
+export interface ThemeTokens {
+  bg: string;
+  surface: string;
+  surfaceHighlight: string;
+  gold: string;
+  accent: string;
+  accentSoft: string;
+  text: string;
+  textMuted: string;
+  textInverse: string;
+  success: string;
+  warning: string;
+  danger: string;
+  border: string;
+}
+
+// Dawn / day — warm parchment (unchanged)
+export const MorningBloom: ThemeTokens = {
+  bg:               '#faf8f5',
+  surface:          '#ffffff',
+  surfaceHighlight: '#f5f0e8',
+  gold:             '#a06808',
+  accent:           '#b85510',
+  accentSoft:       '#9a7210',
+  text:             '#2a1810',
+  textMuted:        '#6b5540',
+  textInverse:      '#faf8f5',
+  success:          '#1f7a6e',
+  warning:          '#9a7210',
+  danger:           '#c0401e',
+  border:           '#d0c0a8',
+};
+
+// Golden hour → night — merged HTML navy+sage+terra palette
+// HTML --bg-dark #1a1a2e, --primary-sage #87a878, --primary-terra #d4a373
+// --safe #81b29a, --danger #e07a5f, --warning #f2cc8f
+export const MidnightGarden: ThemeTokens = {
+  bg:               '#1a1a2e',   // HTML --bg-dark       (was #0e0c14)
+  surface:          '#16213e',   // HTML gradient end    (was #1a1625)
+  surfaceHighlight: '#1e2a4a',   // one step lighter
+  gold:             '#d4a373',   // HTML --primary-terra (was #e8c56a)
+  accent:           '#87a878',   // HTML --primary-sage  (was #7fc9c9)
+  accentSoft:       '#81b29a',   // HTML --safe          (was #9b6dff)
+  text:             '#f5f5f5',   // HTML --text-primary  (was #f0e6ff)
+  textMuted:        '#a0a0a0',   // HTML --text-secondary (was #a89bb8)
+  textInverse:      '#1a1a2e',
+  success:          '#81b29a',   // HTML --safe
+  warning:          '#f2cc8f',   // HTML --warning
+  danger:           '#e07a5f',   // HTML --danger        (was #ff6b6b)
+  border:           '#1e2a4a',   // deep navy            (was #2a2440)
+};
+
+export function interpolateTheme(
+  morning: ThemeTokens,
+  midnight: ThemeTokens,
+  t: number
+): ThemeTokens {
+  const lerp = (a: string, b: string, t: number): string => {
+    const parseHex = (hex: string) => {
+      const n = parseInt(hex.replace('#', ''), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    };
+    const toHex = (r: number, g: number, b: number) =>
+      '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+    const [r1, g1, b1] = parseHex(a);
+    const [r2, g2, b2] = parseHex(b);
+    return toHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
+  };
+  const keys = Object.keys(morning) as (keyof ThemeTokens)[];
+  return keys.reduce((acc, key) => {
+    acc[key] = lerp(morning[key], midnight[key], t);
+    return acc;
+  }, {} as ThemeTokens);
+}
+ENDOFFILE
+echo "  ✓ constants/theme.ts"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. constants/colors.ts
+# ─────────────────────────────────────────────────────────────────────────────
+cat > "$APP/constants/colors.ts" << 'ENDOFFILE'
+export default {
+  light: {
+    text: '#2a1810',
+    background: '#faf8f5',
+    tint: '#b85510',
+    tabIconDefault: '#8b7355',
+    tabIconSelected: '#b85510',
+  },
+  dark: {
+    text: '#f5f5f5',
+    background: '#1a1a2e',
+    tint: '#87a878',
+    tabIconDefault: '#a0a0a0',
+    tabIconSelected: '#87a878',
+  },
+};
+ENDOFFILE
+echo "  ✓ constants/colors.ts"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. components/NeonCard.tsx
+# NEON_RGB: cyan→sage, violet→terra, amber→safe, pink→coral
+# Key names kept so no call sites break.
+# ─────────────────────────────────────────────────────────────────────────────
+cat > "$APP/components/NeonCard.tsx" << 'ENDOFFILE'
+'use no memo';
+import React from 'react';
+import { View, TouchableOpacity, ViewStyle } from 'react-native';
+import { ThemeTokens } from '@/constants/theme';
+
+export type NeonGlowColor = 'cyan' | 'violet' | 'amber' | 'pink' | 'neutral';
+
+// Organic palette — merged from HTML prototype
+// cyan   = sage    #87a878  day / water / breathing / mood
+// violet = terra   #d4a373  golden hour / journal / light signal
+// amber  = safe    #81b29a  Fortress vault / grounding
+// pink   = coral   #e07a5f  dawn / burn / danger-adjacent
+export const NEON_RGB: Record<NeonGlowColor, string> = {
+  cyan:    '135,168,120',
+  violet:  '212,163,115',
+  amber:   '129,178,154',
+  pink:    '224,122,95',
+  neutral: '255,255,255',
+};
+
+interface Props {
+  children: React.ReactNode;
+  theme: ThemeTokens;
+  accentRgb?: string;
+  glowColor?: NeonGlowColor;
+  onPress?: () => void;
+  onLongPress?: () => void;
+  style?: ViewStyle;
+  borderIntensity?: number;
+  fillIntensity?: number;
+  disabled?: boolean;
+}
+
+export function NeonCard({
+  children, theme, accentRgb, glowColor, onPress, onLongPress,
+  style, borderIntensity = 0.18, fillIntensity = 0.06, disabled = false,
+}: Props) {
+  const rgb = accentRgb ?? (glowColor ? NEON_RGB[glowColor] : NEON_RGB.neutral);
+  const cardStyle: ViewStyle = {
+    backgroundColor: `rgba(${rgb}, ${fillIntensity})`,
+    borderWidth: 1,
+    borderColor: `rgba(${rgb}, ${borderIntensity})`,
+    borderRadius: 16,
+    overflow: 'hidden',
+  };
+  if (onPress || onLongPress) {
+    return (
+      <TouchableOpacity
+        onPress={onPress} onLongPress={onLongPress}
+        disabled={disabled} activeOpacity={0.75} style={[cardStyle, style]}
+      >
+        {children}
+      </TouchableOpacity>
+    );
+  }
+  return <View style={[cardStyle, style]}>{children}</View>;
+}
+ENDOFFILE
+echo "  ✓ components/NeonCard.tsx"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. app/_layout.tsx — replace hardcoded #0e0c14 with #1a1a2e
+# ─────────────────────────────────────────────────────────────────────────────
+sed -i "s/#0e0c14/#1a1a2e/g" "$APP/app/_layout.tsx"
+echo "  ✓ app/_layout.tsx (sed)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. components/ErrorFallback.tsx
+# ─────────────────────────────────────────────────────────────────────────────
+sed -i "s/#0e0c14/#1a1a2e/g; s/#7fc9c9/#87a878/g" "$APP/components/ErrorFallback.tsx"
+echo "  ✓ components/ErrorFallback.tsx (sed)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. components/SignalIcons.tsx
+# Water signal: cyan #7fc9c9 → sage #87a878
+# Light signal: amber #e8c56a → terra #d4a373
+# ─────────────────────────────────────────────────────────────────────────────
+sed -i "s/#7fc9c9/#87a878/g; s/#e8c56a/#d4a373/g" "$APP/components/SignalIcons.tsx"
+echo "  ✓ components/SignalIcons.tsx (sed)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. components/GroundingExercise.tsx
+# cyan #7fc9c9 → sage #87a878
+# violet #9b6dff → terra #d4a373
+# amber #e8c56a → safe #81b29a
+# pink #d0607a → coral #e07a5f
+# ─────────────────────────────────────────────────────────────────────────────
+sed -i "s/#7fc9c9/#87a878/g; s/#9b6dff/#d4a373/g; s/#e8c56a/#81b29a/g; s/#d0607a/#e07a5f/g" \
+  "$APP/components/GroundingExercise.tsx"
+echo "  ✓ components/GroundingExercise.tsx (sed)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. components/BreathingExercise.tsx — full rewrite to match HTML orb style
+# ─────────────────────────────────────────────────────────────────────────────
+cat > "$APP/components/BreathingExercise.tsx" << 'ENDOFFILE'
 'use no memo';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -291,3 +507,14 @@ const styles = StyleSheet.create({
   completionBtnText: { fontFamily: 'CourierPrime', fontSize: 13, letterSpacing: 2 },
   completionAgain: { fontFamily: 'CourierPrime', fontSize: 11, color: 'rgba(255,255,255,0.25)', letterSpacing: 2, marginTop: 4 },
 });
+ENDOFFILE
+echo "  ✓ components/BreathingExercise.tsx"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Done
+# ─────────────────────────────────────────────────────────────────────────────
+echo ""
+echo "✓ Theme merge complete. Commit with:"
+echo "  git add -A && git commit -m 'feat: merge HTML navy+sage+terra palette into theme' && git push origin main"
+ENDOFFILE
+echo "  ✓ script written"

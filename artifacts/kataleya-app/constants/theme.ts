@@ -14,39 +14,47 @@ export interface ThemeTokens {
   border: string;
 }
 
+// Dawn / day — warm parchment (unchanged)
 export const MorningBloom: ThemeTokens = {
-  bg: '#faf8f5',
-  surface: '#ffffff',
+  bg:               '#faf8f5',
+  surface:          '#ffffff',
   surfaceHighlight: '#f5f0e8',
-  gold: '#a06808',          // was #c8860a — darkened for contrast on light bg
-  accent: '#b85510',        // was #f4a261 (2.3:1) — now ~4.6:1, AA-compliant
-  accentSoft: '#9a7210',    // was #e9c46a (1.6:1) — now ~6:1
-  text: '#2a1810',
-  textMuted: '#6b5540',     // was #8b7355 (4.5:1 borderline) — now ~6.2:1
-  textInverse: '#faf8f5',
-  success: '#1f7a6e',       // was #2a9d8f — darkened to match new contrast standard
-  warning: '#9a7210',       // was #e9c46a — matches accentSoft
-  danger: '#c0401e',        // was #e76f51 — darkened for contrast on light bg
-  border: '#d0c0a8',        // was #e8ddd0 — more visible separation
+  gold:             '#a06808',
+  accent:           '#b85510',
+  accentSoft:       '#9a7210',
+  text:             '#2a1810',
+  textMuted:        '#6b5540',
+  textInverse:      '#faf8f5',
+  success:          '#1f7a6e',
+  warning:          '#9a7210',
+  danger:           '#c0401e',
+  border:           '#d0c0a8',
 };
 
+// Golden hour → night — merged HTML navy+sage+terra palette
+// HTML --bg-dark #1a1a2e, --primary-sage #87a878, --primary-terra #d4a373
+// --safe #81b29a, --danger #e07a5f, --warning #f2cc8f
 export const MidnightGarden: ThemeTokens = {
-  bg: '#0e0c14',
-  surface: '#1a1625',
-  surfaceHighlight: '#252236',
-  gold: '#e8c56a',
-  accent: '#7fc9c9',
-  accentSoft: '#9b6dff',
-  text: '#f0e6ff',
-  textMuted: '#a89bb8',
-  textInverse: '#0e0c14',
-  success: '#7fc9c9',
-  warning: '#e8c56a',
-  danger: '#ff6b6b',
-  border: '#2a2440',
+  bg:               '#1a1a2e',   // HTML --bg-dark       (was #0e0c14)
+  surface:          '#16213e',   // HTML gradient end    (was #1a1625)
+  surfaceHighlight: '#1e2a4a',   // one step lighter
+  gold:             '#d4a373',   // HTML --primary-terra (was #e8c56a)
+  accent:           '#87a878',   // HTML --primary-sage  (was #7fc9c9)
+  accentSoft:       '#81b29a',   // HTML --safe          (was #9b6dff)
+  text:             '#f5f5f5',   // HTML --text-primary  (was #f0e6ff)
+  textMuted:        '#a0a0a0',   // HTML --text-secondary (was #a89bb8)
+  textInverse:      '#1a1a2e',
+  success:          '#81b29a',   // HTML --safe
+  warning:          '#f2cc8f',   // HTML --warning
+  danger:           '#e07a5f',   // HTML --danger        (was #ff6b6b)
+  border:           '#1e2a4a',   // deep navy            (was #2a2440)
 };
 
-export function interpolateTheme(morning: ThemeTokens, midnight: ThemeTokens, t: number): ThemeTokens {
+export function interpolateTheme(
+  morning: ThemeTokens,
+  midnight: ThemeTokens,
+  t: number
+): ThemeTokens {
   const lerp = (a: string, b: string, t: number): string => {
     const parseHex = (hex: string) => {
       const n = parseInt(hex.replace('#', ''), 16);
@@ -58,7 +66,6 @@ export function interpolateTheme(morning: ThemeTokens, midnight: ThemeTokens, t:
     const [r2, g2, b2] = parseHex(b);
     return toHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
   };
-
   const keys = Object.keys(morning) as (keyof ThemeTokens)[];
   return keys.reduce((acc, key) => {
     acc[key] = lerp(morning[key], midnight[key], t);
