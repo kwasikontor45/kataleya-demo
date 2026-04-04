@@ -12,66 +12,76 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useCircadian } from '@/hooks/useCircadian';
 
+// Privacy content mirrors the vault architecture exactly
+// Three vaults: Surface (AsyncStorage) / Sanctuary (SQLite) / Fortress (SecureStore)
 const SECTIONS = [
   {
-    title: 'what kataleya collects',
+    title: '🌱  sanctuary — your inner vault',
     items: [
-      'Nothing that identifies you. No name, no email, no phone number — not even a user ID.',
-      'No analytics SDK. No crash reporter that sends data anywhere. No advertising network, ever.',
-      'The only optional network contact: when you connect to a sponsor, presence signals (water · light) and daily check-in status (yes or no) travel through an ephemeral relay. Nothing else.',
+      'every mood log: score, circadian phase, restlessness reading, optional note — stored in SQLite on this device. no network port. no user_id column.',
+      'every journal entry, sealed in the app. 4,000 characters. delete-on-demand. never transmitted.',
+      'circadian event history used only to generate local pattern insights. zero network calls.',
+      'the schema has no user_id column. we cannot query your data even if we wanted to.',
     ],
   },
   {
-    title: 'what lives only on this device',
+    title: '🔒  fortress — hardware-backed keys',
     items: [
-      'Your sobriety start date.',
-      'Every mood log entry, including the score, phase, and optional note.',
-      'Every journal entry — sealed in the app, never transmitted.',
-      'Your name or nickname, if you entered one.',
-      'Growth milestones and orchid stage.',
-      'Circadian event history used to generate local insights.',
-      'Sponsor channel credentials, held in the OS keychain.',
+      'sponsor channel credentials and end-to-end encryption keys live in the OS keychain — iOS Secure Enclave on modern iPhones, Android Keystore.',
+      'eight keys total. all eight are deleted atomically on disconnect — no orphaned fragments.',
+      'private keys are generated on your device and never transmitted. the relay server cannot compute the shared secret from public keys alone.',
     ],
   },
   {
-    title: 'what your sponsor can see',
+    title: '🌿  surface — preferences only',
     items: [
-      'Daily check-in: yes or no. Nothing else.',
-      'Your orchid stage — a single word.',
-      'The number of milestones you have reached.',
-      'Presence signals you send to them (water, light). They cannot send data that stores on your device without your action.',
-      'They cannot see your mood logs, journal entries, sobriety date, substance type, or any health data.',
+      'your display name, sobriety date, notification preferences, dark mode setting.',
+      'no health data lives here. it can be reset anytime without touching sanctuary or fortress.',
     ],
   },
   {
-    title: 'messages',
+    title: '🌿  what your sponsor sees',
     items: [
-      'Messages between you and your sponsor are end-to-end encrypted using TweetNaCl (box). The relay server sees only ciphertext and a nonce — it cannot read your messages.',
-      'Messages are not stored permanently on the server. They are relayed and discarded.',
-      'Keys are generated on your device and stored in the OS keychain. We never see them.',
+      'daily check-in: yes or no. the timestamp is not transmitted — only the date string.',
+      'your recovery stage — a single word derived from days sober.',
+      'the number of milestones reached — an integer.',
+      'presence signals you choose to send: water or light. type only, no health context.',
+      'they cannot see mood scores, journal content, sobriety start date, substance type, restlessness data, or any private key.',
     ],
   },
   {
-    title: 'the burn ritual',
+    title: '🔒  messages',
     items: [
-      'The Burn Ritual erases all three data vaults — SQLite, AsyncStorage, and the OS keychain — in sequence.',
-      'A tombstone key is written before the wipe begins. If the app is killed mid-burn, the next launch detects this and completes the erase.',
-      'After a clean burn, kataleya has no memory of you. Nothing persists.',
+      'end-to-end encrypted using TweetNaCl — X25519 Diffie-Hellman key exchange, XSalsa20-Poly1305 authenticated encryption.',
+      'the relay server stores only ciphertext and a random nonce. it cannot decrypt anything.',
+      'messages are bounded at 200 per channel and are not persisted through server restarts.',
+      'a new key pair is generated for every connection. no key survives a disconnect.',
     ],
   },
   {
-    title: 'third parties',
+    title: '🔥  the burn ritual',
     items: [
-      'No third-party SDKs that phone home.',
-      'No Firebase, Amplitude, Sentry, Mixpanel, or equivalent services embedded in this app.',
-      'Expo modules used for device APIs (sensors, notifications, secure storage) do not collect or transmit your data.',
+      'phase 1: a tombstone key is written to surface before any wipe begins. crash-safe.',
+      'phase 2: sanctuary (SQLite) and fortress (keychain) are wiped in parallel.',
+      'phase 3: surface is cleared last — including the tombstone. a clean burn leaves nothing.',
+      'if the app is killed mid-burn, the next launch detects the tombstone and completes the wipe invisibly.',
+      'after a clean burn, kataleya has no memory of you. nothing persists anywhere.',
+    ],
+  },
+  {
+    title: '🌧  what we never see',
+    items: [
+      'no analytics SDK. no crash reporter. no advertising network of any kind.',
+      'no Firebase, Amplitude, Sentry, Mixpanel, or equivalent.',
+      'no user database on the server. channel routing state lives in memory only and expires automatically.',
+      'we cannot be subpoenaed for health data we do not hold.',
     ],
   },
   {
     title: 'contact',
     items: [
-      'Questions about privacy? Reach us at privacy@kataleya.app.',
-      'This document reflects the actual behavior of the app, not a legal shield. If something here is inaccurate, we want to know.',
+      'questions about privacy? privacy@kataleya.app',
+      'this document describes actual code behaviour, not a legal policy. the source is on github.',
     ],
   },
 ];
@@ -106,8 +116,8 @@ export default function PrivacyScreen() {
             your data is yours.{'\n'}completely.
           </Text>
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-            kataleya was designed from the start to know as little about you as possible.
-            this document describes exactly what that means in practice.
+            three vaults, zero network exposure, one burn ritual.
+            this document describes exactly how your data is protected in code.
           </Text>
         </View>
 

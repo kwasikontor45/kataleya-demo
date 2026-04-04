@@ -9,6 +9,7 @@ import {
   Platform,
   Animated,
   Easing,
+  Modal,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -116,6 +117,26 @@ export default function SanctuaryScreen() {
     breathe();
     return () => dayPulse.stopAnimation();
   }, [dayPulse]);
+
+  // ECG sweep — runs continuously through the kataleya pill word
+  // Mimics a heart-monitor line passing left to right then resetting
+  useEffect(() => {
+    const sweep = () => {
+      ecgAnim.setValue(0);
+      Animated.timing(ecgAnim, {
+        toValue: 1,
+        duration: 2800,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (finished) {
+          setTimeout(sweep, 1200); // pause between sweeps
+        }
+      });
+    };
+    const t = setTimeout(sweep, 2000); // initial delay
+    return () => clearTimeout(t);
+  }, [ecgAnim]);
 
   // Heart pill idle animation — slow breath, 5.5s cycle
   // Lets the user sense it's interactive without demanding attention
@@ -262,11 +283,12 @@ export default function SanctuaryScreen() {
         {/* ── HEADER — three pills, full-width, space-between ── */}
         <View style={styles.header}>
 
-          {/* Left pill — heart + "privacy" — long-press triggers cover screen */}
+          {/* Left pill — "kataleya" with ECG sweep + tap opens privacy modal */}
           <TouchableOpacity
             onPressIn={handlePanicStart}
             onPressOut={handlePanicEnd}
-            activeOpacity={1}
+            onPress={() => setShowPrivacy(true)}
+            activeOpacity={0.85}
             hitSlop={8}
             style={styles.logoContainer}
           >
@@ -280,16 +302,25 @@ export default function SanctuaryScreen() {
                 transform: [{ scale: pillPulse }],
               },
             ]}>
-              <Animated.Text style={[
-                styles.heartPillGlyph,
-                {
-                  color: pillGlow.interpolate({
-                    inputRange: [0.4, 1.0],
-                    outputRange: [`rgba(${accentRgb}, 0.7)`, `rgba(${accentRgb}, 1.0)`],
-                  }),
-                },
-              ]}>..: :..</Animated.Text>
-
+              {/* ECG sweep overlay — a moving highlight passes through the text */}
+              <View style={styles.pillInner}>
+                <Text style={[styles.heartPillGlyph, { color: `rgba(${accentRgb}, 0.88)` }]}>
+                  kataleya
+                </Text>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.ecgSweep,
+                    {
+                      left: ecgAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['-100%', '200%'],
+                      }),
+                      backgroundColor: `rgba(${accentRgb}, 0.18)`,
+                    },
+                  ]}
+                />
+              </View>
             </Animated.View>
           </TouchableOpacity>
 
@@ -626,6 +657,112 @@ export default function SanctuaryScreen() {
         onClose={() => setShowGrounding(false)}
         theme={theme}
       />
+
+      {/* ── PRIVACY MODAL — slides up from bottom on kataleya tap ── */}
+      <Modal
+        visible={showPrivacy}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => setShowPrivacy(false)}
+      >
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity
+            style={styles.privacyBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowPrivacy(false)}
+          />
+          <View style={[styles.privacySheet, { backgroundColor: theme.bg, borderColor: `rgba(${accentRgb}, 0.2)` }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: `rgba(${accentRgb}, 0.3)` }]} />
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetScroll}>
+              <Text style={[styles.sheetEyebrow, { color: `rgba(${accentRgb}, 0.5)` }]}>
+                the garden walls
+              </Text>
+              <Text style={[styles.sheetTitle, { color: theme.text }]}>
+                your data is yours.{'
+'}completely.
+              </Text>
+              <Text style={[styles.sheetSubtitle, { color: `${theme.textMuted}bb` }]}>
+                kataleya was designed to know as little about you as possible.
+                here is exactly what that means.
+              </Text>
+
+              {[
+                {
+                  label: 'what lives only on this device',
+                  glyph: '🌱',
+                  items: [
+                    'your sobriety start date',
+                    'every mood log — score, phase, optional note',
+                    'every journal entry — sealed, never transmitted',
+                    'your name or nickname',
+                    'growth milestones and recovery stage',
+                    'circadian history used for local insights only',
+                    'sponsor credentials — held in the OS keychain',
+                  ],
+                },
+                {
+                  label: 'what your sponsor sees',
+                  glyph: '🌿',
+                  items: [
+                    'daily check-in: yes or no — nothing else',
+                    'your recovery stage — a single word',
+                    'number of milestones reached — a number',
+                    'presence signals you choose to send (water, light)',
+                    'they cannot see mood logs, journal, sobriety date, or any health data',
+                  ],
+                },
+                {
+                  label: 'messages',
+                  glyph: '🔒',
+                  items: [
+                    'end-to-end encrypted — the relay sees only ciphertext',
+                    'keys are generated on your device and never leave it',
+                    'messages are relayed and discarded — not stored',
+                  ],
+                },
+                {
+                  label: 'the burn ritual',
+                  glyph: '🔥',
+                  items: [
+                    'erases all three vaults — SQLite, AsyncStorage, OS keychain',
+                    'if interrupted, next launch completes the wipe automatically',
+                    'after a clean burn, kataleya has no memory of you',
+                  ],
+                },
+                {
+                  label: 'third parties',
+                  glyph: '🌧',
+                  items: [
+                    'no analytics. no crash reporter. no advertising network.',
+                    'no Firebase, Amplitude, Sentry, or Mixpanel.',
+                    'expo device APIs do not transmit your data.',
+                  ],
+                },
+              ].map((section, si) => (
+                <View key={si} style={styles.sheetSection}>
+                  <View style={styles.sheetSectionHeader}>
+                    <Text style={styles.sheetGlyph}>{section.glyph}</Text>
+                    <Text style={[styles.sheetSectionTitle, { color: `rgba(${accentRgb}, 0.7)` }]}>
+                      {section.label}
+                    </Text>
+                  </View>
+                  {section.items.map((item, ii) => (
+                    <View key={ii} style={styles.sheetItemRow}>
+                      <Text style={[styles.sheetBullet, { color: `rgba(${accentRgb}, 0.4)` }]}>·</Text>
+                      <Text style={[styles.sheetItem, { color: `${theme.text}cc` }]}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              ))}
+
+              <Text style={[styles.sheetFooter, { color: `${theme.textMuted}55` }]}>
+                last reviewed april 2026 · privacy@kataleya.app
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -681,6 +818,64 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
   },
   // Kataleya wordmark — barely visible at bottom of scroll
+  // ECG pill
+  pillInner: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ecgSweep: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: '40%',
+    opacity: 1,
+  },
+  // Privacy modal
+  privacyBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  privacySheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    maxHeight: '85%',
+    paddingTop: 12,
+  },
+  sheetHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    alignSelf: 'center', marginBottom: 20,
+  },
+  sheetScroll: { paddingHorizontal: 24, paddingBottom: 40, gap: 0 },
+  sheetEyebrow: {
+    fontFamily: 'CourierPrime', fontSize: 9,
+    letterSpacing: 3, textTransform: 'lowercase', marginBottom: 8,
+  },
+  sheetTitle: {
+    fontFamily: 'CourierPrime', fontSize: 22,
+    fontWeight: '700', lineHeight: 30, marginBottom: 10,
+  },
+  sheetSubtitle: {
+    fontFamily: 'CourierPrime', fontSize: 12,
+    lineHeight: 19, marginBottom: 24,
+  },
+  sheetSection: { marginBottom: 20 },
+  sheetSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  sheetGlyph: { fontSize: 14 },
+  sheetSectionTitle: {
+    fontFamily: 'CourierPrime', fontSize: 10,
+    letterSpacing: 2, textTransform: 'lowercase', fontWeight: '700',
+  },
+  sheetItemRow: { flexDirection: 'row', gap: 8, marginBottom: 5, paddingLeft: 22 },
+  sheetBullet: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19 },
+  sheetItem: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19, flex: 1 },
+  sheetFooter: {
+    fontFamily: 'CourierPrime', fontSize: 9,
+    letterSpacing: 1.5, textAlign: 'center', marginTop: 16,
+  },
   wordmark: {
     fontFamily: 'CourierPrime',
     fontSize: 11,
@@ -689,7 +884,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   orbSection: {
+    width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
     marginVertical: 12,
   },
   timerSection: { alignItems: 'center', gap: 6, width: '100%' },
