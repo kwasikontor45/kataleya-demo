@@ -9,173 +9,215 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import Svg, { Circle, Path, G } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { MidnightGarden } from '@/constants/theme';
 import { getCurrentPhase } from '@/constants/circadian';
 import { Surface, Sanctuary, Fortress } from '@/utils/storage';
 
-const WIN  = Dimensions.get('window');
+const WIN   = Dimensions.get('window');
 const THEME = MidnightGarden;
 
-// ── Heart symbol stages ────────────────────────────────────────────────────
-// The ..: :.. assembles itself piece by piece, pulses, then dissolves.
-// Each stage is what's visible during that beat.
-const HEART_STAGES = [
-  '',           // blank — start
-  '.',          // first dot appears
-  '. .',        // two dots
-  '.. .',       // three
-  '..: .',      // left side forms
-  '..: :.',     // right side forms
-  '..: :..',    // complete — pulse here
-  '..: :..',    // hold pulse
-  '..: :..',    // hold pulse
-  '. : :.',     // dissolve outward
-  ': :',        // fading
-  ':',          // last ember
-  '',           // gone — loop
+// ── Privacy rings — each represents a vault layer ─────────────────────────
+// Pulse inward toward the heart: Surface → Sanctuary → Fortress → heart beats
+// Colors match the vault color assignments
+const RING_COLORS = [
+  { rgb: '212,163,115', label: 'surface'   }, // terra/violet — outermost
+  { rgb: '135,168,120', label: 'sanctuary' }, // sage/cyan    — middle
+  { rgb: '129,178,154', label: 'fortress'  }, // safe/amber   — innermost
 ];
-const STAGE_DURATION = 340; // ms per stage
 
-// Status messages — empowering, for sensitive people
-const STATUS_CYCLE = [
+// ── Heart assembly stages ──────────────────────────────────────────────────
+const HEART_STAGES = [
+  '',
+  '.',
+  '. .',
+  '.. .',
+  '..: .',
+  '..: :.',
+  '..: :..',   // complete — pulse here (index 6)
+  '..: :..',   // hold
+  '..: :..',   // hold
+  '. : :.',
+  ': :',
+  ':',
+  '',
+];
+const STAGE_MS = 320;
+
+// ── Status messages — privacy-first, empowering ───────────────────────────
+const STATUS = [
+  'your data never leaves this device',
+  'no account. no cloud. no trace.',
+  'end-to-end encrypted',
   'you are not your past',
-  'no data leaves this device',
-  'no judgement here',
   'every day is a choice',
-  'you are safe here',
   'sanctuary ready',
 ];
 
-// Noise chars for the ambient data field
-const NOISE_CHARS = '·∴∵∶∷⁝░▒~-_=+|/\\:;.?@#§';
-function mkNoise(n: number) {
-  return Array.from({ length: n }, () => NOISE_CHARS[Math.floor(Math.random() * NOISE_CHARS.length)]).join('');
-}
-function mkBinary(n: number) {
-  return Array.from({ length: n }, () => (Math.random() > 0.5 ? '1' : '0')).join(' ');
-}
-
 export default function BridgeScreen() {
-  const router   = useRouter();
+  const router = useRouter();
   const [onboarded, setOnboarded]       = useState<boolean | null>(null);
+  const [enterReady, setEnterReady]     = useState(false);
   const [statusIdx, setStatusIdx]       = useState(0);
   const [heartStage, setHeartStage]     = useState(0);
-  const [noiseLines, setNoiseLines]     = useState(() => [mkNoise(22), mkNoise(17), mkNoise(20)]);
-  const [binaryLines, setBinaryLines]   = useState(() => [mkBinary(10), mkBinary(8), mkBinary(12)]);
   const [showContinue, setShowContinue] = useState(false);
-  const [enterReady, setEnterReady]     = useState(false); // true once we know onboarded state
 
+  // Core anims
   const fadeIn        = useRef(new Animated.Value(0)).current;
-  const heartScale    = useRef(new Animated.Value(1)).current;
+  const heartScale    = useRef(new Animated.Value(1.0)).current;
   const heartOpacity  = useRef(new Animated.Value(0)).current;
   const statusOpacity = useRef(new Animated.Value(1)).current;
   const scanAnim      = useRef(new Animated.Value(0)).current;
+  const enterFade     = useRef(new Animated.Value(0)).current;
+  const wordmarkFade  = useRef(new Animated.Value(0)).current;
 
-  // ── Init — robust against SQLite failures in Expo Go ─────────────────────
+  // Three privacy rings — each gets its own scale + opacity
+  const ring1Scale   = useRef(new Animated.Value(0.6)).current;
+  const ring2Scale   = useRef(new Animated.Value(0.6)).current;
+  const ring3Scale   = useRef(new Animated.Value(0.6)).current;
+  const ring1Opacity = useRef(new Animated.Value(0)).current;
+  const ring2Opacity = useRef(new Animated.Value(0)).current;
+  const ring3Opacity = useRef(new Animated.Value(0)).current;
+
+  // ── Init ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     const phase = getCurrentPhase(new Date().getHours() * 60 + new Date().getMinutes());
-
-    // Log app open — silently fails in Expo Go (no SQLite)
     if (Platform.OS !== 'web') {
       Sanctuary.logCircadianEvent({ ts: Date.now(), phase, event: 'app_open' }).catch(() => {});
     }
-
     const init = async () => {
       try {
         const tombstone = await Surface.getBurnTombstone();
         if (tombstone) {
-          // Tombstone recovery — silently fail on Expo Go (SQLite not available)
           await Promise.all([
             Sanctuary.wipeSQLiteData().catch(() => {}),
             Fortress.clear().catch(() => {}),
           ]);
           await Surface.clearAll().catch(() => {});
         }
-      } catch { /* tombstone path failed — not critical */ }
-
-      // hasOnboarded uses AsyncStorage (Surface) — always works, even in Expo Go
+      } catch {}
       try {
         const done = await Surface.hasOnboarded();
         setOnboarded(done);
         setEnterReady(true);
       } catch {
-        // Absolute last resort — route to onboarding
         setOnboarded(false);
         setEnterReady(true);
       }
     };
-
     init();
   }, []);
 
-  // ── Fade in ───────────────────────────────────────────────────────────────
+  // ── Fade in whole screen ──────────────────────────────────────────────────
   useEffect(() => {
-    Animated.timing(fadeIn, { toValue: 1, duration: 900, useNativeDriver: true }).start();
+    Animated.timing(fadeIn, { toValue: 1, duration: 1000, useNativeDriver: true }).start();
   }, []);
 
-  // ── Heart assembles → pulse → dissolve → loop ────────────────────────────
+  // ── Privacy ring pulse sequence — Surface → Sanctuary → Fortress → heart ─
+  // Rings ripple inward in sequence, then the heart beats, then repeat
   useEffect(() => {
-    let stageTimer: ReturnType<typeof setTimeout>;
-    let stageIndex = 0;
+    const ringPulse = (
+      scale: Animated.Value,
+      opacity: Animated.Value,
+      size: number,
+    ) => Animated.sequence([
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 0.55, duration: 500, useNativeDriver: true }),
+        Animated.timing(scale,   { toValue: 1.0,  duration: 500, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      ]),
+      Animated.delay(300),
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 0,   duration: 700, useNativeDriver: true }),
+        Animated.timing(scale,   { toValue: 1.4, duration: 700, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      ]),
+      // Reset for next loop
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 0,   duration: 0, useNativeDriver: true }),
+        Animated.timing(scale,   { toValue: 0.6, duration: 0, useNativeDriver: true }),
+      ]),
+    ]);
+
+    const RING_GAP = 700; // ms between each ring firing
+
+    const runLoop = () => {
+      Animated.sequence([
+        // Ring 1 — Surface (outer)
+        ringPulse(ring1Scale, ring1Opacity, 1),
+        Animated.delay(RING_GAP - 1500),
+        // Ring 2 — Sanctuary (middle)
+        ringPulse(ring2Scale, ring2Opacity, 2),
+        Animated.delay(RING_GAP - 1500),
+        // Ring 3 — Fortress (inner)
+        ringPulse(ring3Scale, ring3Opacity, 3),
+        // Pause before repeat
+        Animated.delay(2800),
+      ]).start(({ finished }) => { if (finished) runLoop(); });
+    };
+
+    const t = setTimeout(runLoop, 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  // ── Heart assembly → pulse → dissolve → loop ─────────────────────────────
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let idx = 0;
 
     const advance = () => {
-      stageIndex = (stageIndex + 1) % HEART_STAGES.length;
-      setHeartStage(stageIndex);
+      idx = (idx + 1) % HEART_STAGES.length;
+      setHeartStage(idx);
 
-      // On the complete stage (index 6) — fire the pulse animation
-      if (stageIndex === 6) {
+      // Pulse on complete stage
+      if (idx === 6) {
         Animated.sequence([
-          Animated.timing(heartScale, { toValue: 1.18, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(heartScale, { toValue: 0.96, duration: 180, useNativeDriver: true }),
-          Animated.timing(heartScale, { toValue: 1.06, duration: 160, useNativeDriver: true }),
-          Animated.timing(heartScale, { toValue: 1.0,  duration: 400, useNativeDriver: true }),
+          Animated.timing(heartScale, { toValue: 1.22, duration: 160, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          Animated.timing(heartScale, { toValue: 0.94, duration: 140, useNativeDriver: true }),
+          Animated.timing(heartScale, { toValue: 1.08, duration: 160, useNativeDriver: true }),
+          Animated.timing(heartScale, { toValue: 1.0,  duration: 350, useNativeDriver: true }),
         ]).start();
       }
 
-      // Fade in as it assembles, fade out as it dissolves
-      const targetOpacity = stageIndex === 0 ? 0
-        : stageIndex <= 6  ? 0.3 + (stageIndex / 6) * 0.65
-        : stageIndex <= 12 ? Math.max(0, (12 - stageIndex) / 6)
+      const targetOpacity = idx === 0 ? 0
+        : idx <= 6  ? 0.35 + (idx / 6) * 0.6
+        : idx <= 12 ? Math.max(0, (12 - idx) / 6)
         : 0;
 
       Animated.timing(heartOpacity, {
         toValue: targetOpacity,
-        duration: stageIndex === 6 ? 80 : STAGE_DURATION * 0.7,
+        duration: idx === 6 ? 60 : STAGE_MS * 0.65,
         useNativeDriver: true,
       }).start();
 
-      // Longer pause on complete pulse stages
-      const delay = (stageIndex >= 6 && stageIndex <= 8) ? STAGE_DURATION * 2.2 : STAGE_DURATION;
-      stageTimer = setTimeout(advance, delay);
+      const delay = (idx >= 6 && idx <= 8) ? STAGE_MS * 2.5 : STAGE_MS;
+      timer = setTimeout(advance, delay);
     };
 
-    stageTimer = setTimeout(advance, 600);
-    return () => clearTimeout(stageTimer);
+    timer = setTimeout(advance, 1200);
+    return () => clearTimeout(timer);
   }, []);
 
   // ── Status cycling ────────────────────────────────────────────────────────
   useEffect(() => {
     const cycle = () => {
-      Animated.timing(statusOpacity, { toValue: 0, duration: 350, useNativeDriver: true }).start(() => {
-        setStatusIdx(i => (i + 1) % STATUS_CYCLE.length);
-        Animated.timing(statusOpacity, { toValue: 1, duration: 450, useNativeDriver: true }).start();
+      Animated.timing(statusOpacity, { toValue: 0, duration: 380, useNativeDriver: true }).start(() => {
+        setStatusIdx(i => (i + 1) % STATUS.length);
+        Animated.timing(statusOpacity, { toValue: 1, duration: 480, useNativeDriver: true }).start();
       });
     };
-    const t  = setInterval(cycle, 2400);
-    const tc = setTimeout(() => setShowContinue(true), 2400 * 2);
+    const t  = setInterval(cycle, 2600);
+    const tc = setTimeout(() => {
+      setShowContinue(true);
+      Animated.timing(enterFade, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+    }, 2600 * 2.5);
     return () => { clearInterval(t); clearTimeout(tc); };
   }, []);
 
-  // ── Noise fields ──────────────────────────────────────────────────────────
+  // ── Wordmark fades in late and stays barely visible ───────────────────────
   useEffect(() => {
-    const ni = setInterval(() => {
-      setNoiseLines([mkNoise(18 + Math.floor(Math.random() * 10)), mkNoise(14 + Math.floor(Math.random() * 10)), mkNoise(16 + Math.floor(Math.random() * 10))]);
-    }, 90);
-    const bi = setInterval(() => {
-      setBinaryLines([mkBinary(8 + Math.floor(Math.random() * 5)), mkBinary(6 + Math.floor(Math.random() * 6)), mkBinary(9 + Math.floor(Math.random() * 5))]);
-    }, 220);
-    return () => { clearInterval(ni); clearInterval(bi); };
+    setTimeout(() => {
+      Animated.timing(wordmarkFade, { toValue: 0.08, duration: 2000, useNativeDriver: true }).start();
+    }, 3000);
   }, []);
 
   // ── Scan line ─────────────────────────────────────────────────────────────
@@ -183,7 +225,10 @@ export default function BridgeScreen() {
     const run = () => {
       scanAnim.setValue(-2);
       Animated.timing(scanAnim, {
-        toValue: WIN.height + 2, duration: 4000, useNativeDriver: Platform.OS !== 'web',
+        toValue: WIN.height + 2,
+        duration: 4500,
+        easing: Easing.linear,
+        useNativeDriver: Platform.OS !== 'web',
       }).start(({ finished }) => { if (finished) run(); });
     };
     run();
@@ -191,11 +236,13 @@ export default function BridgeScreen() {
   }, []);
 
   const navigate = useCallback(() => {
-    // If we know the state — go. If still loading, assume onboarded (shows home)
-    // so the user isn't locked out by SQLite errors in Expo Go.
-    const dest = onboarded === false ? '/onboarding' : '/(tabs)';
-    router.replace(dest);
+    router.replace(onboarded === false ? '/onboarding' : '/(tabs)');
   }, [onboarded, router]);
+
+  // Ring sizes — three concentric circles around the heart
+  const R1 = 110; // Surface — outermost
+  const R2 = 78;  // Sanctuary — middle
+  const R3 = 50;  // Fortress — innermost
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeIn }]}>
@@ -208,119 +255,138 @@ export default function BridgeScreen() {
           : { top: scanAnim as any }]}
       />
 
-      {/* Grid */}
-      <View style={styles.gridOverlay} pointerEvents="none">
-        {Array.from({ length: 14 }).map((_, i) => <View key={i} style={styles.gridRow}/>)}
+      {/* Subtle grid */}
+      <View style={styles.grid} pointerEvents="none">
+        {Array.from({ length: 16 }).map((_, i) => <View key={i} style={styles.gridRow}/>)}
       </View>
 
       <View style={styles.inner}>
 
-        {/* Noise field — top */}
-        <View style={styles.noiseSection}>
-          {noiseLines.map((line, i) => (
-            <Text key={i} style={[styles.noiseText, { opacity: 0.12 + i * 0.05 }]}>{line}</Text>
-          ))}
-        </View>
+        {/* ── PRIVACY RINGS + HEART — the whole visual ── */}
+        <View style={styles.orbArea}>
 
-        {/* ── THE HEART — assembles, pulses, dissolves ── */}
-        <View style={styles.heartSection}>
-          <View style={styles.heartLine}>
-            <View style={styles.membraneLine}/>
-            <Animated.Text style={[styles.heartSymbol, {
+          {/* Ring 1 — Surface (outermost, terra) */}
+          <Animated.View style={[
+            styles.ring,
+            {
+              width: R1 * 2, height: R1 * 2, borderRadius: R1,
+              borderColor: `rgba(${RING_COLORS[0].rgb}, 0.6)`,
+              opacity: ring1Opacity,
+              transform: [{ scale: ring1Scale }],
+            },
+          ]}/>
+
+          {/* Ring 2 — Sanctuary (middle, sage) */}
+          <Animated.View style={[
+            styles.ring,
+            {
+              width: R2 * 2, height: R2 * 2, borderRadius: R2,
+              borderColor: `rgba(${RING_COLORS[1].rgb}, 0.65)`,
+              opacity: ring2Opacity,
+              transform: [{ scale: ring2Scale }],
+            },
+          ]}/>
+
+          {/* Ring 3 — Fortress (innermost, safe) */}
+          <Animated.View style={[
+            styles.ring,
+            {
+              width: R3 * 2, height: R3 * 2, borderRadius: R3,
+              borderColor: `rgba(${RING_COLORS[2].rgb}, 0.7)`,
+              opacity: ring3Opacity,
+              transform: [{ scale: ring3Scale }],
+            },
+          ]}/>
+
+          {/* The heart — assembles, pulses, dissolves */}
+          <Animated.Text style={[
+            styles.heart,
+            {
               opacity: heartOpacity,
               transform: [{ scale: heartScale }],
-            }]}>
-              {HEART_STAGES[heartStage]}
-            </Animated.Text>
-            <View style={styles.membraneLine}/>
-          </View>
+            },
+          ]}>
+            {HEART_STAGES[heartStage]}
+          </Animated.Text>
         </View>
 
-        {/* Status — empowering cycling messages */}
-        <Animated.Text style={[styles.statusText, { opacity: statusOpacity }]}>
-          {STATUS_CYCLE[statusIdx]}
+        {/* Status — privacy-first cycling messages */}
+        <Animated.Text style={[styles.status, { opacity: statusOpacity }]}>
+          {STATUS[statusIdx]}
         </Animated.Text>
 
-        <Text style={styles.subText}>this is your sanctuary</Text>
-
-        {/* Binary field — bottom */}
-        <View style={styles.binarySection}>
-          {binaryLines.map((line, i) => (
-            <Text key={i} style={[styles.binaryText, { opacity: 0.09 + i * 0.07 }]}>{line}</Text>
-          ))}
-        </View>
-
-        {/* Enter — always tappable after showContinue, never blocked */}
+        {/* Enter button */}
         {showContinue && (
-          <TouchableOpacity style={styles.continueBtn} onPress={navigate} activeOpacity={0.7}>
-            <Text style={styles.continueBtnText}>
-              {enterReady ? 'enter →' : 'enter →'}
-            </Text>
-          </TouchableOpacity>
+          <Animated.View style={{ opacity: enterFade }}>
+            <TouchableOpacity style={styles.enterBtn} onPress={navigate} activeOpacity={0.7}>
+              <Text style={styles.enterText}>enter →</Text>
+            </TouchableOpacity>
+          </Animated.View>
         )}
 
-        <Text style={styles.wordmark}>kataleya</Text>
+        {/* Kataleya wordmark — barely there, fades in late */}
+        <Animated.Text style={[styles.wordmark, { opacity: wordmarkFade }]}>
+          kataleya
+        </Animated.Text>
+
       </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: THEME.bg, overflow: 'hidden' },
+  container: { flex: 1, backgroundColor: THEME.bg },
   scanLine: {
-    position: 'absolute', left: 0, right: 0, top: 0, height: 1,
-    backgroundColor: `${THEME.accent}18`, zIndex: 5,
+    position: 'absolute', left: 0, right: 0, top: 0,
+    height: 1, backgroundColor: `${THEME.accent}14`, zIndex: 5,
   },
-  gridOverlay: {
+  grid: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    justifyContent: 'space-evenly', opacity: 0.025,
+    justifyContent: 'space-evenly', opacity: 0.02,
   },
   gridRow: { height: StyleSheet.hairlineWidth, backgroundColor: THEME.accent },
   inner: {
-    flex: 1, justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: 28, gap: 20,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 36,
   },
-  noiseSection: { width: '100%', alignItems: 'flex-start', gap: 3 },
-  noiseText: { fontFamily: 'CourierPrime', fontSize: 11, color: THEME.gold, letterSpacing: 1.5 },
-  heartSection: { width: '100%', alignItems: 'center' },
-  heartLine: {
-    width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12,
+  orbArea: {
+    width: 240,
+    height: 240,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  membraneLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: `${THEME.border}50` },
-  heartSymbol: {
+  ring: {
+    position: 'absolute',
+    borderWidth: 1.5,
+  },
+  heart: {
     fontFamily: 'CourierPrime',
-    fontSize: 32,
+    fontSize: 34,
     color: THEME.accent,
-    letterSpacing: 5,
-    minWidth: 110,
+    letterSpacing: 6,
     textAlign: 'center',
   },
-  statusText: {
+  status: {
     fontFamily: 'CourierPrime',
     fontSize: 11,
-    color: `${THEME.accent}85`,
-    letterSpacing: 2.5,
+    color: `${THEME.accent}80`,
+    letterSpacing: 2,
     textAlign: 'center',
     textTransform: 'lowercase',
+    maxWidth: 260,
+    lineHeight: 18,
   },
-  subText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 9,
-    color: `${THEME.textMuted}45`,
-    letterSpacing: 3,
-    textTransform: 'lowercase',
-    marginTop: -12,
-  },
-  binarySection: { width: '100%', alignItems: 'flex-end', gap: 3 },
-  binaryText: { fontFamily: 'CourierPrime', fontSize: 11, color: THEME.accentSoft, letterSpacing: 2 },
-  continueBtn: {
+  enterBtn: {
     borderWidth: 1,
     borderColor: `${THEME.accent}45`,
     borderRadius: 8,
     paddingVertical: 13,
-    paddingHorizontal: 40,
+    paddingHorizontal: 48,
   },
-  continueBtnText: {
+  enterText: {
     fontFamily: 'CourierPrime',
     fontSize: 13,
     color: THEME.accent,
@@ -329,8 +395,10 @@ const styles = StyleSheet.create({
   wordmark: {
     fontFamily: 'CourierPrime',
     fontSize: 11,
-    color: `${THEME.text}10`,
-    letterSpacing: 6,
+    color: THEME.text,
+    letterSpacing: 8,
     textTransform: 'lowercase',
+    position: 'absolute',
+    bottom: 48,
   },
 });
