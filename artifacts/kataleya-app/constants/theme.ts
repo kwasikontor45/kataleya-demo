@@ -16,19 +16,19 @@ export interface ThemeTokens {
 
 // Dawn / day — warm parchment (unchanged)
 export const MorningBloom: ThemeTokens = {
-  bg:               '#f0ebe2',
-  surface:          '#f7f2ea',
-  surfaceHighlight: '#f5f0e8',
+  bg:               '#e8ddd0',
+  surface:          '#f0e8dc',
+  surfaceHighlight: '#e0d4c4',
   gold:             '#a06808',
-  accent:           '#b85510',
+  accent:           '#a04510',
   accentSoft:       '#9a7210',
-  text:             '#2a1810',
-  textMuted:        '#6b5540',
+  text:             '#1a100a',
+  textMuted:        '#4a3525',
   textInverse:      '#faf8f5',
   success:          '#1f7a6e',
   warning:          '#9a7210',
   danger:           '#c0401e',
-  border:           '#d0c0a8',
+  border:           '#c4a888',
 };
 
 // Golden hour → night — merged HTML navy+sage+terra palette

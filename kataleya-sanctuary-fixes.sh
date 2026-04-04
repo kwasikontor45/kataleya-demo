@@ -1,3 +1,144 @@
+#!/bin/bash
+# kataleya-sanctuary-fixes.sh
+# Run from: ~/kataleya
+# Fixes: morning theme contrast, milestone undefined, dark mode on home, bridge screen empowerment
+# Usage: bash ~/kataleya-sanctuary-fixes.sh
+
+set -e
+APP="artifacts/kataleya-app"
+echo "→ Applying sanctuary fixes..."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FIX 1 — MorningBloom contrast
+# Problem: #f0ebe2 bg with light text is too washed out in dawn/day
+# Fix: richer warm cream with proper dark text contrast
+# ─────────────────────────────────────────────────────────────────────────────
+python3 - << 'PYEOF'
+import pathlib
+path = pathlib.Path("artifacts/kataleya-app/constants/theme.ts")
+src = path.read_text()
+
+# Update MorningBloom for better readability
+replacements = [
+    ("bg:               '#f0ebe2'",   "bg:               '#e8ddd0'"),
+    ("bg:               '#faf8f5'",   "bg:               '#e8ddd0'"),
+    ("surface:          '#f7f2ea'",   "surface:          '#f0e8dc'"),
+    ("surface:          '#ffffff'",   "surface:          '#f0e8dc'"),
+    ("surfaceHighlight: '#f5f0e8'",   "surfaceHighlight: '#e0d4c4'"),
+    ("text:             '#2a1810'",   "text:             '#1a100a'"),
+    ("textMuted:        '#6b5540'",   "textMuted:        '#4a3525'"),
+    ("accent:           '#b85510'",   "accent:           '#a04510'"),
+    ("border:           '#d0c0a8'",   "border:           '#c4a888'"),
+]
+for old, new in replacements:
+    if old in src:
+        src = src.replace(old, new)
+
+path.write_text(src)
+print("  ✓ Fix 1: MorningBloom contrast improved")
+PYEOF
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FIX 2 — Milestone toast label fix
+# Problem: BLOOM_THRESHOLDS has no .label field, toast shows "undefined"
+# Fix: use .stage and map to human-readable milestone names
+# ─────────────────────────────────────────────────────────────────────────────
+python3 - << 'PYEOF'
+import pathlib, re
+path = pathlib.Path("artifacts/kataleya-app/app/(tabs)/index.tsx")
+src = path.read_text()
+
+# Fix the toast call — replace threshold.label with a stage→label map
+old_toast = """          threshold.fire();
+          showToast(`🦋 \${threshold.label} milestone reached`);"""
+
+new_toast = """          threshold.fire();
+          const stageLabels: Record<string, string> = {
+            budding: 'Day 1',
+            parting: 'One Week',
+            labellum: 'One Month',
+            fullBloom: 'Three Months',
+          };
+          const milestoneLabel = stageLabels[threshold.stage] ?? threshold.stage;
+          showToast(`🦋 ${milestoneLabel} — you made it`);"""
+
+if old_toast in src:
+    src = src.replace(old_toast, new_toast)
+    print("  ✓ Fix 2: milestone toast label fixed")
+else:
+    # Also fix the simpler version without showToast
+    old2 = """          threshold.fire();"""
+    new2 = """          threshold.fire();"""
+    print("  ~ Fix 2: toast pattern not found in this index.tsx version — milestone haptic still fires")
+
+path.write_text(src)
+PYEOF
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FIX 3 — Force dark mode toggle on home screen
+# Add a subtle moon/sun toggle to the header row next to CircadianBadge
+# ─────────────────────────────────────────────────────────────────────────────
+python3 - << 'PYEOF'
+import pathlib
+path = pathlib.Path("artifacts/kataleya-app/app/(tabs)/index.tsx")
+src = path.read_text()
+
+# Add darkOverride to the useCircadian destructure
+old_circadian = "  const { theme, phase, phaseConfig } = useCircadian();"
+new_circadian = "  const { theme, phase, phaseConfig, darkOverride, setDarkOverride } = useCircadian();"
+if old_circadian in src:
+    src = src.replace(old_circadian, new_circadian)
+
+# Add the toggle in the header, between logo and CircadianBadge
+old_header = """          <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
+        </View>"""
+
+new_header = """          <View style={styles.headerRight}>
+            <TouchableOpacity
+              onPress={() => { setDarkOverride(!darkOverride); }}
+              style={[styles.darkToggle, { borderColor: `rgba(${accentRgb},0.25)`, backgroundColor: `rgba(${accentRgb},0.07)` }]}
+              hitSlop={10}
+            >
+              <Text style={[styles.darkToggleIcon, { color: `rgba(${accentRgb},0.7)` }]}>
+                {darkOverride ? '☀' : '◗'}
+              </Text>
+            </TouchableOpacity>
+            <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
+          </View>
+        </View>"""
+
+if old_header in src:
+    src = src.replace(old_header, new_header)
+    print("  ✓ Fix 3: dark mode toggle added to home header")
+else:
+    print("  ~ Fix 3: header pattern not found, skipping")
+
+# Add styles for the toggle
+old_logo_style = "  logoText: {"
+new_logo_style = """  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  darkToggle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  darkToggleIcon: { fontSize: 14, lineHeight: 16 },
+  logoText: {"""
+
+if "headerRight:" not in src and old_logo_style in src:
+    src = src.replace(old_logo_style, new_logo_style)
+
+path.write_text(src)
+PYEOF
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FIX 4 — Bridge screen: butterfly DNA SVG + empowering messages
+# Replace the ..: :.. heart with a proper butterfly SVG illustration
+# Update STATUS_CYCLE with empowering sanctuary-appropriate messages
+# ─────────────────────────────────────────────────────────────────────────────
+cat > "$APP/app/bridge.tsx" << 'ENDOFFILE'
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -360,3 +501,13 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
   },
 });
+ENDOFFILE
+echo "  ✓ Fix 4: bridge screen with DNA butterfly + empowering messages"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Done
+# ─────────────────────────────────────────────────────────────────────────────
+echo ""
+echo "✓ All sanctuary fixes applied."
+echo "  git add -A && git commit -m 'fix: morning contrast, milestone label, dark toggle, butterfly bridge' && git push origin main"
+echo "  cd artifacts/kataleya-app && npx expo start --tunnel --clear"

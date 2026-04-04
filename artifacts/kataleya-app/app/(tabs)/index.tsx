@@ -77,7 +77,7 @@ async function getPredictiveSuggestion(phase: string): Promise<string | null> {
 export default function SanctuaryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { theme, phase, phaseConfig } = useCircadian();
+  const { theme, phase, phaseConfig, darkOverride, setDarkOverride } = useCircadian();
   const { sobriety, setStartDate } = useSobriety();
   const { restlessnessScore } = useOrchidSway();
   const { biometrics, systemState } = useResponsiveHeart(phase);
@@ -186,7 +186,18 @@ export default function SanctuaryScreen() {
               kataleya
             </Text>
           </TouchableOpacity>
-          <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              onPress={() => { setDarkOverride(!darkOverride); }}
+              style={[styles.darkToggle, { borderColor: `rgba(${accentRgb},0.25)`, backgroundColor: `rgba(${accentRgb},0.07)` }]}
+              hitSlop={10}
+            >
+              <Text style={[styles.darkToggleIcon, { color: `rgba(${accentRgb},0.7)` }]}>
+                {darkOverride ? '☀' : '◗'}
+              </Text>
+            </TouchableOpacity>
+            <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
+          </View>
         </View>
 
         {/* ── Rain card — butterfly quote, always visible ── */}
@@ -409,6 +420,16 @@ const styles = StyleSheet.create({
   greeting: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 2, textTransform: 'lowercase', width: '100%', marginBottom: 2 },
   header: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   logoContainer: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  darkToggle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  darkToggleIcon: { fontSize: 14, lineHeight: 16 },
   logoText: { fontFamily: 'CourierPrime', fontSize: 18, letterSpacing: 3, fontWeight: '300', textTransform: 'lowercase' },
   orbSection: { alignItems: 'center', marginVertical: 8 },
   timerSection: { alignItems: 'center', gap: 6, width: '100%' },
