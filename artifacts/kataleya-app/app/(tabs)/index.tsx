@@ -19,16 +19,12 @@ import { useSobriety } from '@/hooks/useSobriety';
 import { useOrchidSway } from '@/hooks/useOrchidSway';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useResponsiveHeart } from '@/hooks/useResponsiveHeart';
-import { useToast } from '@/hooks/useToast';
 import { DataBridge } from '@/components/DataBridge';
 import { GhostPulseOrb } from '@/components/GhostPulseOrb';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { CircadianBadge } from '@/components/CircadianBadge';
 import { BreathingExercise } from '@/components/BreathingExercise';
 import { GroundingExercise } from '@/components/GroundingExercise';
-import { ButterflyLogo } from '@/components/ButterflyLogo';
-import { AmbientBackground } from '@/components/AmbientBackground';
-import { RainCard } from '@/components/RainCard';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { BLOOM_THRESHOLDS } from '@/utils/hapticBloom';
 import { Surface, Sanctuary } from '@/utils/storage';
@@ -46,28 +42,33 @@ function greetPhrase(phase: string): string {
   return 'good night';
 }
 
+// Circadian accent RGB — matches GhostPulseOrb color logic
 function phaseAccentRgb(phase: string): string {
-  if (phase === 'goldenHour') return NEON_RGB.violet;
-  if (phase === 'night')      return NEON_RGB.amber;
+  if (phase === 'goldenHour') return NEON_RGB.amber;
+  if (phase === 'night')      return NEON_RGB.violet;
   if (phase === 'dawn')       return NEON_RGB.pink;
   return NEON_RGB.cyan;
 }
 
+// Predictive suggestion — reads recent mood to surface a contextual nudge.
+// Fully local: queries Sanctuary, no network.
 async function getPredictiveSuggestion(phase: string): Promise<string | null> {
   try {
     const logs = await Sanctuary.getMoodLogs(20);
     if (logs.length < 5) return null;
+
+    // Phase-specific average
     const phaseLogs = logs.filter(l => l.circadianPhase === phase);
     if (phaseLogs.length < 3) return null;
+
     const avg = phaseLogs.reduce((s, l) => s + l.moodScore, 0) / phaseLogs.length;
     const overall = logs.reduce((s, l) => s + l.moodScore, 0) / logs.length;
+
     if (avg < overall - 0.8) {
-      const label = phase === 'goldenHour' ? 'golden hour'
-        : phase === 'night' ? 'night'
-        : phase === 'dawn'  ? 'early morning'
-        : 'afternoon';
+      const label = phase === 'goldenHour' ? 'golden hour' : phase === 'night' ? 'night' : phase === 'dawn' ? 'early morning' : 'afternoon';
       return `${label} has felt harder lately. want to breathe for a moment?`;
     }
+
     return null;
   } catch {
     return null;
@@ -77,26 +78,36 @@ async function getPredictiveSuggestion(phase: string): Promise<string | null> {
 export default function SanctuaryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { theme, phase, phaseConfig, darkOverride, setDarkOverride } = useCircadian();
+  const { theme, phase, phaseConfig } = useCircadian();
   const { sobriety, setStartDate } = useSobriety();
   const { restlessnessScore } = useOrchidSway();
   const { biometrics, systemState } = useResponsiveHeart(phase);
-  const { opacity: toastOpacity, translateY: toastTranslate, messageRef, showToast } = useToast();
   useNotifications(sobriety.daysSober);
 
-  const [settingDate, setSettingDate]           = useState(false);
-  const [userName, setUserName]                 = useState<string | null>(null);
-  const [showBreathing, setShowBreathing]       = useState(false);
-  const [showGrounding, setShowGrounding]       = useState(false);
-  const [suggestion, setSuggestion]             = useState<string | null>(null);
+  const [settingDate, setSettingDate] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [showBreathing, setShowBreathing] = useState(false);
+  const [showGrounding, setShowGrounding] = useState(false);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
 
+  // Day count pulse — gentle breath at BPM rate
   const dayPulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     const breathe = () => {
       Animated.sequence([
-        Animated.timing(dayPulse, { toValue: 1.04, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(dayPulse, { toValue: 1.0,  duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(dayPulse, {
+          toValue: 1.04,
+          duration: 2200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(dayPulse, {
+          toValue: 1.0,
+          duration: 2200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
       ]).start(({ finished }) => { if (finished) breathe(); });
     };
     breathe();
@@ -106,12 +117,19 @@ export default function SanctuaryScreen() {
   const [pickerDate, setPickerDate] = useState<Date>(
     sobriety.startDate ? new Date(sobriety.startDate) : new Date()
   );
-  const panicRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevDaysSober  = useRef(sobriety.daysSober);
+  const panicRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevDaysSober = useRef(sobriety.daysSober);
 
-  useEffect(() => { Surface.getName().then(n => setUserName(n ?? null)); }, []);
-  useEffect(() => { getPredictiveSuggestion(phase).then(s => setSuggestion(s)); }, [phase]);
+  useEffect(() => {
+    Surface.getName().then(n => setUserName(n ?? null));
+  }, []);
 
+  // Load predictive suggestion once per mount
+  useEffect(() => {
+    getPredictiveSuggestion(phase).then(s => setSuggestion(s));
+  }, [phase]);
+
+  // Fire bloom haptic when milestone threshold is crossed
   useEffect(() => {
     if (!sobriety.loaded) return;
     const prev = prevDaysSober.current;
@@ -120,7 +138,6 @@ export default function SanctuaryScreen() {
       for (const threshold of BLOOM_THRESHOLDS) {
         if (prev < threshold.days && curr >= threshold.days) {
           threshold.fire();
-          showToast(`🦋 ${threshold.label} milestone reached`);
           break;
         }
       }
@@ -134,7 +151,10 @@ export default function SanctuaryScreen() {
       router.push('/cover');
     }, 1500);
   };
-  const handlePanicEnd = () => { if (panicRef.current) clearTimeout(panicRef.current); };
+
+  const handlePanicEnd = () => {
+    if (panicRef.current) clearTimeout(panicRef.current);
+  };
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
@@ -149,19 +169,25 @@ export default function SanctuaryScreen() {
     await setStartDate(pickerDate.toISOString());
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSettingDate(false);
-    showToast('sobriety date updated');
   };
 
   const accentRgb = phaseAccentRgb(phase);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-
-      {/* ── Ambient background — sage/terra radial blobs ── */}
-      <AmbientBackground />
+      {/* Ambient top glow — circadian color */}
+      <View
+        style={[
+          styles.ambientGlow,
+          { backgroundColor: `rgba(${accentRgb}, 0.04)` },
+        ]}
+      />
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: topPad + 12, paddingBottom: botPad + 20 }]}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: topPad + 12, paddingBottom: botPad + 20 },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -172,7 +198,7 @@ export default function SanctuaryScreen() {
           </Text>
         ) : null}
 
-        {/* ── Header — butterfly logo + wordmark + circadian badge ── */}
+        {/* Header — logo + circadian badge */}
         <View style={styles.header}>
           <TouchableOpacity
             onPressIn={handlePanicStart}
@@ -181,29 +207,15 @@ export default function SanctuaryScreen() {
             hitSlop={8}
             style={styles.logoContainer}
           >
-            <ButterflyLogo size={32} />
-            <Text style={[styles.logoText, { color: `rgba(${accentRgb}, 0.9)` }]}>
-              kataleya
-            </Text>
+            <View style={[styles.heartPill, { borderColor: `rgba(${accentRgb}, 0.4)` }]}>
+              <Text style={[styles.heartPillText, { color: `rgba(${accentRgb}, 0.9)` }]}>..: :..</Text>
+            </View>
+            <Text style={[styles.logoText, { color: `rgba(${accentRgb}, 0.88)` }]}>kataleya</Text>
           </TouchableOpacity>
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              onPress={() => { setDarkOverride(!darkOverride); }}
-              style={[styles.darkToggle, { borderColor: `rgba(${accentRgb},0.25)`, backgroundColor: `rgba(${accentRgb},0.07)` }]}
-              hitSlop={10}
-            >
-              <Text style={[styles.darkToggleIcon, { color: `rgba(${accentRgb},0.7)` }]}>
-                {darkOverride ? '☀' : '◗'}
-              </Text>
-            </TouchableOpacity>
-            <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
-          </View>
+          <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
         </View>
 
-        {/* ── Rain card — butterfly quote, always visible ── */}
-        <RainCard accentRgb={accentRgb} />
-
-        {/* ── Ghost Pulse Orb ── */}
+        {/* ── GHOST PULSE ORB — replaces OrchidProgress ── */}
         <View style={styles.orbSection}>
           <GhostPulseOrb
             theme={theme}
@@ -231,16 +243,29 @@ export default function SanctuaryScreen() {
             {sobriety.nextMilestone && (
               <View style={styles.progressSection}>
                 <View style={[styles.progressTrack, { backgroundColor: `rgba(${accentRgb}, 0.12)` }]}>
-                  <View style={[styles.progressFill, { width: `${sobriety.progressToNext * 100}%`, backgroundColor: `rgba(${accentRgb}, 0.7)` }]} />
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${sobriety.progressToNext * 100}%`,
+                        backgroundColor: `rgba(${accentRgb}, 0.7)`,
+                      },
+                    ]}
+                  />
                 </View>
                 <Text style={[styles.nextLabel, { color: `rgba(${accentRgb}, 0.45)` }]}>
                   {sobriety.nextMilestone.days - sobriety.daysSober} days to{' '}
-                  <Text style={{ color: `rgba(${accentRgb}, 0.8)` }}>{sobriety.nextMilestone.label}</Text>
+                  <Text style={{ color: `rgba(${accentRgb}, 0.8)` }}>
+                    {sobriety.nextMilestone.label}
+                  </Text>
                 </Text>
               </View>
             )}
+
             {!sobriety.nextMilestone && (
-              <Text style={[styles.nextLabel, { color: `rgba(${accentRgb}, 0.6)` }]}>∞ all milestones achieved</Text>
+              <Text style={[styles.nextLabel, { color: `rgba(${accentRgb}, 0.6)` }]}>
+                ∞ all milestones achieved
+              </Text>
             )}
 
             <TouchableOpacity onPress={() => setSettingDate(v => !v)} style={styles.adjustBtn}>
@@ -259,7 +284,10 @@ export default function SanctuaryScreen() {
                       display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
                       maximumDate={new Date()}
                       onChange={(_e, date) => {
-                        if (date) { setPickerDate(date); if (Platform.OS === 'android') handleConfirmDate(); }
+                        if (date) {
+                          setPickerDate(date);
+                          if (Platform.OS === 'android') handleConfirmDate();
+                        }
                       }}
                       themeVariant={pickerVariant}
                       accentColor={theme.accent}
@@ -272,21 +300,39 @@ export default function SanctuaryScreen() {
                       type="date"
                       defaultValue={pickerDate.toISOString().split('T')[0]}
                       max={new Date().toISOString().split('T')[0]}
-                      style={{ background: 'transparent', border: 'none', color: theme.text, fontFamily: 'CourierPrime', fontSize: 16, width: '100%', outline: 'none', padding: '4px 0' }}
-                      onChange={(e) => { const d = new Date(e.target.value); if (!isNaN(d.getTime())) setPickerDate(d); }}
+                      style={{
+                        background: 'transparent', border: 'none',
+                        color: theme.text, fontFamily: 'CourierPrime',
+                        fontSize: 16, width: '100%', outline: 'none', padding: '4px 0',
+                      }}
+                      onChange={(e) => {
+                        const d = new Date(e.target.value);
+                        if (!isNaN(d.getTime())) setPickerDate(d);
+                      }}
                     />
                   </View>
                 )}
                 {(Platform.OS === 'ios' || Platform.OS === 'web') && (
                   <View style={styles.pickerFooter}>
                     {Platform.OS === 'ios' && (
-                      <Text style={[styles.pickerSelected, { color: theme.textMuted }]}>{formatDate(pickerDate)}</Text>
+                      <Text style={[styles.pickerSelected, { color: theme.textMuted }]}>
+                        {formatDate(pickerDate)}
+                      </Text>
                     )}
                     <TouchableOpacity
-                      style={[styles.confirmBtn, { borderColor: `rgba(${accentRgb}, 0.4)`, backgroundColor: `rgba(${accentRgb}, 0.1)`, flex: Platform.OS === 'ios' ? 0 : 1 }]}
+                      style={[
+                        styles.confirmBtn,
+                        {
+                          borderColor: `rgba(${accentRgb}, 0.4)`,
+                          backgroundColor: `rgba(${accentRgb}, 0.1)`,
+                          flex: Platform.OS === 'ios' ? 0 : 1,
+                        },
+                      ]}
                       onPress={handleConfirmDate}
                     >
-                      <Text style={[styles.confirmBtnText, { color: `rgba(${accentRgb}, 0.9)` }]}>confirm</Text>
+                      <Text style={[styles.confirmBtnText, { color: `rgba(${accentRgb}, 0.9)` }]}>
+                        confirm
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -294,15 +340,28 @@ export default function SanctuaryScreen() {
             )}
           </View>
         ) : (
+          // No date set — garden waiting state
           <View style={styles.setupSection}>
-            <Text style={[styles.setupTitle, { color: `rgba(${accentRgb}, 0.55)` }]}>the garden waits for you.</Text>
-            <Text style={[styles.setupHint, { color: `${theme.textMuted}60` }]}>when you're ready, set your date below.</Text>
+            <Text style={[styles.setupTitle, { color: `rgba(${accentRgb}, 0.55)` }]}>
+              the garden waits for you.
+            </Text>
+            <Text style={[styles.setupHint, { color: `${theme.textMuted}60` }]}>
+              when you're ready, set your date below.
+            </Text>
             {!settingDate ? (
               <TouchableOpacity
-                style={[styles.enterBtn, { borderColor: `rgba(${accentRgb}, 0.35)`, backgroundColor: `rgba(${accentRgb}, 0.08)` }]}
+                style={[
+                  styles.enterBtn,
+                  {
+                    borderColor: `rgba(${accentRgb}, 0.35)`,
+                    backgroundColor: `rgba(${accentRgb}, 0.08)`,
+                  },
+                ]}
                 onPress={() => setSettingDate(true)}
               >
-                <Text style={[styles.enterBtnText, { color: `rgba(${accentRgb}, 0.85)` }]}>begin tracking</Text>
+                <Text style={[styles.enterBtnText, { color: `rgba(${accentRgb}, 0.85)` }]}>
+                  begin tracking
+                </Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.datePickerArea}>
@@ -314,7 +373,10 @@ export default function SanctuaryScreen() {
                       display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
                       maximumDate={new Date()}
                       onChange={(_e, date) => {
-                        if (date) { setPickerDate(date); if (Platform.OS === 'android') handleConfirmDate(); }
+                        if (date) {
+                          setPickerDate(date);
+                          if (Platform.OS === 'android') handleConfirmDate();
+                        }
                       }}
                       themeVariant={pickerVariant}
                       accentColor={theme.accent}
@@ -327,17 +389,33 @@ export default function SanctuaryScreen() {
                       type="date"
                       defaultValue={pickerDate.toISOString().split('T')[0]}
                       max={new Date().toISOString().split('T')[0]}
-                      style={{ background: 'transparent', border: 'none', color: theme.text, fontFamily: 'CourierPrime', fontSize: 16, width: '100%', outline: 'none', padding: '4px 0' }}
-                      onChange={(e) => { const d = new Date(e.target.value); if (!isNaN(d.getTime())) setPickerDate(d); }}
+                      style={{
+                        background: 'transparent', border: 'none',
+                        color: theme.text, fontFamily: 'CourierPrime',
+                        fontSize: 16, width: '100%', outline: 'none', padding: '4px 0',
+                      }}
+                      onChange={(e) => {
+                        const d = new Date(e.target.value);
+                        if (!isNaN(d.getTime())) setPickerDate(d);
+                      }}
                     />
                   </View>
                 )}
                 <View style={styles.pickerFooter}>
                   <TouchableOpacity
-                    style={[styles.confirmBtn, { borderColor: `rgba(${accentRgb}, 0.4)`, backgroundColor: `rgba(${accentRgb}, 0.1)`, flex: 1 }]}
+                    style={[
+                      styles.confirmBtn,
+                      {
+                        borderColor: `rgba(${accentRgb}, 0.4)`,
+                        backgroundColor: `rgba(${accentRgb}, 0.1)`,
+                        flex: 1,
+                      },
+                    ]}
                     onPress={handleConfirmDate}
                   >
-                    <Text style={[styles.confirmBtnText, { color: `rgba(${accentRgb}, 0.9)` }]}>confirm</Text>
+                    <Text style={[styles.confirmBtnText, { color: `rgba(${accentRgb}, 0.9)` }]}>
+                      confirm
+                    </Text>
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity onPress={() => setSettingDate(false)}>
@@ -348,39 +426,76 @@ export default function SanctuaryScreen() {
           </View>
         )}
 
-        {/* ── Predictive suggestion ── */}
+        {/* ── PREDICTIVE SUGGESTION — from base44 PredictiveSuggestion ── */}
         {suggestion && !suggestionDismissed && (
-          <NeonCard theme={theme} accentRgb={accentRgb} borderIntensity={0.22} fillIntensity={0.07} style={styles.suggestionCard}>
+          <NeonCard
+            theme={theme}
+            accentRgb={accentRgb}
+            borderIntensity={0.22}
+            fillIntensity={0.07}
+            style={styles.suggestionCard}
+          >
             <View style={styles.suggestionInner}>
               <View style={styles.suggestionText}>
-                <Text style={[styles.suggestionLabel, { color: `rgba(${accentRgb}, 0.55)` }]}>pattern</Text>
-                <Text style={[styles.suggestionBody, { color: `${theme.text}cc` }]}>{suggestion}</Text>
+                <Text style={[styles.suggestionLabel, { color: `rgba(${accentRgb}, 0.55)` }]}>
+                  pattern
+                </Text>
+                <Text style={[styles.suggestionBody, { color: `${theme.text}cc` }]}>
+                  {suggestion}
+                </Text>
               </View>
               <View style={styles.suggestionActions}>
-                <TouchableOpacity onPress={() => { setShowBreathing(true); setSuggestionDismissed(true); }}>
-                  <Text style={[styles.suggestionAction, { color: `rgba(${accentRgb}, 0.85)` }]}>breathe</Text>
+                <TouchableOpacity
+                  onPress={() => { setShowBreathing(true); setSuggestionDismissed(true); }}
+                >
+                  <Text style={[styles.suggestionAction, { color: `rgba(${accentRgb}, 0.85)` }]}>
+                    breathe
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setSuggestionDismissed(true)}>
-                  <Text style={[styles.suggestionDismiss, { color: `${theme.textMuted}55` }]}>×</Text>
+                  <Text style={[styles.suggestionDismiss, { color: `${theme.textMuted}55` }]}>
+                    ×
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
           </NeonCard>
         )}
 
-        {/* ── Mindfulness tiles — breathe / ground ── */}
+        {/* ── MINDFULNESS TILES — NeonCard grid ── */}
         <View style={styles.mindfulSection}>
-          <Text style={[styles.mindfulLabel, { color: `rgba(${accentRgb}, 0.35)` }]}>mindfulness</Text>
+          <Text style={[styles.mindfulLabel, { color: `rgba(${accentRgb}, 0.35)` }]}>
+            mindfulness
+          </Text>
           <View style={styles.mindfulRow}>
-            <NeonCard theme={theme} glowColor="cyan" style={styles.mindfulCard} onPress={() => setShowBreathing(true)}>
-              <Text style={[styles.mindfulGlyph, { color: `rgba(${NEON_RGB.cyan}, 0.85)` }]}>🌊</Text>
-              <Text style={[styles.mindfulCardTitle, { color: `rgba(${NEON_RGB.cyan}, 0.9)` }]}>breathe</Text>
-              <Text style={[styles.mindfulCardSub, { color: `rgba(${NEON_RGB.cyan}, 0.4)` }]}>4 — 7 — 8</Text>
+            <NeonCard
+              theme={theme}
+              glowColor="cyan"
+              style={styles.mindfulCard}
+              onPress={() => setShowBreathing(true)}
+            >
+              <Text style={[styles.mindfulGlyph, { color: `rgba(${NEON_RGB.cyan}, 0.85)` }]}>◎</Text>
+              <Text style={[styles.mindfulCardTitle, { color: `rgba(${NEON_RGB.cyan}, 0.9)` }]}>
+                breathe
+              </Text>
+              <Text style={[styles.mindfulCardSub, { color: `rgba(${NEON_RGB.cyan}, 0.4)` }]}>
+                4 — 7 — 8
+              </Text>
             </NeonCard>
-            <NeonCard theme={theme} glowColor="violet" style={styles.mindfulCard} onPress={() => setShowGrounding(true)}>
-              <Text style={[styles.mindfulGlyph, { color: `rgba(${NEON_RGB.violet}, 0.85)` }]}>🧘</Text>
-              <Text style={[styles.mindfulCardTitle, { color: `rgba(${NEON_RGB.violet}, 0.9)` }]}>ground</Text>
-              <Text style={[styles.mindfulCardSub, { color: `rgba(${NEON_RGB.violet}, 0.4)` }]}>5 — 4 — 3 — 2 — 1</Text>
+
+            <NeonCard
+              theme={theme}
+              glowColor="violet"
+              style={styles.mindfulCard}
+              onPress={() => setShowGrounding(true)}
+            >
+              <Text style={[styles.mindfulGlyph, { color: `rgba(${NEON_RGB.violet}, 0.85)` }]}>⟡</Text>
+              <Text style={[styles.mindfulCardTitle, { color: `rgba(${NEON_RGB.violet}, 0.9)` }]}>
+                ground
+              </Text>
+              <Text style={[styles.mindfulCardSub, { color: `rgba(${NEON_RGB.violet}, 0.4)` }]}>
+                5 — 4 — 3 — 2 — 1
+              </Text>
             </NeonCard>
           </View>
         </View>
@@ -388,108 +503,253 @@ export default function SanctuaryScreen() {
         {/* DataBridge + phase description */}
         <View style={styles.heartSection}>
           <DataBridge phase={phase} theme={theme} size="large" />
-          <Text style={[styles.phaseDesc, { color: `${theme.textMuted}80` }]}>{phaseConfig.description}</Text>
+          <Text style={[styles.phaseDesc, { color: `${theme.textMuted}80` }]}>
+            {phaseConfig.description}
+          </Text>
           <TouchableOpacity onPress={() => router.push('/privacy')} hitSlop={8}>
             <Text style={[styles.privacyLink, { color: `${theme.textMuted}40` }]}>privacy</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* ── Modals ── */}
-      <BreathingExercise visible={showBreathing} onClose={() => setShowBreathing(false)} theme={theme} />
-      <GroundingExercise visible={showGrounding} onClose={() => setShowGrounding(false)} theme={theme} />
-
-      {/* ── Toast — matches HTML App.showToast() ── */}
-      <Animated.View
-        style={[
-          styles.toast,
-          { opacity: toastOpacity, transform: [{ translateY: toastTranslate }] },
-          { bottom: botPad + 12 },
-        ]}
-        pointerEvents="none"
-      >
-        <Text style={styles.toastText}>{messageRef.current}</Text>
-      </Animated.View>
+      <BreathingExercise
+        visible={showBreathing}
+        onClose={() => setShowBreathing(false)}
+        theme={theme}
+      />
+      <GroundingExercise
+        visible={showGrounding}
+        onClose={() => setShowGrounding(false)}
+        theme={theme}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { paddingHorizontal: 24, alignItems: 'center', gap: 12 },
-  greeting: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 2, textTransform: 'lowercase', width: '100%', marginBottom: 2 },
-  header: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  logoContainer: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  darkToggle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  ambientGlow: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 320,
+    pointerEvents: 'none',
   },
-  darkToggleIcon: { fontSize: 14, lineHeight: 16 },
-  logoText: { fontFamily: 'CourierPrime', fontSize: 18, letterSpacing: 3, fontWeight: '300', textTransform: 'lowercase' },
-  orbSection: { alignItems: 'center', marginVertical: 8 },
+  scroll: { paddingHorizontal: 24, alignItems: 'center', gap: 8 },
+  greeting: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+    width: '100%',
+    marginBottom: 2,
+  },
+  header: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  logoContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heartPill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  heartPillText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 3,
+  },
+  logoText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    letterSpacing: 2,
+    fontWeight: '700',
+  },
+  orbSection: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
   timerSection: { alignItems: 'center', gap: 6, width: '100%' },
-  dayCount: { fontFamily: 'CourierPrime', fontSize: 64, fontWeight: '700', lineHeight: 72, letterSpacing: -1 },
-  dayLabel: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 3, textTransform: 'uppercase' },
-  hmsCount: { fontFamily: 'CourierPrime', fontSize: 20, letterSpacing: 2, marginTop: 2 },
+  dayCount: {
+    fontFamily: 'CourierPrime',
+    fontSize: 64,
+    fontWeight: '700',
+    lineHeight: 72,
+    letterSpacing: -1,
+  },
+  dayLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+  },
+  hmsCount: {
+    fontFamily: 'CourierPrime',
+    fontSize: 20,
+    letterSpacing: 2,
+    marginTop: 2,
+  },
   progressSection: { width: '100%', gap: 8, marginTop: 12 },
   progressTrack: { height: 2, borderRadius: 1, width: '100%', overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 1 },
-  nextLabel: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textAlign: 'center' },
+  nextLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
   adjustBtn: { marginTop: 8 },
-  adjustText: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 2, textTransform: 'lowercase', textAlign: 'center' },
+  adjustText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+    textAlign: 'center',
+  },
   datePickerArea: { width: '100%', gap: 10, marginTop: 4 },
   pickerCard: { borderWidth: 1, borderRadius: 12, paddingVertical: 8 },
   webDateCard: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 },
-  webDateLabel: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 },
-  pickerFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  pickerSelected: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 0.5 },
-  confirmBtn: { borderWidth: 1, borderRadius: 6, paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center' },
-  confirmBtnText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1.5, textTransform: 'lowercase' },
-  setupSection: { alignItems: 'center', gap: 10, width: '100%' },
-  setupTitle: { fontFamily: 'CourierPrime', fontSize: 15, letterSpacing: 1, textTransform: 'lowercase', textAlign: 'center' },
-  setupHint: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 0.5, textAlign: 'center' },
-  enterBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 13, paddingHorizontal: 28, alignItems: 'center', width: '100%' },
-  enterBtnText: { fontFamily: 'CourierPrime', fontSize: 13, letterSpacing: 2, textTransform: 'lowercase' },
-  suggestionCard: { width: '100%' },
-  suggestionInner: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  suggestionText: { flex: 1, gap: 3 },
-  suggestionLabel: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 3, textTransform: 'uppercase' },
-  suggestionBody: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 0.4, lineHeight: 18 },
-  suggestionActions: { alignItems: 'center', gap: 8 },
-  suggestionAction: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1.5, textTransform: 'lowercase' },
-  suggestionDismiss: { fontFamily: 'CourierPrime', fontSize: 16, lineHeight: 18 },
-  mindfulSection: { width: '100%', gap: 10, marginTop: 4 },
-  mindfulLabel: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 3, textTransform: 'uppercase', textAlign: 'center' },
-  mindfulRow: { flexDirection: 'row', gap: 10 },
-  mindfulCard: { flex: 1, paddingVertical: 18, paddingHorizontal: 12, alignItems: 'center', gap: 6 },
-  mindfulGlyph: { fontSize: 24, lineHeight: 28 },
-  mindfulCardTitle: { fontFamily: 'CourierPrime', fontSize: 13, letterSpacing: 2, textTransform: 'lowercase', fontWeight: '700' },
-  mindfulCardSub: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 1.5, textAlign: 'center' },
-  heartSection: { alignItems: 'center', gap: 8, marginTop: 16, paddingBottom: 8, width: '100%' },
-  phaseDesc: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1, textAlign: 'center', lineHeight: 18, maxWidth: 280 },
-  privacyLink: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 2, textTransform: 'lowercase', marginTop: 4 },
-  // Toast — matches HTML .toast positioning
-  toast: {
-    position: 'absolute',
-    alignSelf: 'center',
-    backgroundColor: 'rgba(26,26,46,0.95)',
-    borderWidth: 1,
-    borderColor: 'rgba(135,168,120,0.25)',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    maxWidth: 300,
+  webDateLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
-  toastText: {
+  pickerFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pickerSelected: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 0.5 },
+  confirmBtn: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  confirmBtnText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 1.5,
+    textTransform: 'lowercase',
+  },
+  setupSection: { alignItems: 'center', gap: 10, width: '100%' },
+  setupTitle: {
+    fontFamily: 'CourierPrime',
+    fontSize: 15,
+    letterSpacing: 1,
+    textTransform: 'lowercase',
+    textAlign: 'center',
+  },
+  setupHint: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  enterBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 13,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    width: '100%',
+  },
+  enterBtnText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+  },
+  // Predictive suggestion card
+  suggestionCard: { width: '100%', marginTop: 4 },
+  suggestionInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    gap: 12,
+  },
+  suggestionText: { flex: 1, gap: 3 },
+  suggestionLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+  },
+  suggestionBody: {
     fontFamily: 'CourierPrime',
     fontSize: 12,
-    color: 'rgba(245,245,245,0.9)',
+    letterSpacing: 0.4,
+    lineHeight: 18,
+  },
+  suggestionActions: { alignItems: 'center', gap: 8 },
+  suggestionAction: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 1.5,
+    textTransform: 'lowercase',
+  },
+  suggestionDismiss: {
+    fontFamily: 'CourierPrime',
+    fontSize: 16,
+    lineHeight: 18,
+  },
+  // Mindfulness tiles
+  mindfulSection: { width: '100%', gap: 10, marginTop: 8 },
+  mindfulLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
     textAlign: 'center',
-    letterSpacing: 0.5,
+  },
+  mindfulRow: { flexDirection: 'row', gap: 10 },
+  mindfulCard: {
+    flex: 1,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 6,
+  },
+  mindfulGlyph: { fontSize: 24, lineHeight: 28 },
+  mindfulCardTitle: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+    fontWeight: '700',
+  },
+  mindfulCardSub: {
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    letterSpacing: 1.5,
+    textAlign: 'center',
+  },
+  // DataBridge section
+  heartSection: {
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingBottom: 8,
+    width: '100%',
+  },
+  phaseDesc: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 1,
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
+  },
+  privacyLink: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+    marginTop: 4,
   },
 });
