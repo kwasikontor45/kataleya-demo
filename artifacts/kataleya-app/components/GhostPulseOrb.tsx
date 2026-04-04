@@ -42,15 +42,24 @@ function orbSizeForDays(daysSober: number): number {
 }
 
 // Stage label for ambient display below orb
+// Human-readable recovery stage — shown below the orb
+// Tells the user where they are in plain language
 function stageLabel(daysSober: number): string {
-  if (daysSober >= 365) return 'radiant';
-  if (daysSober >= 180) return 'full bloom';
-  if (daysSober >= 90)  return 'blooming';
-  if (daysSober >= 30)  return 'opening';
-  if (daysSober >= 14)  return 'reaching';
-  if (daysSober >= 7)   return 'awakening';
-  if (daysSober >= 1)   return 'beginning';
-  return 'waiting';
+  if (daysSober >= 365) return 'one full year of freedom';
+  if (daysSober >= 180) return 'six months strong';
+  if (daysSober >= 90)  return 'three months in';
+  if (daysSober >= 30)  return 'one month forward';
+  if (daysSober >= 14)  return 'two weeks of courage';
+  if (daysSober >= 7)   return 'one week done';
+  if (daysSober >= 1)   return 'your first day counts';
+  return 'the garden is waiting for you';
+}
+
+// What the movement sensor shows — plain English
+function restlessnessLabel(score: number): string {
+  if (score > 0.7) return 'moving through it';
+  if (score > 0.35) return 'some restlessness';
+  return '';
 }
 
 function phaseAccentRgb(phase: CircadianPhase): string {
@@ -201,10 +210,15 @@ export function GhostPulseOrb({
         </Animated.View>
       </View>
 
-      {/* System state word */}
-      <Text style={[styles.stateWord, { color: `rgba(${rgb}, 0.5)` }]}>
-        {systemState} · {stageLabel(daysSober)}
+      {/* Stage label — human readable recovery context */}
+      <Text style={[styles.stageText, { color: `rgba(${rgb}, 0.55)` }]}>
+        {stageLabel(daysSober)}
       </Text>
+      {restlessnessScore > 0.35 && (
+        <Text style={[styles.restlessText, { color: `rgba(${rgb}, 0.35)` }]}>
+          {restlessnessLabel(restlessnessScore)}
+        </Text>
+      )}
     </View>
   );
 }
@@ -232,6 +246,22 @@ const styles = StyleSheet.create({
   glyph: {
     fontSize: 24,
     fontFamily: 'CourierPrime-Regular',
+  },
+  stageText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 1,
+    marginTop: 12,
+    textAlign: 'center',
+    textTransform: 'lowercase',
+  },
+  restlessText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    letterSpacing: 1.5,
+    marginTop: 3,
+    textAlign: 'center',
+    textTransform: 'lowercase',
   },
   stateWord: {
     fontSize: 11,

@@ -78,7 +78,7 @@ async function getPredictiveSuggestion(phase: string): Promise<string | null> {
 export default function SanctuaryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { theme, phase, phaseConfig } = useCircadian();
+  const { theme, phase, phaseConfig, darkOverride, setDarkOverride } = useCircadian();
   const { sobriety, setStartDate } = useSobriety();
   const { restlessnessScore } = useOrchidSway();
   const { biometrics, systemState } = useResponsiveHeart(phase);
@@ -93,6 +93,8 @@ export default function SanctuaryScreen() {
 
   // Day count pulse — gentle breath at BPM rate
   const dayPulse  = useRef(new Animated.Value(1)).current;
+  // Orb tooltip — fades in, stays 5s, fades out
+  const orbHint    = useRef(new Animated.Value(0)).current;
   // Heart pill — idle breath + panic intensify
   const pillPulse  = useRef(new Animated.Value(1)).current;
   const pillGlow   = useRef(new Animated.Value(0.4)).current;
@@ -290,7 +292,21 @@ export default function SanctuaryScreen() {
             </Animated.View>
             <Text style={[styles.logoText, { color: `rgba(${accentRgb}, 0.88)` }]}>kataleya</Text>
           </TouchableOpacity>
-          <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              onPress={() => setDarkOverride(!darkOverride)}
+              style={[styles.darkToggle, {
+                borderColor: `rgba(${accentRgb}, 0.28)`,
+                backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.1)` : 'transparent',
+              }]}
+              hitSlop={10}
+            >
+              <Text style={[styles.darkToggleIcon, { color: `rgba(${accentRgb}, ${darkOverride ? '0.9' : '0.45'})` }]}>
+                {darkOverride ? '☀' : '◗'}
+              </Text>
+            </TouchableOpacity>
+            <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
+          </View>
         </View>
 
         {/* ── GHOST PULSE ORB — replaces OrchidProgress ── */}
@@ -303,6 +319,12 @@ export default function SanctuaryScreen() {
             systemState={systemState}
             bpm={biometrics.bpm}
           />
+          {/* Orb tooltip — appears briefly, explains the visual */}
+          <Animated.View style={[styles.orbHintWrap, { opacity: orbHint }]} pointerEvents="none">
+            <Text style={[styles.orbHintText, { color: `${theme.textMuted}70` }]}>
+              grows with your recovery · pulses with your body
+            </Text>
+          </Animated.View>
         </View>
 
         {/* Timer */}
@@ -626,6 +648,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  darkToggle: {
+    width: 30, height: 30, borderRadius: 15,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+  },
+  darkToggleIcon: { fontSize: 13, lineHeight: 15 },
   logoContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   heartPill: {
     borderWidth: 1,
@@ -643,6 +671,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     letterSpacing: 2,
     fontWeight: '700',
+  },
+  orbHintWrap: { alignItems: 'center', marginTop: 4 },
+  orbHintText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    letterSpacing: 1.5,
+    textAlign: 'center',
+    textTransform: 'lowercase',
   },
   orbSection: {
     alignItems: 'center',
