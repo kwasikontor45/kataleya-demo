@@ -1,198 +1,160 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Animated,
+  Easing,
   TouchableOpacity,
   Dimensions,
   Platform,
 } from 'react-native';
-import Svg, { Path, Circle, Ellipse, Defs, RadialGradient, Stop, G } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { MidnightGarden } from '@/constants/theme';
 import { getCurrentPhase } from '@/constants/circadian';
 import { Surface, Sanctuary, Fortress } from '@/utils/storage';
 
-const WIN = Dimensions.get('window');
-const NOISE_CHARS = '·∴∵∶∷⁝⁞░▒▓~-_=+|/\\:;,.?!@#§';
-
-function rnd(chars: string) { return chars[Math.floor(Math.random() * chars.length)]; }
-function mkNoise(n: number) { return Array.from({ length: n }, () => rnd(NOISE_CHARS)).join(''); }
-function mkBinary(n: number) { return Array.from({ length: n }, () => (Math.random() > 0.5 ? '1' : '0')).join(' '); }
-
+const WIN  = Dimensions.get('window');
 const THEME = MidnightGarden;
 
-// Empowering messages for sensitive people in recovery
+// ── Heart symbol stages ────────────────────────────────────────────────────
+// The ..: :.. assembles itself piece by piece, pulses, then dissolves.
+// Each stage is what's visible during that beat.
+const HEART_STAGES = [
+  '',           // blank — start
+  '.',          // first dot appears
+  '. .',        // two dots
+  '.. .',       // three
+  '..: .',      // left side forms
+  '..: :.',     // right side forms
+  '..: :..',    // complete — pulse here
+  '..: :..',    // hold pulse
+  '..: :..',    // hold pulse
+  '. : :.',     // dissolve outward
+  ': :',        // fading
+  ':',          // last ember
+  '',           // gone — loop
+];
+const STAGE_DURATION = 340; // ms per stage
+
+// Status messages — empowering, for sensitive people
 const STATUS_CYCLE = [
   'you are not your past',
-  'sanctuary initialising',
-  'your data stays with you',
+  'no data leaves this device',
   'no judgement here',
   'every day is a choice',
+  'you are safe here',
   'sanctuary ready',
 ];
-const STATUS_INTERVAL_MS = 2200;
 
-// DNA Butterfly SVG — monarch wings + DNA helix on upper wings
-// Matches the artwork: warm amber/terra wings, dark metallic DNA strands
-function ButterflyDNA({ size = 180 }: { size?: number }) {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim  = useRef(new Animated.Value(0.4)).current;
-
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(pulseAnim, { toValue: 1.06, duration: 2200, useNativeDriver: true }),
-          Animated.timing(glowAnim,  { toValue: 0.75, duration: 2200, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(pulseAnim, { toValue: 1.0,  duration: 2200, useNativeDriver: true }),
-          Animated.timing(glowAnim,  { toValue: 0.4,  duration: 2200, useNativeDriver: true }),
-        ]),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
-
-  const s = size;
-
-  return (
-    <Animated.View style={{ transform: [{ scale: pulseAnim }], opacity: glowAnim, width: s, height: s * 0.72 }}>
-      <Svg width={s} height={s * 0.72} viewBox="0 0 200 144">
-        <Defs>
-          <RadialGradient id="wing-glow" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor="#d4a373" stopOpacity="0.3"/>
-            <Stop offset="100%" stopColor="#d4a373" stopOpacity="0"/>
-          </RadialGradient>
-        </Defs>
-
-        {/* Ambient glow behind wings */}
-        <Ellipse cx={100} cy={72} rx={90} ry={60} fill="url(#wing-glow)"/>
-
-        {/* ── LEFT UPPER WING ── */}
-        <Path
-          d="M100 72 Q60 20 20 35 Q5 55 18 75 Q35 90 65 82 Q85 78 100 72Z"
-          fill="#c8813a"
-          fillOpacity={0.88}
-        />
-        {/* Wing detail — inner veins */}
-        <Path d="M100 72 Q75 50 40 45" fill="none" stroke="#1a0e05" strokeWidth={0.8} strokeOpacity={0.5}/>
-        <Path d="M100 72 Q70 58 35 62" fill="none" stroke="#1a0e05" strokeWidth={0.6} strokeOpacity={0.4}/>
-        {/* DNA helix on left upper wing */}
-        <Path d="M38 48 Q45 52 52 48 Q59 44 66 48 Q73 52 80 48" fill="none" stroke="#2a2020" strokeWidth={1.2} strokeOpacity={0.7}/>
-        <Path d="M38 54 Q45 50 52 54 Q59 58 66 54 Q73 50 80 54" fill="none" stroke="#2a2020" strokeWidth={1.2} strokeOpacity={0.7}/>
-        <Circle cx={45} cy={51} r={1.2} fill="#1a1010" fillOpacity={0.6}/>
-        <Circle cx={59} cy={46} r={1.2} fill="#1a1010" fillOpacity={0.6}/>
-        <Circle cx={73} cy={51} r={1.2} fill="#1a1010" fillOpacity={0.6}/>
-        {/* Spots */}
-        <Circle cx={28} cy={58} r={2.5} fill="#f5f0e8" fillOpacity={0.7}/>
-        <Circle cx={22} cy={70} r={2}   fill="#f5f0e8" fillOpacity={0.6}/>
-
-        {/* ── RIGHT UPPER WING ── */}
-        <Path
-          d="M100 72 Q140 20 180 35 Q195 55 182 75 Q165 90 135 82 Q115 78 100 72Z"
-          fill="#c8813a"
-          fillOpacity={0.88}
-        />
-        <Path d="M100 72 Q125 50 160 45" fill="none" stroke="#1a0e05" strokeWidth={0.8} strokeOpacity={0.5}/>
-        <Path d="M100 72 Q130 58 165 62" fill="none" stroke="#1a0e05" strokeWidth={0.6} strokeOpacity={0.4}/>
-        {/* DNA helix on right upper wing */}
-        <Path d="M120 48 Q127 52 134 48 Q141 44 148 48 Q155 52 162 48" fill="none" stroke="#2a2020" strokeWidth={1.2} strokeOpacity={0.7}/>
-        <Path d="M120 54 Q127 50 134 54 Q141 58 148 54 Q155 50 162 54" fill="none" stroke="#2a2020" strokeWidth={1.2} strokeOpacity={0.7}/>
-        <Circle cx={127} cy={51} r={1.2} fill="#1a1010" fillOpacity={0.6}/>
-        <Circle cx={141} cy={46} r={1.2} fill="#1a1010" fillOpacity={0.6}/>
-        <Circle cx={155} cy={51} r={1.2} fill="#1a1010" fillOpacity={0.6}/>
-        <Circle cx={172} cy={58} r={2.5} fill="#f5f0e8" fillOpacity={0.7}/>
-        <Circle cx={178} cy={70} r={2}   fill="#f5f0e8" fillOpacity={0.6}/>
-
-        {/* ── LEFT LOWER WING ── */}
-        <Path
-          d="M100 72 Q55 85 30 110 Q25 128 45 132 Q70 135 88 110 Q96 92 100 72Z"
-          fill="#b06a28"
-          fillOpacity={0.82}
-        />
-        <Circle cx={42} cy={118} r={3} fill="#1a0e05" fillOpacity={0.5}/>
-        <Circle cx={55} cy={126} r={2} fill="#1a0e05" fillOpacity={0.4}/>
-        <Circle cx={34} cy={112} r={1.8} fill="#f5f0e8" fillOpacity={0.55}/>
-
-        {/* ── RIGHT LOWER WING ── */}
-        <Path
-          d="M100 72 Q145 85 170 110 Q175 128 155 132 Q130 135 112 110 Q104 92 100 72Z"
-          fill="#b06a28"
-          fillOpacity={0.82}
-        />
-        <Circle cx={158} cy={118} r={3}   fill="#1a0e05" fillOpacity={0.5}/>
-        <Circle cx={145} cy={126} r={2}   fill="#1a0e05" fillOpacity={0.4}/>
-        <Circle cx={166} cy={112} r={1.8} fill="#f5f0e8" fillOpacity={0.55}/>
-
-        {/* ── BODY ── */}
-        <Path
-          d="M97 30 Q100 28 103 30 L104 120 Q100 124 96 120 Z"
-          fill="#1a0e05"
-          fillOpacity={0.85}
-        />
-        {/* Antennae */}
-        <Path d="M100 30 Q88 12 82 4"  fill="none" stroke="#2a1a08" strokeWidth={1} strokeOpacity={0.7} strokeLinecap="round"/>
-        <Path d="M100 30 Q112 12 118 4" fill="none" stroke="#2a1a08" strokeWidth={1} strokeOpacity={0.7} strokeLinecap="round"/>
-        <Circle cx={82}  cy={4}  r={2.5} fill="#2a1a08" fillOpacity={0.7}/>
-        <Circle cx={118} cy={4}  r={2.5} fill="#2a1a08" fillOpacity={0.7}/>
-
-        {/* Wing borders / outline */}
-        <Path
-          d="M100 72 Q60 20 20 35 Q5 55 18 75 Q35 90 65 82 Q85 78 100 72Z"
-          fill="none" stroke="#1a0e05" strokeWidth={0.8} strokeOpacity={0.4}
-        />
-        <Path
-          d="M100 72 Q140 20 180 35 Q195 55 182 75 Q165 90 135 82 Q115 78 100 72Z"
-          fill="none" stroke="#1a0e05" strokeWidth={0.8} strokeOpacity={0.4}
-        />
-      </Svg>
-    </Animated.View>
-  );
+// Noise chars for the ambient data field
+const NOISE_CHARS = '·∴∵∶∷⁝░▒~-_=+|/\\:;.?@#§';
+function mkNoise(n: number) {
+  return Array.from({ length: n }, () => NOISE_CHARS[Math.floor(Math.random() * NOISE_CHARS.length)]).join('');
+}
+function mkBinary(n: number) {
+  return Array.from({ length: n }, () => (Math.random() > 0.5 ? '1' : '0')).join(' ');
 }
 
 export default function BridgeScreen() {
-  const router = useRouter();
-  const [onboarded, setOnboarded] = useState<boolean | null>(null);
-  const [statusIdx, setStatusIdx] = useState(0);
-  const [noiseLines, setNoiseLines] = useState(() => [mkNoise(22), mkNoise(17), mkNoise(20)]);
-  const [binaryLines, setBinaryLines] = useState(() => [mkBinary(10), mkBinary(8), mkBinary(12)]);
+  const router   = useRouter();
+  const [onboarded, setOnboarded]       = useState<boolean | null>(null);
+  const [statusIdx, setStatusIdx]       = useState(0);
+  const [heartStage, setHeartStage]     = useState(0);
+  const [noiseLines, setNoiseLines]     = useState(() => [mkNoise(22), mkNoise(17), mkNoise(20)]);
+  const [binaryLines, setBinaryLines]   = useState(() => [mkBinary(10), mkBinary(8), mkBinary(12)]);
   const [showContinue, setShowContinue] = useState(false);
+  const [enterReady, setEnterReady]     = useState(false); // true once we know onboarded state
 
-  const scanAnim    = useRef(new Animated.Value(0)).current;
-  const fadeIn      = useRef(new Animated.Value(0)).current;
+  const fadeIn        = useRef(new Animated.Value(0)).current;
+  const heartScale    = useRef(new Animated.Value(1)).current;
+  const heartOpacity  = useRef(new Animated.Value(0)).current;
   const statusOpacity = useRef(new Animated.Value(1)).current;
+  const scanAnim      = useRef(new Animated.Value(0)).current;
 
+  // ── Init — robust against SQLite failures in Expo Go ─────────────────────
   useEffect(() => {
-    const now = new Date();
-    const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes();
-    const phase = getCurrentPhase(minutesSinceMidnight);
+    const phase = getCurrentPhase(new Date().getHours() * 60 + new Date().getMinutes());
+
+    // Log app open — silently fails in Expo Go (no SQLite)
     if (Platform.OS !== 'web') {
       Sanctuary.logCircadianEvent({ ts: Date.now(), phase, event: 'app_open' }).catch(() => {});
     }
 
     const init = async () => {
-      const tombstone = await Surface.getBurnTombstone();
-      if (tombstone) {
-        await Promise.all([Sanctuary.wipeSQLiteData(), Fortress.clear()]);
-        await Surface.clearAll();
+      try {
+        const tombstone = await Surface.getBurnTombstone();
+        if (tombstone) {
+          // Tombstone recovery — silently fail on Expo Go (SQLite not available)
+          await Promise.all([
+            Sanctuary.wipeSQLiteData().catch(() => {}),
+            Fortress.clear().catch(() => {}),
+          ]);
+          await Surface.clearAll().catch(() => {});
+        }
+      } catch { /* tombstone path failed — not critical */ }
+
+      // hasOnboarded uses AsyncStorage (Surface) — always works, even in Expo Go
+      try {
+        const done = await Surface.hasOnboarded();
+        setOnboarded(done);
+        setEnterReady(true);
+      } catch {
+        // Absolute last resort — route to onboarding
+        setOnboarded(false);
+        setEnterReady(true);
       }
-      const done = await Surface.hasOnboarded();
-      setOnboarded(done);
     };
 
-    init().catch(() => {
-      Surface.hasOnboarded().then(done => setOnboarded(done));
-    });
+    init();
   }, []);
 
+  // ── Fade in ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    Animated.timing(fadeIn, { toValue: 1, duration: 1000, useNativeDriver: true }).start();
+    Animated.timing(fadeIn, { toValue: 1, duration: 900, useNativeDriver: true }).start();
   }, []);
 
+  // ── Heart assembles → pulse → dissolve → loop ────────────────────────────
+  useEffect(() => {
+    let stageTimer: ReturnType<typeof setTimeout>;
+    let stageIndex = 0;
+
+    const advance = () => {
+      stageIndex = (stageIndex + 1) % HEART_STAGES.length;
+      setHeartStage(stageIndex);
+
+      // On the complete stage (index 6) — fire the pulse animation
+      if (stageIndex === 6) {
+        Animated.sequence([
+          Animated.timing(heartScale, { toValue: 1.18, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          Animated.timing(heartScale, { toValue: 0.96, duration: 180, useNativeDriver: true }),
+          Animated.timing(heartScale, { toValue: 1.06, duration: 160, useNativeDriver: true }),
+          Animated.timing(heartScale, { toValue: 1.0,  duration: 400, useNativeDriver: true }),
+        ]).start();
+      }
+
+      // Fade in as it assembles, fade out as it dissolves
+      const targetOpacity = stageIndex === 0 ? 0
+        : stageIndex <= 6  ? 0.3 + (stageIndex / 6) * 0.65
+        : stageIndex <= 12 ? Math.max(0, (12 - stageIndex) / 6)
+        : 0;
+
+      Animated.timing(heartOpacity, {
+        toValue: targetOpacity,
+        duration: stageIndex === 6 ? 80 : STAGE_DURATION * 0.7,
+        useNativeDriver: true,
+      }).start();
+
+      // Longer pause on complete pulse stages
+      const delay = (stageIndex >= 6 && stageIndex <= 8) ? STAGE_DURATION * 2.2 : STAGE_DURATION;
+      stageTimer = setTimeout(advance, delay);
+    };
+
+    stageTimer = setTimeout(advance, 600);
+    return () => clearTimeout(stageTimer);
+  }, []);
+
+  // ── Status cycling ────────────────────────────────────────────────────────
   useEffect(() => {
     const cycle = () => {
       Animated.timing(statusOpacity, { toValue: 0, duration: 350, useNativeDriver: true }).start(() => {
@@ -200,46 +162,40 @@ export default function BridgeScreen() {
         Animated.timing(statusOpacity, { toValue: 1, duration: 450, useNativeDriver: true }).start();
       });
     };
-    const t  = setInterval(cycle, STATUS_INTERVAL_MS);
-    const tc = setTimeout(() => setShowContinue(true), STATUS_INTERVAL_MS * 2);
+    const t  = setInterval(cycle, 2400);
+    const tc = setTimeout(() => setShowContinue(true), 2400 * 2);
     return () => { clearInterval(t); clearTimeout(tc); };
   }, []);
 
+  // ── Noise fields ──────────────────────────────────────────────────────────
   useEffect(() => {
     const ni = setInterval(() => {
-      setNoiseLines([
-        mkNoise(Math.floor(16 + Math.random() * 10)),
-        mkNoise(Math.floor(12 + Math.random() * 12)),
-        mkNoise(Math.floor(18 + Math.random() * 8)),
-      ]);
-    }, 80 + Math.random() * 60);
+      setNoiseLines([mkNoise(18 + Math.floor(Math.random() * 10)), mkNoise(14 + Math.floor(Math.random() * 10)), mkNoise(16 + Math.floor(Math.random() * 10))]);
+    }, 90);
     const bi = setInterval(() => {
-      setBinaryLines([
-        mkBinary(Math.floor(8 + Math.random() * 5)),
-        mkBinary(Math.floor(6 + Math.random() * 6)),
-        mkBinary(Math.floor(10 + Math.random() * 4)),
-      ]);
+      setBinaryLines([mkBinary(8 + Math.floor(Math.random() * 5)), mkBinary(6 + Math.floor(Math.random() * 6)), mkBinary(9 + Math.floor(Math.random() * 5))]);
     }, 220);
     return () => { clearInterval(ni); clearInterval(bi); };
   }, []);
 
+  // ── Scan line ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const runScan = () => {
+    const run = () => {
       scanAnim.setValue(-2);
       Animated.timing(scanAnim, {
-        toValue: WIN.height + 2,
-        duration: 4200,
-        useNativeDriver: Platform.OS !== 'web',
-      }).start(({ finished }) => { if (finished) runScan(); });
+        toValue: WIN.height + 2, duration: 4000, useNativeDriver: Platform.OS !== 'web',
+      }).start(({ finished }) => { if (finished) run(); });
     };
-    runScan();
+    run();
     return () => scanAnim.stopAnimation();
   }, []);
 
-  const navigate = () => {
-    if (onboarded === null) return;
-    router.replace(onboarded ? '/(tabs)' : '/onboarding');
-  };
+  const navigate = useCallback(() => {
+    // If we know the state — go. If still loading, assume onboarded (shows home)
+    // so the user isn't locked out by SQLite errors in Expo Go.
+    const dest = onboarded === false ? '/onboarding' : '/(tabs)';
+    router.replace(dest);
+  }, [onboarded, router]);
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeIn }]}>
@@ -247,54 +203,59 @@ export default function BridgeScreen() {
       {/* Scan line */}
       <Animated.View
         pointerEvents="none"
-        style={[
-          styles.scanLine,
-          Platform.OS !== 'web'
-            ? { transform: [{ translateY: scanAnim }] }
-            : { top: scanAnim as any },
-        ]}
+        style={[styles.scanLine, Platform.OS !== 'web'
+          ? { transform: [{ translateY: scanAnim }] }
+          : { top: scanAnim as any }]}
       />
 
-      {/* Subtle grid */}
+      {/* Grid */}
       <View style={styles.gridOverlay} pointerEvents="none">
-        {Array.from({ length: 14 }).map((_, i) => (
-          <View key={i} style={styles.gridRow} />
-        ))}
+        {Array.from({ length: 14 }).map((_, i) => <View key={i} style={styles.gridRow}/>)}
       </View>
 
       <View style={styles.inner}>
 
-        {/* Noise field */}
+        {/* Noise field — top */}
         <View style={styles.noiseSection}>
           {noiseLines.map((line, i) => (
-            <Text key={i} style={[styles.noiseText, { opacity: 0.14 + i * 0.06 }]}>{line}</Text>
+            <Text key={i} style={[styles.noiseText, { opacity: 0.12 + i * 0.05 }]}>{line}</Text>
           ))}
         </View>
 
-        {/* ── DNA Butterfly — the heart of the loading screen ── */}
-        <View style={styles.butterflySection}>
-          <ButterflyDNA size={190} />
+        {/* ── THE HEART — assembles, pulses, dissolves ── */}
+        <View style={styles.heartSection}>
+          <View style={styles.heartLine}>
+            <View style={styles.membraneLine}/>
+            <Animated.Text style={[styles.heartSymbol, {
+              opacity: heartOpacity,
+              transform: [{ scale: heartScale }],
+            }]}>
+              {HEART_STAGES[heartStage]}
+            </Animated.Text>
+            <View style={styles.membraneLine}/>
+          </View>
         </View>
 
-        {/* Empowering status */}
+        {/* Status — empowering cycling messages */}
         <Animated.Text style={[styles.statusText, { opacity: statusOpacity }]}>
           {STATUS_CYCLE[statusIdx]}
         </Animated.Text>
 
-        {/* Subtext — always sanctuary */}
-        <Text style={styles.sanctuaryLabel}>this is your sanctuary</Text>
+        <Text style={styles.subText}>this is your sanctuary</Text>
 
-        {/* Binary field */}
+        {/* Binary field — bottom */}
         <View style={styles.binarySection}>
           {binaryLines.map((line, i) => (
-            <Text key={i} style={[styles.binaryText, { opacity: 0.10 + i * 0.07 }]}>{line}</Text>
+            <Text key={i} style={[styles.binaryText, { opacity: 0.09 + i * 0.07 }]}>{line}</Text>
           ))}
         </View>
 
-        {/* Continue */}
+        {/* Enter — always tappable after showContinue, never blocked */}
         {showContinue && (
           <TouchableOpacity style={styles.continueBtn} onPress={navigate} activeOpacity={0.7}>
-            <Text style={styles.continueBtnText}>enter →</Text>
+            <Text style={styles.continueBtnText}>
+              {enterReady ? 'enter →' : 'enter →'}
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -316,42 +277,55 @@ const styles = StyleSheet.create({
   },
   gridRow: { height: StyleSheet.hairlineWidth, backgroundColor: THEME.accent },
   inner: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 28,
-    gap: 16,
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 28, gap: 20,
   },
   noiseSection: { width: '100%', alignItems: 'flex-start', gap: 3 },
   noiseText: { fontFamily: 'CourierPrime', fontSize: 11, color: THEME.gold, letterSpacing: 1.5 },
-  butterflySection: { alignItems: 'center', justifyContent: 'center', marginVertical: 8 },
+  heartSection: { width: '100%', alignItems: 'center' },
+  heartLine: {
+    width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12,
+  },
+  membraneLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: `${THEME.border}50` },
+  heartSymbol: {
+    fontFamily: 'CourierPrime',
+    fontSize: 32,
+    color: THEME.accent,
+    letterSpacing: 5,
+    minWidth: 110,
+    textAlign: 'center',
+  },
   statusText: {
     fontFamily: 'CourierPrime',
-    fontSize: 12,
-    color: `${THEME.accent}90`,
-    letterSpacing: 3,
+    fontSize: 11,
+    color: `${THEME.accent}85`,
+    letterSpacing: 2.5,
     textAlign: 'center',
     textTransform: 'lowercase',
   },
-  sanctuaryLabel: {
+  subText: {
     fontFamily: 'CourierPrime',
-    fontSize: 10,
-    color: `${THEME.textMuted}50`,
+    fontSize: 9,
+    color: `${THEME.textMuted}45`,
     letterSpacing: 3,
     textTransform: 'lowercase',
-    marginTop: -8,
+    marginTop: -12,
   },
   binarySection: { width: '100%', alignItems: 'flex-end', gap: 3 },
   binaryText: { fontFamily: 'CourierPrime', fontSize: 11, color: THEME.accentSoft, letterSpacing: 2 },
   continueBtn: {
-    marginTop: 4,
     borderWidth: 1,
     borderColor: `${THEME.accent}45`,
     borderRadius: 8,
     paddingVertical: 13,
     paddingHorizontal: 40,
   },
-  continueBtnText: { fontFamily: 'CourierPrime', fontSize: 13, color: THEME.accent, letterSpacing: 2 },
+  continueBtnText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    color: THEME.accent,
+    letterSpacing: 2,
+  },
   wordmark: {
     fontFamily: 'CourierPrime',
     fontSize: 11,
