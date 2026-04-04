@@ -12,6 +12,7 @@ import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { Sanctuary } from '@/utils/storage';
 import { encryptBackup, decryptBackup, restorePayload, saveAndShareBackup, pickBackupFile } from '@/utils/backup';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
+import { HoldToConfirm } from '@/components/HoldToConfirm';
 
 // ── Asset map — matches HTML image description table ─────────────────────────
 // Fortress  → butterfly.jpg  (transformation, recovery, identity)
@@ -19,7 +20,7 @@ import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 // Surface   → no image       (plain card — ephemeral, low-stakes)
 // Burn      → light.gif      (fiery sun — intensity, warning)
 const IMG = {
-  butterfly: require('@/assets/images/butterfly.jpg'),
+  butterfly: require('@/assets/images/butterfly.jpg'),  // burn card
   water:     require('@/assets/images/water.gif'),
   light:     require('@/assets/images/light.gif'),
 };
@@ -28,7 +29,7 @@ const IMG = {
 const OVERLAY = {
   fortress:  'rgba(14,12,20,0.68)',
   sanctuary: 'rgba(14,12,20,0.62)',
-  burn:      'rgba(14,12,20,0.55)',
+  burn:      'rgba(40,8,8,0.72)',
 };
 
 function phaseAccentRgb(phase: string): string {
@@ -147,9 +148,9 @@ export default function VaultScreen() {
           privacy architecture
         </Text>
 
-        {/* FORTRESS — butterfly.jpg (transformation, identity) */}
+        {/* FORTRESS — light.gif (intensity, locked away, fire = security) */}
         <ImageBackground
-          source={IMG.butterfly}
+          source={IMG.light}
           style={styles.vaultImgCard}
           imageStyle={styles.vaultImgBg}
           resizeMode="cover"
@@ -324,7 +325,7 @@ export default function VaultScreen() {
         </Text>
 
         <ImageBackground
-          source={IMG.light}
+          source={IMG.butterfly}
           style={styles.burnImgCard}
           imageStyle={styles.vaultImgBg}
           resizeMode="cover"
@@ -336,25 +337,15 @@ export default function VaultScreen() {
               <Text style={styles.burnSubtitle}>
                 Cryptographic destruction. No recovery. No trace.
               </Text>
-              <TouchableOpacity
-                style={styles.burnBtn}
-                onPress={() => {
-                  Alert.alert(
-                    'burn everything?',
-                    'all mood logs, journal entries, circadian history, and sponsor credentials will be permanently destroyed. this cannot be undone.',
-                    [
-                      { text: 'keep the garden', style: 'cancel' },
-                      { text: 'burn it all', style: 'destructive', onPress: async () => {
-                        await Sanctuary.burnAll();
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                        router.replace('/onboarding');
-                      }},
-                    ]
-                  );
-                }}
-              >
-                <Text style={styles.burnBtnText}>initiate burn ritual</Text>
-              </TouchableOpacity>
+              <HoldToConfirm
+                label="hold to ignite"
+                holdingLabel="burning..."
+                accentRgb="224,122,95"
+                duration={3000}
+                dangerMode
+                onConfirm={() => router.push('/burn')}
+                style={styles.burnHoldBtn}
+              />
             </View>
           </View>
         </ImageBackground>

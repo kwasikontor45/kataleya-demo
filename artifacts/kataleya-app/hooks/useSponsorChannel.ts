@@ -6,7 +6,7 @@ import { generateKeyPair, encryptMessage, decryptMessage } from '@/utils/crypto'
 
 const _domain = process.env.EXPO_PUBLIC_DOMAIN;
 if (!_domain || _domain === 'undefined') {
-  console.warn('[useSponsorChannel] EXPO_PUBLIC_DOMAIN is not set — API calls will fail');
+  console.warn('[useSponsorChannel] EXPO_PUBLIC_DOMAIN is not set — set it in .env file, e.g. EXPO_PUBLIC_DOMAIN=your-server.com');
 }
 const API_BASE = `https://${_domain}/api`;
 const POLL_INTERVAL_MS = 5000;
@@ -196,6 +196,7 @@ export function useSponsorChannel() {
       data = await res.json() as typeof data;
     } catch (e) {
       console.error('[createInvite] fetch failed:', e);
+      // Common causes: EXPO_PUBLIC_DOMAIN not set, server not running, network issue
       setError('Could not create invite. Check your connection.');
       setConnState('error');
       return;

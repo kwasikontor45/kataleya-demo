@@ -16,8 +16,8 @@ export interface ThemeTokens {
 
 // Dawn / day — warm parchment (unchanged)
 export const MorningBloom: ThemeTokens = {
-  bg:               '#faf8f5',
-  surface:          '#ffffff',
+  bg:               '#f0ebe2',
+  surface:          '#f7f2ea',
   surfaceHighlight: '#f5f0e8',
   gold:             '#a06808',
   accent:           '#b85510',

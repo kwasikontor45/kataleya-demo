@@ -10,10 +10,10 @@ import * as Haptics from 'expo-haptics';
 const { width: SW, height: SH } = Dimensions.get('window');
 
 const PHASES = [
-  { label: 'Inhale',  duration: 4,  scaleTarget: 1.5  },
-  { label: 'Hold',    duration: 7,  scaleTarget: 1.5  },
-  { label: 'Exhale',  duration: 8,  scaleTarget: 0.85 },
-  { label: 'Hold',    duration: 4,  scaleTarget: 0.85 },
+  { label: 'Inhale',  duration: 4,  scaleTarget: 1.45 },
+  { label: 'Hold',    duration: 7,  scaleTarget: 1.45 },
+  { label: 'Exhale',  duration: 8,  scaleTarget: 0.88 },
+  { label: 'Hold',    duration: 4,  scaleTarget: 0.88 },
 ];
 const TOTAL_CYCLES = 3;
 
@@ -60,7 +60,7 @@ export function BreathingExercise({ visible, onClose, theme }: Props) {
     Animated.parallel([
       Animated.timing(scaleAnim, {
         toValue: p.scaleTarget,
-        duration: Math.min(p.duration * 800, 5000),
+        duration: Math.min(p.duration * 350, 2000),
         easing: Easing.inOut(Easing.sin),
         useNativeDriver: true,
       }),
