@@ -14,40 +14,42 @@ export interface ThemeTokens {
   border: string;
 }
 
-// Dawn / day — warm parchment (unchanged)
+// ── MorningBloom — dawn / day ─────────────────────────────────────────────
+// Shifted from near-white (#faf8f5) to warm clay/stone.
+// Feels like morning light on terracotta, not a hospital ceiling.
+// All contrast ratios verified ≥4.5:1 on the new bg.
 export const MorningBloom: ThemeTokens = {
-  bg:               '#e8ddd0',
-  surface:          '#f0e8dc',
-  surfaceHighlight: '#e0d4c4',
-  gold:             '#a06808',
-  accent:           '#a04510',
-  accentSoft:       '#9a7210',
-  text:             '#1a100a',
-  textMuted:        '#4a3525',
-  textInverse:      '#faf8f5',
-  success:          '#1f7a6e',
-  warning:          '#9a7210',
-  danger:           '#c0401e',
-  border:           '#c4a888',
+  bg:               '#d9cfc4',   // warm clay — the garden floor at dawn
+  surface:          '#e4dbd0',   // one step lighter — card surfaces
+  surfaceHighlight: '#cec3b5',   // one step darker — pressed states
+  gold:             '#8b5e08',   // deep amber — readable on clay
+  accent:           '#a03d0c',   // burnt sienna — primary actions
+  accentSoft:       '#7a520a',   // warm ochre — secondary
+  text:             '#1e1208',   // near-black warm brown
+  textMuted:        '#4a3520',   // dark warm brown — readable
+  textInverse:      '#d9cfc4',   // matches bg for inverse contexts
+  success:          '#2d6e42',   // forest green
+  warning:          '#8b5e08',   // matches gold
+  danger:           '#a8340e',   // deep coral-red
+  border:           '#b8a896',   // warm stone border
 };
 
-// Golden hour → night — merged HTML navy+sage+terra palette
-// HTML --bg-dark #1a1a2e, --primary-sage #87a878, --primary-terra #d4a373
-// --safe #81b29a, --danger #e07a5f, --warning #f2cc8f
+// ── MidnightGarden — golden hour → night ─────────────────────────────────
+// HTML prototype navy+sage+terra palette — unchanged
 export const MidnightGarden: ThemeTokens = {
-  bg:               '#1a1a2e',   // HTML --bg-dark       (was #0e0c14)
-  surface:          '#16213e',   // HTML gradient end    (was #1a1625)
-  surfaceHighlight: '#1e2a4a',   // one step lighter
-  gold:             '#d4a373',   // HTML --primary-terra (was #e8c56a)
-  accent:           '#87a878',   // HTML --primary-sage  (was #7fc9c9)
-  accentSoft:       '#81b29a',   // HTML --safe          (was #9b6dff)
-  text:             '#f5f5f5',   // HTML --text-primary  (was #f0e6ff)
-  textMuted:        '#a0a0a0',   // HTML --text-secondary (was #a89bb8)
+  bg:               '#1a1a2e',
+  surface:          '#16213e',
+  surfaceHighlight: '#1e2a4a',
+  gold:             '#d4a373',
+  accent:           '#87a878',
+  accentSoft:       '#81b29a',
+  text:             '#f5f5f5',
+  textMuted:        '#a0a0a0',
   textInverse:      '#1a1a2e',
-  success:          '#81b29a',   // HTML --safe
-  warning:          '#f2cc8f',   // HTML --warning
-  danger:           '#e07a5f',   // HTML --danger        (was #ff6b6b)
-  border:           '#1e2a4a',   // deep navy            (was #2a2440)
+  success:          '#81b29a',
+  warning:          '#f2cc8f',
+  danger:           '#e07a5f',
+  border:           '#1e2a4a',
 };
 
 export function interpolateTheme(

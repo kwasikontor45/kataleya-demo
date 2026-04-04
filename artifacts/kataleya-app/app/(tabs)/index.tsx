@@ -79,7 +79,7 @@ async function getPredictiveSuggestion(phase: string): Promise<string | null> {
 export default function SanctuaryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { theme, phase, phaseConfig, darkOverride, setDarkOverride } = useCircadian();
+  const { theme, phase, phaseConfig } = useCircadian();
   const { sobriety, setStartDate } = useSobriety();
   const { restlessnessScore } = useOrchidSway();
   const { biometrics, systemState } = useResponsiveHeart(phase);
@@ -326,26 +326,6 @@ export default function SanctuaryScreen() {
 
           {/* Centre pill — circadian phase */}
           <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
-
-          {/* Right pill — dark mode toggle */}
-          <TouchableOpacity
-            onPress={() => setDarkOverride(!darkOverride)}
-            style={[
-              styles.darkTogglePill,
-              {
-                borderColor: `rgba(${accentRgb}, ${darkOverride ? '0.55' : '0.28'})`,
-                backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.1)` : 'transparent',
-              },
-            ]}
-            hitSlop={10}
-          >
-            <Text style={[
-              styles.darkToggleText,
-              { color: `rgba(${accentRgb}, ${darkOverride ? '0.9' : '0.45'})` },
-            ]}>
-              {darkOverride ? '☀ day' : '◗ night'}
-            </Text>
-          </TouchableOpacity>
 
         </View>
 
@@ -803,19 +783,6 @@ const styles = StyleSheet.create({
     fontFamily: 'CourierPrime',
     fontSize: 10,
     letterSpacing: 3,
-  },
-  // Right pill — dark mode toggle, same height as other pills
-  darkTogglePill: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  darkToggleText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 10,
-    letterSpacing: 1.5,
-    textTransform: 'lowercase',
   },
   // Kataleya wordmark — barely visible at bottom of scroll
   // ECG pill
