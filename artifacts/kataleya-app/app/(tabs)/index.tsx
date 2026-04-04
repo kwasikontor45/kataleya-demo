@@ -85,6 +85,7 @@ export default function SanctuaryScreen() {
   const { biometrics, systemState } = useResponsiveHeart(phase);
   useNotifications(sobriety.daysSober);
 
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const [settingDate, setSettingDate] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [showBreathing, setShowBreathing] = useState(false);
