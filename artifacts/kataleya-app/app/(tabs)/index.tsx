@@ -93,8 +93,6 @@ export default function SanctuaryScreen() {
 
   // Day count pulse — gentle breath at BPM rate
   const dayPulse  = useRef(new Animated.Value(1)).current;
-  // Orb tooltip — fades in, stays 5s, fades out
-  const orbHint    = useRef(new Animated.Value(0)).current;
   // Heart pill — idle breath + panic intensify
   const pillPulse  = useRef(new Animated.Value(1)).current;
   const pillGlow   = useRef(new Animated.Value(0.4)).current;
@@ -261,8 +259,10 @@ export default function SanctuaryScreen() {
           </Text>
         ) : null}
 
-        {/* Header — logo + circadian badge */}
+        {/* ── HEADER — three pills, full-width, space-between ── */}
         <View style={styles.header}>
+
+          {/* Left pill — heart + "privacy" — long-press triggers cover screen */}
           <TouchableOpacity
             onPressIn={handlePanicStart}
             onPressOut={handlePanicEnd}
@@ -275,38 +275,55 @@ export default function SanctuaryScreen() {
               {
                 borderColor: pillGlow.interpolate({
                   inputRange: [0.4, 1.0],
-                  outputRange: [`rgba(${accentRgb}, 0.35)`, `rgba(${accentRgb}, 0.85)`],
+                  outputRange: [`rgba(${accentRgb}, 0.32)`, `rgba(${accentRgb}, 0.82)`],
                 }),
                 transform: [{ scale: pillPulse }],
               },
             ]}>
               <Animated.Text style={[
-                styles.heartPillText,
+                styles.heartPillGlyph,
                 {
                   color: pillGlow.interpolate({
                     inputRange: [0.4, 1.0],
-                    outputRange: [`rgba(${accentRgb}, 0.75)`, `rgba(${accentRgb}, 1.0)`],
+                    outputRange: [`rgba(${accentRgb}, 0.7)`, `rgba(${accentRgb}, 1.0)`],
                   }),
                 },
               ]}>..: :..</Animated.Text>
+              <Animated.Text style={[
+                styles.heartPillLabel,
+                {
+                  color: pillGlow.interpolate({
+                    inputRange: [0.4, 1.0],
+                    outputRange: [`rgba(${accentRgb}, 0.55)`, `rgba(${accentRgb}, 0.9)`],
+                  }),
+                },
+              ]}>privacy</Animated.Text>
             </Animated.View>
-            <Text style={[styles.logoText, { color: `rgba(${accentRgb}, 0.88)` }]}>kataleya</Text>
           </TouchableOpacity>
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              onPress={() => setDarkOverride(!darkOverride)}
-              style={[styles.darkToggle, {
-                borderColor: `rgba(${accentRgb}, 0.28)`,
+
+          {/* Centre pill — circadian phase */}
+          <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
+
+          {/* Right pill — dark mode toggle */}
+          <TouchableOpacity
+            onPress={() => setDarkOverride(!darkOverride)}
+            style={[
+              styles.darkTogglePill,
+              {
+                borderColor: `rgba(${accentRgb}, ${darkOverride ? '0.55' : '0.28'})`,
                 backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.1)` : 'transparent',
-              }]}
-              hitSlop={10}
-            >
-              <Text style={[styles.darkToggleIcon, { color: `rgba(${accentRgb}, ${darkOverride ? '0.9' : '0.45'})` }]}>
-                {darkOverride ? '☀' : '◗'}
-              </Text>
-            </TouchableOpacity>
-            <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
-          </View>
+              },
+            ]}
+            hitSlop={10}
+          >
+            <Text style={[
+              styles.darkToggleText,
+              { color: `rgba(${accentRgb}, ${darkOverride ? '0.9' : '0.45'})` },
+            ]}>
+              {darkOverride ? '☀ day' : '◗ night'}
+            </Text>
+          </TouchableOpacity>
+
         </View>
 
         {/* ── GHOST PULSE ORB — replaces OrchidProgress ── */}
@@ -319,12 +336,6 @@ export default function SanctuaryScreen() {
             systemState={systemState}
             bpm={biometrics.bpm}
           />
-          {/* Orb tooltip — appears briefly, explains the visual */}
-          <Animated.View style={[styles.orbHintWrap, { opacity: orbHint }]} pointerEvents="none">
-            <Text style={[styles.orbHintText, { color: `${theme.textMuted}70` }]}>
-              grows with your recovery · pulses with your body
-            </Text>
-          </Animated.View>
         </View>
 
         {/* Timer */}
@@ -609,6 +620,7 @@ export default function SanctuaryScreen() {
           <TouchableOpacity onPress={() => router.push('/privacy')} hitSlop={8}>
             <Text style={[styles.privacyLink, { color: `${theme.textMuted}40` }]}>privacy</Text>
           </TouchableOpacity>
+          <Text style={[styles.wordmark, { color: `${theme.textMuted}22` }]}>kataleya</Text>
         </View>
       </ScrollView>
 
@@ -648,37 +660,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  darkToggle: {
-    width: 30, height: 30, borderRadius: 15,
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-  },
-  darkToggleIcon: { fontSize: 13, lineHeight: 15 },
-  logoContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // Left pill — heart glyph + "privacy" label inside one pill
+  logoContainer: { flexDirection: 'row', alignItems: 'center' },
   heartPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  heartPillText: {
+  heartPillGlyph: {
     fontFamily: 'CourierPrime',
     fontSize: 10,
     letterSpacing: 3,
   },
-  logoText: {
+  heartPillLabel: {
     fontFamily: 'CourierPrime',
-    fontSize: 13,
-    letterSpacing: 2,
-    fontWeight: '700',
-  },
-  orbHintWrap: { alignItems: 'center', marginTop: 4 },
-  orbHintText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 9,
+    fontSize: 10,
     letterSpacing: 1.5,
-    textAlign: 'center',
     textTransform: 'lowercase',
+  },
+  // Right pill — dark mode toggle, same height as other pills
+  darkTogglePill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  darkToggleText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 1.5,
+    textTransform: 'lowercase',
+  },
+  // Kataleya wordmark — barely visible at bottom of scroll
+  wordmark: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 8,
+    textTransform: 'lowercase',
+    marginTop: 8,
   },
   orbSection: {
     alignItems: 'center',
