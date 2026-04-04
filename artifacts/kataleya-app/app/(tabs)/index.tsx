@@ -289,15 +289,7 @@ export default function SanctuaryScreen() {
                   }),
                 },
               ]}>..: :..</Animated.Text>
-              <Animated.Text style={[
-                styles.heartPillLabel,
-                {
-                  color: pillGlow.interpolate({
-                    inputRange: [0.4, 1.0],
-                    outputRange: [`rgba(${accentRgb}, 0.55)`, `rgba(${accentRgb}, 0.9)`],
-                  }),
-                },
-              ]}>privacy</Animated.Text>
+
             </Animated.View>
           </TouchableOpacity>
 
@@ -660,12 +652,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  // Left pill — heart glyph + "privacy" label inside one pill
+  // Left pill — heart glyph only, no label
   logoContainer: { flexDirection: 'row', alignItems: 'center' },
   heartPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 10,
@@ -675,12 +666,6 @@ const styles = StyleSheet.create({
     fontFamily: 'CourierPrime',
     fontSize: 10,
     letterSpacing: 3,
-  },
-  heartPillLabel: {
-    fontFamily: 'CourierPrime',
-    fontSize: 10,
-    letterSpacing: 1.5,
-    textTransform: 'lowercase',
   },
   // Right pill — dark mode toggle, same height as other pills
   darkTogglePill: {
