@@ -1,3 +1,369 @@
+#!/bin/bash
+# kataleya-html-features.sh
+# Run from: ~/kataleya
+# Adds: ButterflyLogo component, AmbientBackground, RainCard,
+#       useToast hook, and wires them all into index.tsx.
+# Usage: bash ~/kataleya-html-features.sh
+
+set -e
+APP="artifacts/kataleya-app"
+echo "→ Adding HTML features to Kataleya..."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. components/ButterflyLogo.tsx
+#    SVG butterfly from HTML .butterfly-logo — animated pulse
+#    Renders the exact butterfly shape from the HTML mask SVG paths
+# ─────────────────────────────────────────────────────────────────────────────
+cat > "$APP/components/ButterflyLogo.tsx" << 'ENDOFFILE'
+'use no memo';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, View } from 'react-native';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+
+interface Props {
+  size?: number;
+}
+
+// Butterfly SVG from the HTML prototype butterfly-logo mask paths.
+// Wings are drawn as bezier curves from centre point (50,50).
+// Gradient: sage #87a878 → terra #d4a373 — matches HTML linear-gradient.
+export function ButterflyLogo({ size = 36 }: Props) {
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Matches HTML @keyframes logo-pulse — 3s ease-in-out infinite
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.06,
+          duration: 1500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: pulse }], width: size, height: size }}>
+      <Svg width={size} height={size} viewBox="0 0 100 100">
+        <Defs>
+          <LinearGradient id="wing-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#87a878" />
+            <Stop offset="100%" stopColor="#d4a373" />
+          </LinearGradient>
+        </Defs>
+        {/* Left wing */}
+        <Path
+          d="M50 50 Q20 10 10 30 Q5 50 20 55 Q35 60 50 50"
+          fill="url(#wing-grad)"
+          opacity={0.9}
+        />
+        {/* Right wing */}
+        <Path
+          d="M50 50 Q80 10 90 30 Q95 50 80 55 Q65 60 50 50"
+          fill="url(#wing-grad)"
+          opacity={0.9}
+        />
+        {/* Body */}
+        <Path
+          d="M50 50 L50 78"
+          stroke="url(#wing-grad)"
+          strokeWidth={3}
+          strokeLinecap="round"
+        />
+        {/* Head */}
+        <Circle cx={50} cy={44} r={4} fill="url(#wing-grad)" />
+      </Svg>
+    </Animated.View>
+  );
+}
+ENDOFFILE
+echo "  ✓ components/ButterflyLogo.tsx"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. components/AmbientBackground.tsx
+#    Matches HTML .ambient-bg — two radial sage/terra gradients,
+#    slow drift animation. Absolute fill, pointer-events: none.
+# ─────────────────────────────────────────────────────────────────────────────
+cat > "$APP/components/AmbientBackground.tsx" << 'ENDOFFILE'
+'use no memo';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
+
+// Matches HTML .ambient-bg — radial sage + terra gradients drifting slowly.
+// Two fixed radial blobs: sage at 20%/50%, terra at 80%/80%.
+export function AmbientBackground() {
+  const drift = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Matches HTML ambientShift — 20s ease-in-out infinite
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(drift, {
+          toValue: 1,
+          duration: 10000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(drift, {
+          toValue: 0,
+          duration: 10000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const sageTranslate = drift.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 30],
+  });
+  const terraTranslate = drift.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -20],
+  });
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {/* Sage blob — top-left, matches HTML 20% 50% */}
+      <Animated.View
+        style={[
+          styles.blob,
+          styles.sageBlob,
+          { transform: [{ translateX: sageTranslate }, { translateY: sageTranslate }] },
+        ]}
+      />
+      {/* Terra blob — bottom-right, matches HTML 80% 80% */}
+      <Animated.View
+        style={[
+          styles.blob,
+          styles.terraBlob,
+          { transform: [{ translateX: terraTranslate }, { translateY: terraTranslate }] },
+        ]}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  blob: {
+    position: 'absolute',
+    borderRadius: 9999,
+    opacity: 0.3,
+  },
+  sageBlob: {
+    width: 340,
+    height: 340,
+    top: '20%',
+    left: '-20%',
+    backgroundColor: 'rgba(135,168,120,0.18)',
+  },
+  terraBlob: {
+    width: 280,
+    height: 280,
+    bottom: '5%',
+    right: '-15%',
+    backgroundColor: 'rgba(212,163,115,0.12)',
+  },
+});
+ENDOFFILE
+echo "  ✓ components/AmbientBackground.tsx"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. components/RainCard.tsx
+#    Butterfly quote card with animated rain drops.
+#    Matches HTML .inspiration-card + .rain-drops + createRainDrops().
+#    Always visible (not mood-gated like ButterflyCard).
+# ─────────────────────────────────────────────────────────────────────────────
+cat > "$APP/components/RainCard.tsx" << 'ENDOFFILE'
+'use no memo';
+import React, { useEffect, useRef } from 'react';
+import {
+  View, Text, StyleSheet, Animated, Easing, Dimensions,
+} from 'react-native';
+
+const { width: SW } = Dimensions.get('window');
+const DROP_COUNT = 20;
+
+// Single rain drop — mirrors HTML .rain-drop css animation
+function RainDrop({ x, delay, duration }: { x: number; delay: number; duration: number }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(anim, {
+          toValue: 1,
+          duration,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const translateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-24, 200],
+  });
+  const opacity = anim.interpolate({
+    inputRange: [0, 0.08, 0.88, 1],
+    outputRange: [0, 0.25, 0.25, 0],
+  });
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left: x,
+        top: 0,
+        width: 1.5,
+        height: 20,
+        backgroundColor: 'rgba(255,255,255,0.6)',
+        borderRadius: 1,
+        opacity,
+        transform: [{ translateY }],
+      }}
+    />
+  );
+}
+
+interface Props {
+  accentRgb?: string;
+}
+
+export function RainCard({ accentRgb = '135,168,120' }: Props) {
+  // Generate drop params once
+  const drops = useRef(
+    Array.from({ length: DROP_COUNT }, () => ({
+      x: Math.random() * (SW - 48),
+      delay: Math.random() * 3000,
+      duration: 2000 + Math.random() * 1000,
+    }))
+  ).current;
+
+  return (
+    <View style={[styles.card, { borderColor: `rgba(${accentRgb}, 0.15)` }]}>
+      {/* Rain drops — absolute fill behind text */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {drops.map((d, i) => (
+          <RainDrop key={i} x={d.x} delay={d.delay} duration={d.duration} />
+        ))}
+      </View>
+
+      {/* Giant butterfly watermark — matches HTML ::before content:'🦋' */}
+      <Text style={styles.watermark}>🦋</Text>
+
+      {/* Quote */}
+      <Text style={styles.quote}>
+        "Butterflies rest when it rains because it damages their wings.
+        It's okay to rest during the storms of life.
+        You will fly again when it's over."
+      </Text>
+      <Text style={[styles.attribution, { color: `rgba(${accentRgb}, 0.55)` }]}>
+        — rest, then rise
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    width: '100%',
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 28,
+    overflow: 'hidden',
+    alignItems: 'center',
+    // sage → terra gradient fill — matches HTML inspiration-card
+    backgroundColor: 'rgba(135,168,120,0.06)',
+  },
+  watermark: {
+    position: 'absolute',
+    top: -16,
+    right: -16,
+    fontSize: 90,
+    opacity: 0.05,
+    transform: [{ rotate: '-15deg' }],
+  },
+  quote: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    color: 'rgba(245,245,245,0.88)',
+    lineHeight: 22,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    letterSpacing: 0.3,
+    position: 'relative',
+  },
+  attribution: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 2,
+    marginTop: 12,
+    textTransform: 'lowercase',
+  },
+});
+ENDOFFILE
+echo "  ✓ components/RainCard.tsx"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. hooks/useToast.ts
+#    Matches HTML App.showToast() — non-intrusive 3s bottom toast.
+# ─────────────────────────────────────────────────────────────────────────────
+cat > "$APP/hooks/useToast.ts" << 'ENDOFFILE'
+import { useRef, useCallback } from 'react';
+import { Animated, Easing } from 'react-native';
+
+// Matches HTML App.showToast() — 3s auto-dismiss, slide up/down
+export function useToast() {
+  const opacity   = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
+  const messageRef = useRef('');
+  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    messageRef.current = message;
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 250, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 0, duration: 250, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    ]).start();
+
+    timerRef.current = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 20, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }, 3000);
+  }, [opacity, translateY]);
+
+  return { opacity, translateY, messageRef, showToast };
+}
+ENDOFFILE
+echo "  ✓ hooks/useToast.ts"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. app/(tabs)/index.tsx — full rewrite wiring all new components
+# ─────────────────────────────────────────────────────────────────────────────
+cat > "$APP/app/(tabs)/index.tsx" << 'ENDOFFILE'
 'use no memo';
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -472,3 +838,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 });
+ENDOFFILE
+echo "  ✓ app/(tabs)/index.tsx"
+
+echo ""
+echo "✓ HTML features applied. Now commit:"
+echo "  git add -A && git commit -m 'feat: butterfly logo, ambient bg, rain card, toast notification' && git push origin main"
+ENDOFFILE
+echo "Script written."
