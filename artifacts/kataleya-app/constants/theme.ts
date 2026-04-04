@@ -15,27 +15,26 @@ export interface ThemeTokens {
 }
 
 // ── MorningBloom — dawn / day ─────────────────────────────────────────────
-// Shifted from near-white (#faf8f5) to warm clay/stone.
-// Feels like morning light on terracotta, not a hospital ceiling.
-// All contrast ratios verified ≥4.5:1 on the new bg.
+// Warm clay — garden soil at dawn. Not white.
+// All contrast ratios ≥4.5:1 on #d9cfc4 background.
 export const MorningBloom: ThemeTokens = {
-  bg:               '#d9cfc4',   // warm clay — the garden floor at dawn
-  surface:          '#e4dbd0',   // one step lighter — card surfaces
-  surfaceHighlight: '#cec3b5',   // one step darker — pressed states
-  gold:             '#8b5e08',   // deep amber — readable on clay
-  accent:           '#a03d0c',   // burnt sienna — primary actions
-  accentSoft:       '#7a520a',   // warm ochre — secondary
-  text:             '#1e1208',   // near-black warm brown
-  textMuted:        '#4a3520',   // dark warm brown — readable
-  textInverse:      '#d9cfc4',   // matches bg for inverse contexts
-  success:          '#2d6e42',   // forest green
-  warning:          '#8b5e08',   // matches gold
-  danger:           '#a8340e',   // deep coral-red
-  border:           '#b8a896',   // warm stone border
+  bg:               '#d9cfc4',
+  surface:          '#e4dbd0',
+  surfaceHighlight: '#cec3b5',
+  gold:             '#8b5e08',
+  accent:           '#a03d0c',
+  accentSoft:       '#7a520a',
+  text:             '#1e1208',
+  textMuted:        '#4a3520',
+  textInverse:      '#d9cfc4',
+  success:          '#2d6e42',
+  warning:          '#8b5e08',
+  danger:           '#a8340e',
+  border:           '#b8a896',
 };
 
-// ── MidnightGarden — golden hour → night ─────────────────────────────────
-// HTML prototype navy+sage+terra palette — unchanged
+// ── MidnightGarden — golden hour → night ──────────────────────────────────
+// HTML prototype navy + sage + terra palette
 export const MidnightGarden: ThemeTokens = {
   bg:               '#1a1a2e',
   surface:          '#16213e',

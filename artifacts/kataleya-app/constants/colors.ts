@@ -1,10 +1,10 @@
 export default {
   light: {
-    text: '#2a1810',
-    background: '#faf8f5',
-    tint: '#b85510',
-    tabIconDefault: '#8b7355',
-    tabIconSelected: '#b85510',
+    text: '#1e1208',
+    background: '#d9cfc4',
+    tint: '#a03d0c',
+    tabIconDefault: '#6b4520',
+    tabIconSelected: '#a03d0c',
   },
   dark: {
     text: '#f5f5f5',

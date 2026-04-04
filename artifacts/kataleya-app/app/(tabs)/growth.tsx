@@ -35,7 +35,12 @@ export default function GrowthScreen() {
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: botPad + 16 }]} showsVerticalScrollIndicator={false}>
 
-        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)` }]}>season of growth</Text>
+        <View style={styles.seasonHeader}>
+          <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)` }]}>the garden grows</Text>
+          <Text style={[styles.achievedCount, { color: `rgba(${accentRgb},0.45)` }]}>
+            {sobriety.milestones.filter(m => m.achieved).length} of {sobriety.milestones.length}
+          </Text>
+        </View>
 
         {/* Milestone dot timeline */}
         <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.04} borderIntensity={0.14} style={styles.timelineCard}>
@@ -69,7 +74,7 @@ export default function GrowthScreen() {
                   </View>
                   <View style={[styles.milestoneContent, { opacity: m.achieved ? 1 : 0.3 }]}>
                     <Text style={[styles.milestoneLabel, { color: isActive ? `rgba(${accentRgb},0.95)` : theme.text }]}>
-                      {m.label}
+                      {m.days >= 365 ? '🌳 ' : m.days >= 90 ? '🌸 ' : m.days >= 30 ? '🌿 ' : m.days >= 7 ? '🌱 ' : '· '}{m.label}
                     </Text>
                     <Text style={[styles.milestoneDays, { color: `${theme.textMuted}70` }]}>
                       {m.days} {m.days === 1 ? 'day' : 'days'}
@@ -91,7 +96,7 @@ export default function GrowthScreen() {
                   {sobriety.nextMilestone.days - sobriety.daysSober}
                 </Text>
                 <Text style={[styles.nextLabel, { color: `rgba(${accentRgb},0.5)` }]}>
-                  days until {sobriety.nextMilestone.label}
+                  days to {sobriety.nextMilestone.label.toLowerCase()}
                 </Text>
                 <View style={[styles.progressTrack, { backgroundColor: `rgba(${accentRgb},0.1)` }]}>
                   <View style={[styles.progressFill, { width: `${sobriety.progressToNext * 100}%`, backgroundColor: `rgba(${accentRgb},0.65)` }]} />
@@ -105,7 +110,7 @@ export default function GrowthScreen() {
         {!sobriety.startDate && (
           <NeonCard theme={theme} accentRgb={accentRgb} style={styles.emptyCard}>
             <View style={styles.emptyBlock}>
-              <Text style={[styles.emptyGlyph, { color: `rgba(${accentRgb},0.25)` }]}>⟡</Text>
+              <Text style={[styles.emptyGlyph, { color: `rgba(${accentRgb},0.25)` }]}>🌱</Text>
               <Text style={[styles.emptyText, { color: `${theme.textMuted}70` }]}>
                 the season hasn't begun yet.{'\n'}plant your date in the sanctuary and growth appears here.
               </Text>
@@ -116,12 +121,12 @@ export default function GrowthScreen() {
         {/* Insights */}
         {!insightsLoading && (
           <>
-            <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>patterns</Text>
+            <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>what the garden notices</Text>
 
             {!hasEnoughData ? (
               <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.1}>
                 <View style={styles.emptyBlock}>
-                  <Text style={[styles.emptyGlyph, { color: `rgba(${accentRgb},0.2)` }]}>⟡</Text>
+                  <Text style={[styles.emptyGlyph, { color: `rgba(${accentRgb},0.2)` }]}>🌧</Text>
                   <Text style={[styles.insightEmpty, { color: `${theme.textMuted}70` }]}>
                     patterns form in silence.{'\n'}log your mood for a few days and they'll surface here — no server, no model, just your data.
                   </Text>
@@ -178,6 +183,8 @@ export default function GrowthScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  seasonHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  achievedCount: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 2 },
   scroll: { paddingHorizontal: 20, gap: 8 },
   sectionLabel: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 4 },
   timelineCard: { width: '100%' },

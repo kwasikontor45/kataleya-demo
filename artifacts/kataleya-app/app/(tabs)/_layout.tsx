@@ -28,8 +28,8 @@ export default function TabLayout() {
     return t([lerp(dr, nr, blend), lerp(dg, ng, blend), lerp(db, nb, blend)]);
   };
 
-  const tabActive   = hexLerp('#7a2200', theme.accent);
-  const tabInactive = hexLerp('#5c3418', theme.textMuted);
+  const tabActive   = hexLerp('#a03d0c', theme.accent);
+  const tabInactive = hexLerp('#6b4520', theme.textMuted);
 
   return (
     <>

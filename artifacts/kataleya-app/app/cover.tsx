@@ -1,10 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
+  View, Text, StyleSheet, TouchableOpacity, Platform, Animated, Easing,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -19,36 +15,59 @@ function useClock() {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-export default function CoverScreen() {
-  const router = useRouter();
-  const time = useClock();
-  const tapCount = useRef(0);
-  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+// Breathe — slow 5.5s inhale/exhale, calming for crisis moments
+function useBreathCycle() {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const cycle = () => {
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ]).start(({ finished }) => { if (finished) cycle(); });
+    };
+    cycle();
+    return () => anim.stopAnimation();
+  }, []);
+  return anim;
+}
 
-  const hours = time.getHours();
+export default function CoverScreen() {
+  const router    = useRouter();
+  const time      = useClock();
+  const breathe   = useBreathCycle();
+  const tapCount  = useRef(0);
+  const tapTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const hours   = time.getHours();
   const minutes = time.getMinutes();
   const seconds = time.getSeconds();
-  const isAM = hours < 12;
-  const h12 = hours % 12 || 12;
-  const day = time.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const isAM    = hours < 12;
+  const h12     = hours % 12 || 12;
+  const day     = time.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const handleTap = () => {
     tapCount.current += 1;
     if (tapTimer.current) clearTimeout(tapTimer.current);
-
     if (tapCount.current >= 3) {
       tapCount.current = 0;
       router.back();
       return;
     }
-
-    tapTimer.current = setTimeout(() => {
-      tapCount.current = 0;
-    }, 800);
+    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 800);
   };
+
+  // Breathing ring opacity
+  const ringOpacity = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.04, 0.14] });
+  const ringScale   = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1.04] });
 
   return (
     <View style={styles.container}>
+      {/* Ambient breathing ring — barely visible, calming presence */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.breathRing, { opacity: ringOpacity, transform: [{ scale: ringScale }] }]}
+      />
+
       <TouchableOpacity
         style={styles.clockArea}
         onPress={handleTap}
@@ -62,8 +81,8 @@ export default function CoverScreen() {
             {pad(h12)}:{pad(minutes)}
           </Text>
           <View style={styles.ampmCol}>
-            <Text style={[styles.ampm, { opacity: isAM ? 1 : 0.25 }]}>AM</Text>
-            <Text style={[styles.ampm, { opacity: !isAM ? 1 : 0.25 }]}>PM</Text>
+            <Text style={[styles.ampm, { opacity: isAM ? 0.7 : 0.15 }]}>AM</Text>
+            <Text style={[styles.ampm, { opacity: !isAM ? 0.7 : 0.15 }]}>PM</Text>
           </View>
         </View>
 
@@ -71,8 +90,9 @@ export default function CoverScreen() {
 
         <View style={styles.divider} />
 
-        <Text style={styles.label}>Focus Timer</Text>
-        <Text style={styles.sublabel}>Tap three times to return</Text>
+        {/* Breathing instruction — gentle, not clinical */}
+        <Text style={styles.label}>breathe</Text>
+        <Text style={styles.sublabel}>tap three times to return to the garden</Text>
       </TouchableOpacity>
     </View>
   );
@@ -81,9 +101,17 @@ export default function CoverScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#0e0c0a',   // near-black warm brown — not pure #000
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  breathRing: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    borderWidth: 1,
+    borderColor: '#87a878',       // sage — sanctuary colour
   },
   clockArea: {
     flex: 1,
@@ -94,9 +122,9 @@ const styles = StyleSheet.create({
   },
   dayText: {
     fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
-    fontSize: 13,
-    color: '#666666',
-    letterSpacing: 1,
+    fontSize: 11,
+    color: '#3a3028',
+    letterSpacing: 2,
     textTransform: 'uppercase',
   },
   timeRow: {
@@ -107,44 +135,41 @@ const styles = StyleSheet.create({
   timeText: {
     fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
     fontSize: 72,
-    color: '#e0e0e0',
+    color: '#4a4038',             // very dark warm brown — readable, not glaring
     fontWeight: '100',
     letterSpacing: -2,
     lineHeight: 80,
   },
-  ampmCol: {
-    paddingTop: 14,
-    gap: 2,
-  },
+  ampmCol: { paddingTop: 14, gap: 2 },
   ampm: {
     fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
     fontSize: 11,
-    color: '#888888',
+    color: '#3a3028',
     letterSpacing: 1,
   },
   seconds: {
     fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
     fontSize: 18,
-    color: '#444444',
+    color: '#2a2018',
     letterSpacing: 3,
   },
   divider: {
-    width: 40,
+    width: 32,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#333333',
+    backgroundColor: '#2a2018',
     marginVertical: 8,
   },
   label: {
     fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
-    fontSize: 12,
-    color: '#555555',
-    letterSpacing: 3,
-    textTransform: 'uppercase',
+    fontSize: 11,
+    color: '#3a3028',
+    letterSpacing: 4,
+    textTransform: 'lowercase',
   },
   sublabel: {
     fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
     fontSize: 9,
-    color: '#333333',
+    color: '#2a2018',
     letterSpacing: 1,
     marginTop: 4,
   },
