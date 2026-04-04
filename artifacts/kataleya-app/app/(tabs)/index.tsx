@@ -92,7 +92,10 @@ export default function SanctuaryScreen() {
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
 
   // Day count pulse — gentle breath at BPM rate
-  const dayPulse = useRef(new Animated.Value(1)).current;
+  const dayPulse  = useRef(new Animated.Value(1)).current;
+  // Heart pill — idle breath + panic intensify
+  const pillPulse  = useRef(new Animated.Value(1)).current;
+  const pillGlow   = useRef(new Animated.Value(0.4)).current;
   useEffect(() => {
     const breathe = () => {
       Animated.sequence([
@@ -113,6 +116,45 @@ export default function SanctuaryScreen() {
     breathe();
     return () => dayPulse.stopAnimation();
   }, [dayPulse]);
+
+  // Heart pill idle animation — slow breath, 5.5s cycle
+  // Lets the user sense it's interactive without demanding attention
+  useEffect(() => {
+    const idlePulse = () => {
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(pillPulse, {
+            toValue: 1.07,
+            duration: 2000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pillGlow, {
+            toValue: 0.75,
+            duration: 2000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(pillPulse, {
+            toValue: 1.0,
+            duration: 3500,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pillGlow, {
+            toValue: 0.4,
+            duration: 3500,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start(({ finished }) => { if (finished) idlePulse(); });
+    };
+    idlePulse();
+    return () => { pillPulse.stopAnimation(); pillGlow.stopAnimation(); };
+  }, [pillPulse, pillGlow]);
 
   const [pickerDate, setPickerDate] = useState<Date>(
     sobriety.startDate ? new Date(sobriety.startDate) : new Date()
@@ -146,6 +188,20 @@ export default function SanctuaryScreen() {
   }, [sobriety.daysSober, sobriety.loaded]);
 
   const handlePanicStart = () => {
+    // Intensify the pill animation as a hold indicator
+    Animated.parallel([
+      Animated.timing(pillPulse, {
+        toValue: 1.18,
+        duration: 1400,
+        easing: Easing.inOut(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(pillGlow, {
+        toValue: 1.0,
+        duration: 1400,
+        useNativeDriver: true,
+      }),
+    ]).start();
     panicRef.current = setTimeout(() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       router.push('/cover');
@@ -154,6 +210,11 @@ export default function SanctuaryScreen() {
 
   const handlePanicEnd = () => {
     if (panicRef.current) clearTimeout(panicRef.current);
+    // Reset pill back to idle breath
+    Animated.parallel([
+      Animated.timing(pillPulse, { toValue: 1.0, duration: 400, useNativeDriver: true }),
+      Animated.timing(pillGlow,  { toValue: 0.4, duration: 400, useNativeDriver: true }),
+    ]).start();
   };
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
@@ -207,9 +268,26 @@ export default function SanctuaryScreen() {
             hitSlop={8}
             style={styles.logoContainer}
           >
-            <View style={[styles.heartPill, { borderColor: `rgba(${accentRgb}, 0.4)` }]}>
-              <Text style={[styles.heartPillText, { color: `rgba(${accentRgb}, 0.9)` }]}>..: :..</Text>
-            </View>
+            <Animated.View style={[
+              styles.heartPill,
+              {
+                borderColor: pillGlow.interpolate({
+                  inputRange: [0.4, 1.0],
+                  outputRange: [`rgba(${accentRgb}, 0.35)`, `rgba(${accentRgb}, 0.85)`],
+                }),
+                transform: [{ scale: pillPulse }],
+              },
+            ]}>
+              <Animated.Text style={[
+                styles.heartPillText,
+                {
+                  color: pillGlow.interpolate({
+                    inputRange: [0.4, 1.0],
+                    outputRange: [`rgba(${accentRgb}, 0.75)`, `rgba(${accentRgb}, 1.0)`],
+                  }),
+                },
+              ]}>..: :..</Animated.Text>
+            </Animated.View>
             <Text style={[styles.logoText, { color: `rgba(${accentRgb}, 0.88)` }]}>kataleya</Text>
           </TouchableOpacity>
           <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
