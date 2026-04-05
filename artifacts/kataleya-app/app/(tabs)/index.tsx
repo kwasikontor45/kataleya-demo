@@ -335,8 +335,8 @@ export default function SanctuaryScreen() {
           >
             <View style={[styles.circadianPill, {
               borderColor: darkOverride
-                ? `rgba(${accentRgb}, 0.55)`
-                : `${theme.accent}40`,
+                ? `rgba(${accentRgb}, 0.7)`
+                : `rgba(${accentRgb}, 0.5)`,
               backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.08)` : 'transparent',
             }]}>
               <Text style={[styles.circadianPillText, { color: darkOverride ? `rgba(${accentRgb}, 0.9)` : theme.accent }]}>

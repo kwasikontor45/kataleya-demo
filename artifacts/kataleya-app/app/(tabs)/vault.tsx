@@ -11,6 +11,7 @@ import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { Sanctuary } from '@/utils/storage';
 import { encryptBackup, decryptBackup, restorePayload, saveAndShareBackup, pickBackupFile } from '@/utils/backup';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
+import { HoldToConfirm } from '@/components/HoldToConfirm';
 
 function phaseAccentRgb(phase: string): string {
   if (phase === 'goldenHour') return NEON_RGB.amber;
@@ -216,30 +217,21 @@ export default function VaultScreen() {
         </NeonCard>
 
         {/* ── BURN RITUAL ── */}
-        <Text style={[styles.sectionLabel, { color: 'rgba(255,107,107,0.5)', marginTop: 24 }]}>burn the garden</Text>
-        <NeonCard theme={theme} accentRgb="255,107,107" fillIntensity={0.03} borderIntensity={0.18}>
+        <Text style={[styles.sectionLabel, { color: 'rgba(224,122,95,0.5)', marginTop: 24 }]}>burn the garden</Text>
+        <NeonCard theme={theme} accentRgb="224,122,95" fillIntensity={0.03} borderIntensity={0.18}>
           <View style={styles.burnSection}>
             <Text style={[styles.burnBody, { color: `${theme.textMuted}99` }]}>
               permanently destroy all data. mood logs. journal entries. circadian history.
               all three vaults. no backup. no recovery. the ground returns to zero.
             </Text>
-            <TouchableOpacity
-              style={[styles.burnBtn, { borderColor: 'rgba(255,107,107,0.35)', backgroundColor: 'rgba(255,107,107,0.06)' }]}
-              onPress={() => {
-                Alert.alert('burn everything?',
-                  'all mood logs, journal entries, circadian history, and sponsor credentials will be permanently destroyed. this cannot be undone.',
-                  [
-                    { text: 'keep the garden', style: 'cancel' },
-                    { text: 'burn it all', style: 'destructive', onPress: async () => {
-                      await Sanctuary.burnAll();
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                      router.replace('/onboarding');
-                    }},
-                  ]
-                );
-              }}>
-              <Text style={[styles.burnBtnText, { color: 'rgba(255,107,107,0.65)' }]}>initiate burn ritual</Text>
-            </TouchableOpacity>
+            <HoldToConfirm
+              label="hold to ignite"
+              holdingLabel="burning..."
+              accentRgb="224,122,95"
+              duration={3000}
+              dangerMode
+              onConfirm={() => router.push('/burn')}
+            />
           </View>
         </NeonCard>
 

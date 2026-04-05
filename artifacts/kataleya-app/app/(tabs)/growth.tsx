@@ -7,6 +7,7 @@ import { useSobriety } from '@/hooks/useSobriety';
 import { useInsights } from '@/hooks/useInsights';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
+import { GlyphIcon, milestoneGlyph } from '@/components/GlyphIcon';
 
 function phaseAccentRgb(phase: string): string {
   if (phase === 'goldenHour') return NEON_RGB.amber;
@@ -35,12 +36,7 @@ export default function GrowthScreen() {
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: botPad + 16 }]} showsVerticalScrollIndicator={false}>
 
-        <View style={styles.seasonHeader}>
-          <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)` }]}>the garden grows</Text>
-          <Text style={[styles.achievedCount, { color: `rgba(${accentRgb},0.45)` }]}>
-            {sobriety.milestones.filter(m => m.achieved).length} of {sobriety.milestones.length}
-          </Text>
-        </View>
+        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)` }]}>season of growth</Text>
 
         {/* Milestone dot timeline */}
         <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.04} borderIntensity={0.14} style={styles.timelineCard}>
@@ -73,9 +69,17 @@ export default function GrowthScreen() {
                     ]} />
                   </View>
                   <View style={[styles.milestoneContent, { opacity: m.achieved ? 1 : 0.3 }]}>
-                    <Text style={[styles.milestoneLabel, { color: isActive ? `rgba(${accentRgb},0.95)` : theme.text }]}>
-                      {m.days >= 365 ? '🌳 ' : m.days >= 90 ? '🌸 ' : m.days >= 30 ? '🌿 ' : m.days >= 7 ? '🌱 ' : '· '}{m.label}
-                    </Text>
+                    <View style={styles.milestoneLabelRow}>
+                      <GlyphIcon
+                        name={milestoneGlyph(m.days)}
+                        size={14}
+                        color={m.achieved ? `rgba(${accentRgb},${isActive ? '0.95' : '0.6'})` : `rgba(${accentRgb},0.15)`}
+                        strokeWidth={1.4}
+                      />
+                      <Text style={[styles.milestoneLabel, { color: isActive ? `rgba(${accentRgb},0.95)` : theme.text }]}>
+                        {m.label}
+                      </Text>
+                    </View>
                     <Text style={[styles.milestoneDays, { color: `${theme.textMuted}70` }]}>
                       {m.days} {m.days === 1 ? 'day' : 'days'}
                     </Text>
@@ -96,7 +100,7 @@ export default function GrowthScreen() {
                   {sobriety.nextMilestone.days - sobriety.daysSober}
                 </Text>
                 <Text style={[styles.nextLabel, { color: `rgba(${accentRgb},0.5)` }]}>
-                  days to {sobriety.nextMilestone.label.toLowerCase()}
+                  days until {sobriety.nextMilestone.label}
                 </Text>
                 <View style={[styles.progressTrack, { backgroundColor: `rgba(${accentRgb},0.1)` }]}>
                   <View style={[styles.progressFill, { width: `${sobriety.progressToNext * 100}%`, backgroundColor: `rgba(${accentRgb},0.65)` }]} />
@@ -110,7 +114,7 @@ export default function GrowthScreen() {
         {!sobriety.startDate && (
           <NeonCard theme={theme} accentRgb={accentRgb} style={styles.emptyCard}>
             <View style={styles.emptyBlock}>
-              <Text style={[styles.emptyGlyph, { color: `rgba(${accentRgb},0.25)` }]}>🌱</Text>
+              <GlyphIcon name="sprout" size={28} color={`rgba(${accentRgb},0.25)`} strokeWidth={1.2} />
               <Text style={[styles.emptyText, { color: `${theme.textMuted}70` }]}>
                 the season hasn't begun yet.{'\n'}plant your date in the sanctuary and growth appears here.
               </Text>
@@ -121,12 +125,12 @@ export default function GrowthScreen() {
         {/* Insights */}
         {!insightsLoading && (
           <>
-            <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>what the garden notices</Text>
+            <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>patterns</Text>
 
             {!hasEnoughData ? (
               <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.1}>
                 <View style={styles.emptyBlock}>
-                  <Text style={[styles.emptyGlyph, { color: `rgba(${accentRgb},0.2)` }]}>🌧</Text>
+                  <GlyphIcon name="rain" size={28} color={`rgba(${accentRgb},0.2)`} strokeWidth={1.2} />
                   <Text style={[styles.insightEmpty, { color: `${theme.textMuted}70` }]}>
                     patterns form in silence.{'\n'}log your mood for a few days and they'll surface here — no server, no model, just your data.
                   </Text>
@@ -183,8 +187,6 @@ export default function GrowthScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  seasonHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  achievedCount: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 2 },
   scroll: { paddingHorizontal: 20, gap: 8 },
   sectionLabel: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 4 },
   timelineCard: { width: '100%' },
@@ -194,6 +196,7 @@ const styles = StyleSheet.create({
   milestoneLine: { position: 'absolute', top: 16, width: 1, height: 36 },
   milestoneDot: { flexShrink: 0 },
   milestoneContent: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12 },
+  milestoneLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   milestoneLabel: { fontFamily: 'CourierPrime', fontSize: 13 },
   milestoneDays: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 0.5 },
   nextCard: { width: '100%' },
