@@ -16,7 +16,6 @@ export interface ThemeTokens {
 
 // ── MorningBloom — dawn / day ─────────────────────────────────────────────
 // Warm clay — garden soil at dawn. Not white.
-// All contrast ratios ≥4.5:1 on #d9cfc4 background.
 export const MorningBloom: ThemeTokens = {
   bg:               '#d9cfc4',
   surface:          '#e4dbd0',
@@ -33,8 +32,7 @@ export const MorningBloom: ThemeTokens = {
   border:           '#b8a896',
 };
 
-// ── MidnightGarden — golden hour → night ──────────────────────────────────
-// HTML prototype navy + sage + terra palette
+// ── MidnightGarden — golden hour → night ─────────────────────────────────
 export const MidnightGarden: ThemeTokens = {
   bg:               '#1a1a2e',
   surface:          '#16213e',

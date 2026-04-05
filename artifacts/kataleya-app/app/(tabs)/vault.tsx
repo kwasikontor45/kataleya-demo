@@ -21,7 +21,7 @@ function phaseAccentRgb(phase: string): string {
 
 export default function VaultScreen() {
   const insets = useSafeAreaInsets();
-  const { theme, phase, blend, darkOverride, setDarkOverride } = useCircadian();
+  const { theme, phase } = useCircadian();
   const router = useRouter();
   const accentRgb = phaseAccentRgb(phase);
 
@@ -96,26 +96,7 @@ export default function VaultScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── APPEARANCE ── */}
-        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)` }]}>appearance</Text>
-        <NeonCard theme={theme} accentRgb={accentRgb}>
-          <View style={styles.appearanceRow}>
-            <View style={styles.appearanceText}>
-              <Text style={[styles.appearanceLabel, { color: theme.text }]}>night mode</Text>
-              <Text style={[styles.appearanceHint, { color: `${theme.textMuted}80` }]}>
-                {darkOverride
-                  ? `locked to midnight garden — circadian at ${Math.round(blend * 100)}%`
-                  : 'follows your circadian phase automatically'}
-              </Text>
-            </View>
-            <Switch
-              value={darkOverride}
-              onValueChange={(v) => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDarkOverride(v); }}
-              trackColor={{ false: `rgba(${accentRgb},0.15)`, true: `rgba(${accentRgb},0.6)` }}
-              thumbColor={darkOverride ? `rgba(${accentRgb},0.9)` : `${theme.textMuted}80`}
-            />
-          </View>
-        </NeonCard>
+
 
         {/* ── PRIVACY ARCHITECTURE ── */}
         <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>privacy architecture</Text>
@@ -279,10 +260,6 @@ const styles = StyleSheet.create({
   cardInner: { padding: 16, gap: 12 },
   cardHint: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5, lineHeight: 15 },
   noteInput: { fontFamily: 'CourierPrime', fontSize: 12, borderWidth: 1, borderRadius: 8, padding: 10, minHeight: 52, lineHeight: 18 },
-  appearanceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 18 },
-  appearanceText: { flex: 1, paddingRight: 16 },
-  appearanceLabel: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '700', textTransform: 'lowercase' },
-  appearanceHint: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5, marginTop: 2 },
   vaultRow: { paddingHorizontal: 18, paddingVertical: 14 },
   vaultHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   vaultDot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },

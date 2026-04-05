@@ -24,6 +24,7 @@ import { DataBridge } from '@/components/DataBridge';
 import { GhostPulseOrb } from '@/components/GhostPulseOrb';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { CircadianBadge } from '@/components/CircadianBadge';
+import { GlyphIcon } from '@/components/GlyphIcon';
 import { BreathingExercise } from '@/components/BreathingExercise';
 import { GroundingExercise } from '@/components/GroundingExercise';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
@@ -79,13 +80,12 @@ async function getPredictiveSuggestion(phase: string): Promise<string | null> {
 export default function SanctuaryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { theme, phase, phaseConfig } = useCircadian();
+  const { theme, phase, phaseConfig, darkOverride, setDarkOverride } = useCircadian();
   const { sobriety, setStartDate } = useSobriety();
   const { restlessnessScore } = useOrchidSway();
   const { biometrics, systemState } = useResponsiveHeart(phase);
   useNotifications(sobriety.daysSober);
 
-  const [showPrivacy, setShowPrivacy] = useState(false);
   const [settingDate, setSettingDate] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [showBreathing, setShowBreathing] = useState(false);
@@ -98,7 +98,6 @@ export default function SanctuaryScreen() {
   // Heart pill — idle breath + panic intensify
   const pillPulse  = useRef(new Animated.Value(1)).current;
   const pillGlow   = useRef(new Animated.Value(0.4)).current;
-  const ecgAnim    = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const breathe = () => {
       Animated.sequence([
@@ -285,12 +284,11 @@ export default function SanctuaryScreen() {
         {/* ── HEADER — three pills, full-width, space-between ── */}
         <View style={styles.header}>
 
-          {/* Left pill — "kataleya" with ECG sweep + tap opens privacy modal */}
+          {/* Left pill — "kataleya" ECG sweep — long-press = panic/cover screen */}
           <TouchableOpacity
             onPressIn={handlePanicStart}
             onPressOut={handlePanicEnd}
-            onPress={() => setShowPrivacy(true)}
-            activeOpacity={0.85}
+            activeOpacity={1}
             hitSlop={8}
             style={styles.logoContainer}
           >
@@ -326,8 +324,23 @@ export default function SanctuaryScreen() {
             </Animated.View>
           </TouchableOpacity>
 
-          {/* Centre pill — circadian phase */}
-          <CircadianBadge theme={theme} phaseConfig={phaseConfig} />
+          {/* Centre pill — circadian phase + tap to force override */}
+          <TouchableOpacity
+            onPress={() => setDarkOverride(!darkOverride)}
+            activeOpacity={0.75}
+            hitSlop={8}
+          >
+            <View style={[styles.circadianPill, {
+              borderColor: darkOverride
+                ? `rgba(${accentRgb}, 0.55)`
+                : `${theme.accent}40`,
+              backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.08)` : 'transparent',
+            }]}>
+              <Text style={[styles.circadianPillText, { color: darkOverride ? `rgba(${accentRgb}, 0.9)` : theme.accent }]}>
+                {darkOverride ? '◗ ' : ''}{phaseConfig.displayName}
+              </Text>
+            </View>
+          </TouchableOpacity>
 
         </View>
 
@@ -622,10 +635,9 @@ export default function SanctuaryScreen() {
           <Text style={[styles.phaseDesc, { color: `${theme.textMuted}80` }]}>
             {phaseConfig.description}
           </Text>
-          <TouchableOpacity onPress={() => router.push('/privacy')} hitSlop={8}>
-            <Text style={[styles.privacyLink, { color: `${theme.textMuted}40` }]}>privacy</Text>
+          <TouchableOpacity onPress={() => setShowPrivacy(true)} hitSlop={16} activeOpacity={0.7}>
+            <Text style={[styles.wordmark, { color: `${theme.textMuted}30` }]}>kataleya</Text>
           </TouchableOpacity>
-          <Text style={[styles.wordmark, { color: `${theme.textMuted}22` }]}>kataleya</Text>
         </View>
       </ScrollView>
 
@@ -658,90 +670,62 @@ export default function SanctuaryScreen() {
             <View style={[styles.sheetHandle, { backgroundColor: `rgba(${accentRgb}, 0.3)` }]} />
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetScroll}>
               <Text style={[styles.sheetEyebrow, { color: `rgba(${accentRgb}, 0.5)` }]}>
-                the garden walls
+                about kataleya
               </Text>
               <Text style={[styles.sheetTitle, { color: theme.text }]}>
-                your data is yours.
-              </Text>
-              <Text style={[styles.sheetTitle, { color: theme.text }]}>
-                completely.
+                this app doesn't know who you are.
               </Text>
               <Text style={[styles.sheetSubtitle, { color: `${theme.textMuted}bb` }]}>
-                kataleya was designed to know as little about you as possible.
-                here is exactly what that means.
+                and it never will. here's what that means for you.
               </Text>
 
               {[
                 {
-                  label: 'what lives only on this device',
-                  glyph: '🌱',
-                  items: [
-                    'your sobriety start date',
-                    'every mood log — score, phase, optional note',
-                    'every journal entry — sealed, never transmitted',
-                    'your name or nickname',
-                    'growth milestones and recovery stage',
-                    'circadian history used for local insights only',
-                    'sponsor credentials — held in the OS keychain',
-                  ],
+                  glyph: 'device' as const,
+                  heading: 'everything stays on your phone',
+                  body: 'your journal, your mood, your sobriety date — none of it goes anywhere. no server stores it. no company can read it. if you delete the app, it\'s gone. that\'s the point.',
                 },
                 {
-                  label: 'what your sponsor sees',
-                  glyph: '🌿',
-                  items: [
-                    'daily check-in: yes or no — nothing else',
-                    'your recovery stage — a single word',
-                    'number of milestones reached — a number',
-                    'presence signals you choose to send (water, light)',
-                    'they cannot see mood logs, journal, sobriety date, or any health data',
-                  ],
+                  glyph: 'eye-off' as const,
+                  heading: 'we don\'t know you exist',
+                  body: 'there is no account. no email. no username. kataleya has never seen your name or your story. you are anonymous by design.',
                 },
                 {
-                  label: 'messages',
-                  glyph: '🔒',
-                  items: [
-                    'end-to-end encrypted — the relay sees only ciphertext',
-                    'keys are generated on your device and never leave it',
-                    'messages are relayed and discarded — not stored',
-                  ],
+                  glyph: 'lock' as const,
+                  heading: 'your sponsor sees almost nothing',
+                  body: 'when you connect a sponsor, they see only what you send — a daily yes/no check-in, and which milestone you\'re at. not your mood. not your journal. not your sobriety date.',
                 },
                 {
-                  label: 'the burn ritual',
-                  glyph: '🔥',
-                  items: [
-                    'erases all three vaults — SQLite, AsyncStorage, OS keychain',
-                    'if interrupted, next launch completes the wipe automatically',
-                    'after a clean burn, kataleya has no memory of you',
-                  ],
+                  glyph: 'flame' as const,
+                  heading: 'you can disappear completely',
+                  body: 'the burn ritual wipes everything — your history, your settings, your connections. nothing survives. the app returns to zero, as if you were never here.',
                 },
                 {
-                  label: 'third parties',
-                  glyph: '🌧',
-                  items: [
-                    'no analytics. no crash reporter. no advertising network.',
-                    'no Firebase, Amplitude, Sentry, or Mixpanel.',
-                    'expo device APIs do not transmit your data.',
-                  ],
+                  glyph: 'shield' as const,
+                  heading: 'no ads. no tracking. ever.',
+                  body: 'no advertisers. no analytics companies. no third parties watching what you do. what happens in the garden stays in the garden.',
                 },
               ].map((section, si) => (
                 <View key={si} style={styles.sheetSection}>
                   <View style={styles.sheetSectionHeader}>
-                    <Text style={styles.sheetGlyph}>{section.glyph}</Text>
-                    <Text style={[styles.sheetSectionTitle, { color: `rgba(${accentRgb}, 0.7)` }]}>
-                      {section.label}
+                    <GlyphIcon
+                      name={section.glyph}
+                      size={16}
+                      color={`rgba(${accentRgb}, 0.65)`}
+                      strokeWidth={1.4}
+                    />
+                    <Text style={[styles.sheetSectionTitle, { color: `rgba(${accentRgb}, 0.85)` }]}>
+                      {section.heading}
                     </Text>
                   </View>
-                  {section.items.map((item, ii) => (
-                    <View key={ii} style={styles.sheetItemRow}>
-                      <Text style={[styles.sheetBullet, { color: `rgba(${accentRgb}, 0.4)` }]}>·</Text>
-                      <Text style={[styles.sheetItem, { color: `${theme.text}cc` }]}>{item}</Text>
-                    </View>
-                  ))}
+                  <Text style={[styles.sheetBody, { color: `${theme.textMuted}cc` }]}>
+                    {section.body}
+                  </Text>
                 </View>
               ))}
 
-              <Text style={[styles.sheetFooter, { color: `${theme.textMuted}55` }]}>
-                last reviewed april 2026 · privacy@kataleya.app
+              <Text style={[styles.sheetFooter, { color: `${theme.textMuted}45` }]}>
+                questions? privacy@kataleya.app
               </Text>
             </ScrollView>
           </View>
@@ -775,6 +759,18 @@ const styles = StyleSheet.create({
   },
   // Left pill — heart glyph only, no label
   logoContainer: { flexDirection: 'row', alignItems: 'center' },
+  circadianPill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  circadianPillText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 1.5,
+    textTransform: 'lowercase',
+  },
   heartPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -835,7 +831,6 @@ const styles = StyleSheet.create({
   },
   sheetSection: { marginBottom: 20 },
   sheetSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  sheetGlyph: { fontSize: 14 },
   sheetSectionTitle: {
     fontFamily: 'CourierPrime', fontSize: 10,
     letterSpacing: 2, textTransform: 'lowercase', fontWeight: '700',
@@ -843,6 +838,7 @@ const styles = StyleSheet.create({
   sheetItemRow: { flexDirection: 'row', gap: 8, marginBottom: 5, paddingLeft: 22 },
   sheetBullet: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19 },
   sheetItem: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19, flex: 1 },
+  sheetBody: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 20, paddingLeft: 24, marginTop: 4 },
   sheetFooter: {
     fontFamily: 'CourierPrime', fontSize: 9,
     letterSpacing: 1.5, textAlign: 'center', marginTop: 16,
