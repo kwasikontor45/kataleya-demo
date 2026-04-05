@@ -87,6 +87,7 @@ export default function SanctuaryScreen() {
   useNotifications(sobriety.daysSober);
 
   const [settingDate, setSettingDate] = useState(false);
+  const [showPrivacy, setShowPrivacy]   = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [showBreathing, setShowBreathing] = useState(false);
   const [showGrounding, setShowGrounding] = useState(false);
@@ -98,6 +99,8 @@ export default function SanctuaryScreen() {
   // Heart pill — idle breath + panic intensify
   const pillPulse  = useRef(new Animated.Value(1)).current;
   const pillGlow   = useRef(new Animated.Value(0.4)).current;
+  const ecgAnim    = useRef(new Animated.Value(0)).current;
+  const orbHint    = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const breathe = () => {
       Animated.sequence([
