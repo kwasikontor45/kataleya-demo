@@ -100,7 +100,8 @@ export default function SanctuaryScreen() {
   const pillPulse  = useRef(new Animated.Value(1)).current;
   const pillGlow   = useRef(new Animated.Value(0.4)).current;
   const ecgAnim    = useRef(new Animated.Value(0)).current;
-  const orbHint    = useRef(new Animated.Value(0)).current;
+  const orbHint      = useRef(new Animated.Value(0)).current;
+  const wordmarkPulse = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     const breathe = () => {
       Animated.sequence([
@@ -180,6 +181,28 @@ export default function SanctuaryScreen() {
     idlePulse();
     return () => { pillPulse.stopAnimation(); pillGlow.stopAnimation(); };
   }, [pillPulse, pillGlow]);
+
+  // Wordmark pulse — breathes between dim and legible to signal interactivity
+  useEffect(() => {
+    const pulse = () => {
+      Animated.sequence([
+        Animated.timing(wordmarkPulse, {
+          toValue: 0.55,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+        Animated.timing(wordmarkPulse, {
+          toValue: 0.22,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+      ]).start(({ finished }) => { if (finished) pulse(); });
+    };
+    const t = setTimeout(pulse, 3000);
+    return () => clearTimeout(t);
+  }, [wordmarkPulse]);
 
   const [pickerDate, setPickerDate] = useState<Date>(
     sobriety.startDate ? new Date(sobriety.startDate) : new Date()
@@ -639,7 +662,9 @@ export default function SanctuaryScreen() {
             {phaseConfig.description}
           </Text>
           <TouchableOpacity onPress={() => setShowPrivacy(true)} hitSlop={16} activeOpacity={0.7}>
-            <Text style={[styles.wordmark, { color: `${theme.textMuted}30` }]}>kataleya</Text>
+            <Animated.Text style={[styles.wordmark, { color: theme.textMuted, opacity: wordmarkPulse }]}>
+              kataleya
+            </Animated.Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

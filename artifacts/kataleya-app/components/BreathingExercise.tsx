@@ -1,25 +1,30 @@
 'use no memo';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Modal,
-  Animated, Easing, Dimensions, Platform,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  Animated,
+  Easing,
+  Dimensions,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
-const { width: SW, height: SH } = Dimensions.get('window');
+const { width: SW } = Dimensions.get('window');
+const ORB_SIZE = Math.min(SW * 0.54, 220);
+const RING1 = ORB_SIZE + 28;
+const RING2 = ORB_SIZE + 58;
 
 const PHASES = [
-  { label: 'Inhale',  duration: 4,  scaleTarget: 1.45 },
-  { label: 'Hold',    duration: 7,  scaleTarget: 1.45 },
-  { label: 'Exhale',  duration: 8,  scaleTarget: 0.88 },
-  { label: 'Hold',    duration: 4,  scaleTarget: 0.88 },
+  { label: 'Inhale',  instruction: 'breathe in slowly through your nose',  duration: 4,  color: '#7fc9c9', scale: 1.38 },
+  { label: 'Hold',    instruction: 'hold gently, stay still',               duration: 7,  color: '#9b6dff', scale: 1.38 },
+  { label: 'Exhale',  instruction: 'release slowly through your mouth',     duration: 8,  color: '#d0607a', scale: 0.88 },
 ];
 const TOTAL_CYCLES = 3;
-
-// Matches HTML --primary-sage
-const SAGE     = '135,168,120';
-const SAGE_HEX = '#87a878';
 
 interface Props {
   visible: boolean;
@@ -29,43 +34,49 @@ interface Props {
 
 export function BreathingExercise({ visible, onClose, theme }: Props) {
   const insets = useSafeAreaInsets();
-  const [running, setRunning]     = useState(false);
-  const [phaseIdx, setPhaseIdx]   = useState(0);
+  const [running, setRunning] = useState(true);  // auto-start on mount
+  const [phaseIdx, setPhaseIdx] = useState(0);
   const [countdown, setCountdown] = useState(PHASES[0].duration);
-  const [cycles, setCycles]       = useState(0);
-  const [done, setDone]           = useState(false);
+  const [cycles, setCycles] = useState(0);
+  const [done, setDone] = useState(false);
 
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim  = useRef(new Animated.Value(0.35)).current;
-  const waveAnim  = useRef(new Animated.Value(0)).current;
+  const scaleAnim  = useRef(new Animated.Value(1.0)).current;
+  const glowAnim   = useRef(new Animated.Value(0.3)).current;
+  // Staggered ring anims — each ring breathes independently
+  const ring1Scale = useRef(new Animated.Value(1.0)).current;
+  const ring2Scale = useRef(new Animated.Value(1.0)).current;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const waveLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const phase = PHASES[phaseIdx];
 
-  const startWave = useCallback(() => {
-    waveLoopRef.current?.stop();
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(waveAnim, { toValue: 1, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(waveAnim, { toValue: 0, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    waveLoopRef.current = loop;
-  }, [waveAnim]);
-
   const animateToPhase = useCallback((idx: number) => {
     const p = PHASES[idx];
+    // Ring 1 follows with 180ms delay, ring 2 with 360ms — staggered breathing
+    setTimeout(() => {
+      Animated.timing(ring1Scale, {
+        toValue: p.scale * 1.06,
+        duration: 1100,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }).start();
+    }, 180);
+    setTimeout(() => {
+      Animated.timing(ring2Scale, {
+        toValue: p.scale * 1.12,
+        duration: 1300,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }).start();
+    }, 360);
     Animated.parallel([
       Animated.timing(scaleAnim, {
-        toValue: p.scaleTarget,
-        duration: Math.min(p.duration * 350, 2000),
-        easing: Easing.inOut(Easing.sin),
+        toValue: p.scale,
+        duration: 900,
+        easing: Easing.inOut(Easing.quad),
         useNativeDriver: true,
       }),
       Animated.timing(glowAnim, {
-        toValue: p.label === 'Exhale' ? 0.2 : p.label === 'Inhale' ? 0.65 : 0.5,
+        toValue: p.label === 'Exhale' ? 0.18 : 0.55,
         duration: 900,
         easing: Easing.inOut(Easing.quad),
         useNativeDriver: true,
@@ -76,22 +87,26 @@ export function BreathingExercise({ visible, onClose, theme }: Props) {
   const reset = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
-    setRunning(false); setPhaseIdx(0);
-    setCountdown(PHASES[0].duration); setCycles(0); setDone(false);
+    setRunning(false);
+    setPhaseIdx(0);
+    setCountdown(PHASES[0].duration);
+    setCycles(0);
+    setDone(false);
     Animated.parallel([
-      Animated.timing(scaleAnim, { toValue: 1,    duration: 600, useNativeDriver: true }),
-      Animated.timing(glowAnim,  { toValue: 0.35, duration: 600, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1.0, duration: 600, useNativeDriver: true }),
+      Animated.timing(glowAnim,  { toValue: 0.3, duration: 600, useNativeDriver: true }),
     ]).start();
   }, [scaleAnim, glowAnim]);
 
   useEffect(() => {
-    if (visible) { startWave(); } else { waveLoopRef.current?.stop(); reset(); }
+    if (!visible) { reset(); }
   }, [visible]);
 
   useEffect(() => {
     if (!running || done) return;
     if (intervalRef.current) clearInterval(intervalRef.current);
     animateToPhase(phaseIdx);
+
     intervalRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
@@ -102,7 +117,8 @@ export function BreathingExercise({ visible, onClose, theme }: Props) {
               if (nc >= TOTAL_CYCLES) {
                 clearInterval(intervalRef.current!);
                 intervalRef.current = null;
-                setRunning(false); setDone(true);
+                setRunning(false);
+                setDone(true);
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 return nc;
               }
@@ -116,6 +132,7 @@ export function BreathingExercise({ visible, onClose, theme }: Props) {
         return prev - 1;
       });
     }, 1000);
+
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [running, phaseIdx, done]);
 
@@ -128,61 +145,57 @@ export function BreathingExercise({ visible, onClose, theme }: Props) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = null;
       setRunning(false);
+      Animated.timing(scaleAnim, { toValue: 1.0, duration: 500, useNativeDriver: true }).start();
     }
   };
 
-  const topPad = Platform.OS === 'web' ? 60 : insets.top + 20;
-  const botPad = Platform.OS === 'web' ? 40 : insets.bottom + 20;
-  const ORB = Math.min(SW * 0.52, 220);
-
-  const wave1X = waveAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
-  const wave2X = waveAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 20] });
-  const wave3X = waveAnim.interpolate({ inputRange: [0, 1], outputRange: [15, -15] });
+  const topPad = Platform.OS === 'web' ? 60 : insets.top + 16;
+  const botPad = Platform.OS === 'web' ? 32 : insets.bottom + 16;
 
   return (
     <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent>
-      <View style={[styles.overlay, { paddingTop: topPad, paddingBottom: botPad }]}>
-
-        {/* Ocean wave bands */}
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Animated.View style={[styles.waveBand, styles.waveBand3, { transform: [{ translateX: wave3X }] }]} />
-          <Animated.View style={[styles.waveBand, styles.waveBand2, { transform: [{ translateX: wave2X }] }]} />
-          <Animated.View style={[styles.waveBand, styles.waveBand1, { transform: [{ translateX: wave1X }] }]} />
-        </View>
+      <View style={[styles.overlay, { backgroundColor: '#09080f', paddingTop: topPad, paddingBottom: botPad }]}>
 
         <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={12}>
           <Text style={styles.closeText}>✕</Text>
         </TouchableOpacity>
 
-        <View style={styles.centerArea}>
-          {/* Outer glow ring */}
-          <Animated.View style={[styles.glowRing, {
-            width: ORB + 80, height: ORB + 80,
-            borderRadius: (ORB + 80) / 2,
+        <Text style={styles.title}>4 — 7 — 8</Text>
+        <Text style={styles.subtitle}>breathing</Text>
+
+        <View style={styles.orbArea}>
+          {/* Outer ring 2 */}
+          <Animated.View style={[styles.ring, {
+            width: RING2, height: RING2, borderRadius: RING2 / 2,
+            borderColor: phase.color + '22',
             opacity: glowAnim,
-            transform: [{ scale: scaleAnim }],
+            transform: [{ scale: ring2Scale }],
+          }]} />
+          {/* Outer ring 1 */}
+          <Animated.View style={[styles.ring, {
+            width: RING1, height: RING1, borderRadius: RING1 / 2,
+            borderColor: phase.color + '44',
+            opacity: glowAnim,
+            transform: [{ scale: ring1Scale }],
           }]} />
           {/* Main orb */}
           <Animated.View style={[styles.orb, {
-            width: ORB, height: ORB, borderRadius: ORB / 2,
+            width: ORB_SIZE, height: ORB_SIZE, borderRadius: ORB_SIZE / 2,
+            backgroundColor: phase.color + 'bb',
+            shadowColor: phase.color,
             transform: [{ scale: scaleAnim }],
-            opacity: glowAnim,
           }]}>
-            <Text style={styles.phaseText}>
-              {running || done ? phase.label.toLowerCase() : 'breathe'}
-            </Text>
-            {running && !done && (
-              <Text style={styles.countText}>{countdown}</Text>
-            )}
+            <Text style={styles.orbCount}>{countdown}</Text>
           </Animated.View>
         </View>
 
-        <Text style={styles.instruction}>4 counts in · 7 hold · 8 out</Text>
+        <Text style={[styles.phaseLabel, { color: phase.color }]}>{phase.label}</Text>
+        <Text style={styles.phaseInstruction}>{phase.instruction}</Text>
 
         <View style={styles.cycleRow}>
           {Array.from({ length: TOTAL_CYCLES }).map((_, i) => (
             <View key={i} style={[styles.cycleDot, {
-              backgroundColor: i < cycles ? SAGE_HEX : `rgba(${SAGE}, 0.2)`,
+              backgroundColor: i < cycles ? phase.color : phase.color + '33',
             }]} />
           ))}
         </View>
@@ -191,8 +204,8 @@ export function BreathingExercise({ visible, onClose, theme }: Props) {
           <TouchableOpacity onPress={reset} style={styles.controlBtn} hitSlop={12}>
             <Text style={styles.controlIcon}>↺</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={togglePlay} style={[styles.playBtn, { backgroundColor: SAGE_HEX }]}>
-            <Text style={styles.playIcon}>{running && !done ? '⏸' : '▶'}</Text>
+          <TouchableOpacity onPress={togglePlay} style={[styles.playBtn, { backgroundColor: phase.color }]}>
+            <Text style={styles.playIcon}>{running ? '⏸' : '▶'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -201,8 +214,8 @@ export function BreathingExercise({ visible, onClose, theme }: Props) {
             <Text style={styles.completionGlyph}>✦</Text>
             <Text style={styles.completionTitle}>well done</Text>
             <Text style={styles.completionSub}>your nervous system thanks you.</Text>
-            <TouchableOpacity onPress={onClose} style={[styles.completionBtn, { borderColor: SAGE_HEX }]}>
-              <Text style={[styles.completionBtnText, { color: SAGE_HEX }]}>continue</Text>
+            <TouchableOpacity onPress={onClose} style={[styles.completionBtn, { borderColor: '#7fc9c9' }]}>
+              <Text style={[styles.completionBtnText, { color: '#7fc9c9' }]}>continue</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={reset} hitSlop={10}>
               <Text style={styles.completionAgain}>go again</Text>
@@ -217,77 +230,48 @@ export function BreathingExercise({ visible, onClose, theme }: Props) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 28,
-    overflow: 'hidden',
   },
-  waveBand: { position: 'absolute', left: -40, right: -40, borderTopLeftRadius: 60, borderTopRightRadius: 60 },
-  waveBand1: { bottom: 0, height: SH * 0.38, backgroundColor: 'rgba(22,33,62,0.55)' },
-  waveBand2: { bottom: 0, height: SH * 0.28, backgroundColor: 'rgba(16,24,48,0.6)' },
-  waveBand3: { bottom: 0, height: SH * 0.18, backgroundColor: 'rgba(10,16,36,0.65)' },
-  closeBtn: {
-    alignSelf: 'flex-end',
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  closeText: { color: 'rgba(255,255,255,0.6)', fontSize: 18 },
-  centerArea: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  glowRing: {
+  closeBtn: { alignSelf: 'flex-end', padding: 4 },
+  closeText: { color: '#ffffff44', fontFamily: 'CourierPrime', fontSize: 18 },
+  title: { fontFamily: 'CourierPrime', fontSize: 22, color: '#ffffff', letterSpacing: 6, fontWeight: '700' },
+  subtitle: { fontFamily: 'CourierPrime', fontSize: 11, color: '#ffffff44', letterSpacing: 4, textTransform: 'uppercase', marginTop: -2 },
+  orbArea: { alignItems: 'center', justifyContent: 'center', flex: 1 },
+  ring: {
     position: 'absolute',
-    backgroundColor: 'rgba(135,168,120,0.1)',
-    shadowColor: '#87a878',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 40,
-    elevation: 0,
+    borderWidth: 1,
   },
   orb: {
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(135,168,120,0.5)',
-    shadowColor: '#87a878',
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 50,
+    shadowOpacity: 0.7,
+    shadowRadius: 30,
     elevation: 20,
-    gap: 6,
   },
-  phaseText: {
-    fontFamily: 'CourierPrime', fontSize: 22, fontWeight: '300',
-    color: '#ffffff', letterSpacing: 3, textTransform: 'lowercase',
-    textShadowColor: 'rgba(0,0,0,0.4)',
-    textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8,
-  },
-  countText: {
-    fontFamily: 'CourierPrime', fontSize: 36, fontWeight: '200',
-    color: '#ffffff', letterSpacing: 1, opacity: 0.9,
-  },
-  instruction: {
-    fontFamily: 'CourierPrime', fontSize: 13,
-    color: 'rgba(160,160,160,0.85)', letterSpacing: 1, textAlign: 'center', marginBottom: 8,
-  },
-  cycleRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  orbCount: { fontFamily: 'CourierPrime', fontSize: 52, color: '#ffffff', fontWeight: '700' },
+  phaseLabel: { fontFamily: 'CourierPrime', fontSize: 26, fontWeight: '700', letterSpacing: 3 },
+  phaseInstruction: { fontFamily: 'CourierPrime', fontSize: 12, color: '#ffffff66', letterSpacing: 0.5, textAlign: 'center', maxWidth: 260 },
+  cycleRow: { flexDirection: 'row', gap: 10, marginVertical: 8 },
   cycleDot: { width: 8, height: 8, borderRadius: 4 },
   controls: { flexDirection: 'row', alignItems: 'center', gap: 24, marginBottom: 8 },
-  controlBtn: {
-    width: 46, height: 46, borderRadius: 23,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  controlIcon: { color: 'rgba(255,255,255,0.6)', fontSize: 20, fontFamily: 'CourierPrime' },
+  controlBtn: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 23, backgroundColor: '#ffffff14' },
+  controlIcon: { color: '#ffffff99', fontSize: 20, fontFamily: 'CourierPrime' },
   playBtn: { width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center' },
   playIcon: { fontSize: 22, color: '#ffffff' },
   completionOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(26,26,46,0.95)',
-    alignItems: 'center', justifyContent: 'center', gap: 14,
+    backgroundColor: '#09080fee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
   },
-  completionGlyph: { fontSize: 40, color: '#87a878' },
+  completionGlyph: { fontSize: 40, color: '#7fc9c9' },
   completionTitle: { fontFamily: 'CourierPrime', fontSize: 28, color: '#ffffff', letterSpacing: 4, fontWeight: '700' },
-  completionSub: { fontFamily: 'CourierPrime', fontSize: 13, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5 },
+  completionSub: { fontFamily: 'CourierPrime', fontSize: 13, color: '#ffffff66', letterSpacing: 0.5 },
   completionBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 40, marginTop: 8 },
   completionBtnText: { fontFamily: 'CourierPrime', fontSize: 13, letterSpacing: 2 },
-  completionAgain: { fontFamily: 'CourierPrime', fontSize: 11, color: 'rgba(255,255,255,0.25)', letterSpacing: 2, marginTop: 4 },
+  completionAgain: { fontFamily: 'CourierPrime', fontSize: 11, color: '#ffffff33', letterSpacing: 2, marginTop: 4 },
 });
