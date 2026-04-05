@@ -1,277 +1,391 @@
-'use no memo';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+// components/BreathingExercise.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// NO play button. NO pause button. NO user interaction required to begin.
+// The orb autostarts the moment the component mounts.
+// The breath IS the app. The app IS breathing.
+//
+// Architecture:
+//   • Three staggered rings animate at slightly different speeds/delays
+//     so the expansion ripples outward — not a single synchronized pulse
+//   • Core opacity + scale drives the primary breath feel
+//   • Arc (SVG circle) traces inhale progress and drains on exhale
+//   • Phase-aware timing: night breathes slower than day
+//   • useResponsiveHeart BPM feeds the cycle duration
+//   • restlessnessScore from useOrchidSway subtly affects ring amplitude
+//   • "i feel it" dismiss — only appears after 2 complete cycles
+// ─────────────────────────────────────────────────────────────────────────────
+
+import React, { useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
-  Modal,
+  StyleSheet,
   Animated,
   Easing,
   Dimensions,
-  Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import Svg, { Circle } from 'react-native-svg';
+import { useAnimatedTheme } from '@/hooks/useAnimatedTheme';
+import { useCircadian } from '@/hooks/useCircadian';
+import { useOrchidSway } from '@/hooks/useOrchidSway';
+import { useResponsiveHeart } from '@/hooks/useResponsiveHeart';
 
-const { width: SW } = Dimensions.get('window');
-const ORB_SIZE = Math.min(SW * 0.54, 220);
-const RING1 = ORB_SIZE + 28;
-const RING2 = ORB_SIZE + 58;
+const { width } = Dimensions.get('window');
+const ORB_SIZE = Math.min(width * 0.6, 240);
+const ARC_R = ORB_SIZE / 2 - 2;
+const ARC_CIRC = 2 * Math.PI * ARC_R;
 
-const PHASES = [
-  { label: 'Inhale',  instruction: 'breathe in slowly through your nose',  duration: 4,  color: '#7fc9c9', scale: 1.38 },
-  { label: 'Hold',    instruction: 'hold gently, stay still',               duration: 7,  color: '#9b6dff', scale: 1.38 },
-  { label: 'Exhale',  instruction: 'release slowly through your mouth',     duration: 8,  color: '#d0607a', scale: 0.88 },
-];
-const TOTAL_CYCLES = 3;
+// ── Phase-aware breath timing ──────────────────────────────────────────────────
+const PHASE_TIMING = {
+  dawn:      { inhale: 4000, holdIn: 2000, exhale: 5000, holdOut: 1500 },
+  day:       { inhale: 4000, holdIn: 1500, exhale: 5000, holdOut: 1000 },
+  goldenHour:{ inhale: 4500, holdIn: 3000, exhale: 6000, holdOut: 2000 },
+  night:     { inhale: 5000, holdIn: 2000, exhale: 7000, holdOut: 2500 },
+} as const;
+
+// ── Breath phase labels ────────────────────────────────────────────────────────
+const LABELS = {
+  ready:     { main: 'breathe with me',  sub: '' },
+  inhale:    { main: 'inhale',           sub: 'draw it in' },
+  holdIn:    { main: 'hold',             sub: 'let it settle' },
+  exhale:    { main: 'exhale',           sub: 'let it go' },
+  holdOut:   { main: 'rest',             sub: 'empty' },
+  done:      { main: 'you did well',     sub: 'carry it with you' },
+} as const;
 
 interface Props {
-  visible: boolean;
-  onClose: () => void;
-  theme: any;
+  onDismiss?: () => void;
 }
 
-export function BreathingExercise({ visible, onClose, theme }: Props) {
-  const insets = useSafeAreaInsets();
-  const [running, setRunning] = useState(true);  // auto-start on mount
-  const [phaseIdx, setPhaseIdx] = useState(0);
-  const [countdown, setCountdown] = useState(PHASES[0].duration);
-  const [cycles, setCycles] = useState(0);
-  const [done, setDone] = useState(false);
+export function BreathingExercise({ onDismiss }: Props) {
+  const { theme } = useAnimatedTheme();
+  const { phase } = useCircadian();
+  const { restlessnessScore } = useOrchidSway({ active: false }); // passive read
+  const { biometrics } = useResponsiveHeart();
 
-  const scaleAnim  = useRef(new Animated.Value(1.0)).current;
-  const glowAnim   = useRef(new Animated.Value(0.3)).current;
-  // Staggered ring anims — each ring breathes independently
-  const ring1Scale = useRef(new Animated.Value(1.0)).current;
-  const ring2Scale = useRef(new Animated.Value(1.0)).current;
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // ── Animated values ──────────────────────────────────────────────────────────
+  const coreScale   = useRef(new Animated.Value(0.85)).current;
+  const coreOpacity = useRef(new Animated.Value(0.4)).current;
+  const r1Scale     = useRef(new Animated.Value(0.9)).current;
+  const r1Opacity   = useRef(new Animated.Value(0.22)).current;
+  const r2Scale     = useRef(new Animated.Value(0.88)).current;
+  const r2Opacity   = useRef(new Animated.Value(0.13)).current;
+  const r3Scale     = useRef(new Animated.Value(0.86)).current;
+  const r3Opacity   = useRef(new Animated.Value(0.07)).current;
+  const arcProgress = useRef(new Animated.Value(0)).current; // 0=empty 1=full
+  const labelOpacity= useRef(new Animated.Value(0)).current;
+  const dismissOpacity = useRef(new Animated.Value(0)).current;
 
-  const phase = PHASES[phaseIdx];
+  // ── State refs (no re-render triggers) ──────────────────────────────────────
+  const mainLabel   = useRef('breathe with me');
+  const subLabel    = useRef('');
+  const cycleCount  = useRef(0);
+  const isMounted   = useRef(true);
+  const cycleTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const allAnims    = useRef<Animated.CompositeAnimation[]>([]);
 
-  const animateToPhase = useCallback((idx: number) => {
-    const p = PHASES[idx];
-    // Ring 1 follows with 180ms delay, ring 2 with 360ms — staggered breathing
-    setTimeout(() => {
-      Animated.timing(ring1Scale, {
-        toValue: p.scale * 1.06,
-        duration: 1100,
-        easing: Easing.inOut(Easing.sin),
+  // ── Derive timing (BPM from responsive heart adjusts cycle slightly) ─────────
+  function getTiming() {
+    const base = PHASE_TIMING[phase] ?? PHASE_TIMING.day;
+    // BPM from 45-80 — lower BPM = slower breath, scale by ±15%
+    const bpmFactor = (biometrics.bpm - 60) / 60; // -0.25 to +0.33
+    const scale = 1 - bpmFactor * 0.15;
+    return {
+      inhale:  Math.round(base.inhale  * scale),
+      holdIn:  base.holdIn,
+      exhale:  Math.round(base.exhale  * scale),
+      holdOut: base.holdOut,
+    };
+  }
+
+  // ── Ring amplitude scales with restlessness (calmer = fuller expansion) ──────
+  function getAmplitude() {
+    // High restlessness → smaller, tighter rings (contained)
+    // Low restlessness  → larger, flowing rings
+    const base = 1 + 0.15 * (1 - restlessnessScore);
+    return {
+      core: base + 0.05,
+      r1:   base + 0.02,
+      r2:   base - 0.02,
+      r3:   base - 0.05,
+    };
+  }
+
+  // ── Label setter (mutates ref, forces text update without state) ─────────────
+  const setLabel = useCallback((key: keyof typeof LABELS) => {
+    mainLabel.current = LABELS[key].main;
+    subLabel.current  = LABELS[key].sub;
+    // Force text nodes to update — we use a forceUpdate equivalent
+    // via a lightweight Animated opacity flash
+    Animated.sequence([
+      Animated.timing(labelOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(labelOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+    ]).start();
+  }, [labelOpacity]);
+
+  // ── One complete breath cycle ────────────────────────────────────────────────
+  const runCycle = useCallback(() => {
+    if (!isMounted.current) return;
+
+    const t   = getTiming();
+    const amp = getAmplitude();
+
+    cycleCount.current += 1;
+
+    // Show dismiss after 2 cycles
+    if (cycleCount.current === 2) {
+      Animated.timing(dismissOpacity, {
+        toValue: 1,
+        duration: 800,
         useNativeDriver: true,
       }).start();
-    }, 180);
-    setTimeout(() => {
-      Animated.timing(ring2Scale, {
-        toValue: p.scale * 1.12,
-        duration: 1300,
-        easing: Easing.inOut(Easing.sin),
-        useNativeDriver: true,
-      }).start();
-    }, 360);
-    Animated.parallel([
-      Animated.timing(scaleAnim, {
-        toValue: p.scale,
-        duration: 900,
-        easing: Easing.inOut(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(glowAnim, {
-        toValue: p.label === 'Exhale' ? 0.18 : 0.55,
-        duration: 900,
-        easing: Easing.inOut(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [scaleAnim, glowAnim]);
-
-  const reset = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
-    setRunning(false);
-    setPhaseIdx(0);
-    setCountdown(PHASES[0].duration);
-    setCycles(0);
-    setDone(false);
-    Animated.parallel([
-      Animated.timing(scaleAnim, { toValue: 1.0, duration: 600, useNativeDriver: true }),
-      Animated.timing(glowAnim,  { toValue: 0.3, duration: 600, useNativeDriver: true }),
-    ]).start();
-  }, [scaleAnim, glowAnim]);
-
-  useEffect(() => {
-    if (!visible) { reset(); }
-  }, [visible]);
-
-  useEffect(() => {
-    if (!running || done) return;
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    animateToPhase(phaseIdx);
-
-    intervalRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          const nextIdx = (phaseIdx + 1) % PHASES.length;
-          if (nextIdx === 0) {
-            setCycles(c => {
-              const nc = c + 1;
-              if (nc >= TOTAL_CYCLES) {
-                clearInterval(intervalRef.current!);
-                intervalRef.current = null;
-                setRunning(false);
-                setDone(true);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                return nc;
-              }
-              return nc;
-            });
-          }
-          setPhaseIdx(nextIdx);
-          setCountdown(PHASES[nextIdx].duration);
-          return PHASES[nextIdx].duration;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running, phaseIdx, done]);
-
-  const togglePlay = () => {
-    if (done) { reset(); return; }
-    if (!running) {
-      setRunning(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      intervalRef.current = null;
-      setRunning(false);
-      Animated.timing(scaleAnim, { toValue: 1.0, duration: 500, useNativeDriver: true }).start();
     }
-  };
 
-  const topPad = Platform.OS === 'web' ? 60 : insets.top + 16;
-  const botPad = Platform.OS === 'web' ? 32 : insets.bottom + 16;
+    // ── INHALE ─────────────────────────────────────────────────────────────
+    setLabel('inhale');
+
+    const inhaleAnim = Animated.parallel([
+      Animated.timing(coreScale,   { toValue: amp.core, duration: t.inhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(coreOpacity, { toValue: 1.0,      duration: t.inhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r1Scale,     { toValue: amp.r1,   duration: t.inhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r1Opacity,   { toValue: 0.55,     duration: t.inhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r2Scale,     { toValue: amp.r2,   duration: t.inhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r2Opacity,   { toValue: 0.35,     duration: t.inhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r3Scale,     { toValue: amp.r3,   duration: t.inhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r3Opacity,   { toValue: 0.18,     duration: t.inhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(arcProgress, { toValue: 1,        duration: t.inhale, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+    ]);
+
+    // ── HOLD IN ────────────────────────────────────────────────────────────
+    const holdInAnim = Animated.delay(t.holdIn); // rings stay expanded — no animation
+
+    // ── EXHALE ─────────────────────────────────────────────────────────────
+    const exhaleAnim = Animated.parallel([
+      Animated.timing(coreScale,   { toValue: 0.85,  duration: t.exhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(coreOpacity, { toValue: 0.4,   duration: t.exhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r1Scale,     { toValue: 0.9,   duration: t.exhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r1Opacity,   { toValue: 0.22,  duration: t.exhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r2Scale,     { toValue: 0.88,  duration: t.exhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r2Opacity,   { toValue: 0.13,  duration: t.exhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r3Scale,     { toValue: 0.86,  duration: t.exhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r3Opacity,   { toValue: 0.07,  duration: t.exhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(arcProgress, { toValue: 0,     duration: t.exhale, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+    ]);
+
+    // ── HOLD OUT ───────────────────────────────────────────────────────────
+    const holdOutAnim = Animated.delay(t.holdOut);
+
+    // ── Sequence with label callbacks ──────────────────────────────────────
+    const sequence = Animated.sequence([inhaleAnim, holdInAnim, exhaleAnim, holdOutAnim]);
+    allAnims.current.push(sequence);
+
+    // Label changes mid-sequence
+    cycleTimer.current = setTimeout(() => setLabel('holdIn'),  t.inhale);
+    cycleTimer.current = setTimeout(() => setLabel('exhale'),  t.inhale + t.holdIn);
+    cycleTimer.current = setTimeout(() => setLabel('holdOut'), t.inhale + t.holdIn + t.exhale);
+
+    sequence.start(({ finished }) => {
+      if (finished && isMounted.current) {
+        runCycle(); // loop — no user action required
+      }
+    });
+  }, [phase, biometrics.bpm, restlessnessScore, setLabel]);
+
+  // ── Autostart on mount ───────────────────────────────────────────────────────
+  useEffect(() => {
+    isMounted.current = true;
+
+    // Brief 1.5s arrival moment before breath begins
+    // The user lands on screen and the orb just... starts.
+    Animated.timing(labelOpacity, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+
+    const startTimer = setTimeout(runCycle, 1500);
+
+    return () => {
+      isMounted.current = false;
+      clearTimeout(startTimer);
+      if (cycleTimer.current) clearTimeout(cycleTimer.current);
+      allAnims.current.forEach(a => a.stop());
+    };
+  }, []); // run once — cycle manages its own loop
+
+  // ── Dismiss ──────────────────────────────────────────────────────────────────
+  const handleDismiss = useCallback(() => {
+    isMounted.current = false;
+    allAnims.current.forEach(a => a.stop());
+    setLabel('done');
+    Animated.parallel([
+      Animated.timing(coreOpacity, { toValue: 0.2, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r1Opacity,   { toValue: 0,   duration: 1000, useNativeDriver: true }),
+      Animated.timing(r2Opacity,   { toValue: 0,   duration: 800,  useNativeDriver: true }),
+      Animated.timing(r3Opacity,   { toValue: 0,   duration: 600,  useNativeDriver: true }),
+    ]).start(() => {
+      setTimeout(() => { if (onDismiss) onDismiss(); }, 1200);
+    });
+  }, [onDismiss, setLabel]);
+
+  // ── Arc interpolation (native driver can't drive strokeDashoffset, so JS) ────
+  const arcDashOffset = arcProgress.interpolate({
+    inputRange:  [0, 1],
+    outputRange: [ARC_CIRC, 0],
+  });
+
+  const accentColor = theme.accent;
+  const accentDim   = `rgba(${theme['phase-rgb'] ?? '127,201,201'}, 0.14)`;
 
   return (
-    <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent>
-      <View style={[styles.overlay, { backgroundColor: '#09080f', paddingTop: topPad, paddingBottom: botPad }]}>
+    <View style={[styles.root, { backgroundColor: theme.bg }]}>
 
-        <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={12}>
-          <Text style={styles.closeText}>✕</Text>
-        </TouchableOpacity>
+      {/* ── Orb ─────────────────────────────────────────────────────────── */}
+      <View style={[styles.orbWrap, { width: ORB_SIZE, height: ORB_SIZE }]}>
 
-        <Text style={styles.title}>4 — 7 — 8</Text>
-        <Text style={styles.subtitle}>breathing</Text>
+        {/* Arc progress ring */}
+        <Svg
+          width={ORB_SIZE}
+          height={ORB_SIZE}
+          style={StyleSheet.absoluteFill}
+        >
+          <Circle
+            cx={ORB_SIZE / 2}
+            cy={ORB_SIZE / 2}
+            r={ARC_R}
+            fill="none"
+            stroke={accentColor}
+            strokeWidth={1.2}
+            strokeLinecap="round"
+            strokeDasharray={`${ARC_CIRC}`}
+            strokeDashoffset={arcDashOffset as any}
+            rotation={-90}
+            origin={`${ORB_SIZE / 2}, ${ORB_SIZE / 2}`}
+            opacity={0.45}
+          />
+        </Svg>
 
-        <View style={styles.orbArea}>
-          {/* Outer ring 2 */}
-          <Animated.View style={[styles.ring, {
-            width: RING2, height: RING2, borderRadius: RING2 / 2,
-            borderColor: phase.color + '22',
-            opacity: glowAnim,
-            transform: [{ scale: ring2Scale }],
-          }]} />
-          {/* Outer ring 1 */}
-          <Animated.View style={[styles.ring, {
-            width: RING1, height: RING1, borderRadius: RING1 / 2,
-            borderColor: phase.color + '44',
-            opacity: glowAnim,
-            transform: [{ scale: ring1Scale }],
-          }]} />
-          {/* Main orb */}
-          <Animated.View style={[styles.orb, {
-            width: ORB_SIZE, height: ORB_SIZE, borderRadius: ORB_SIZE / 2,
-            backgroundColor: phase.color + 'bb',
-            shadowColor: phase.color,
-            transform: [{ scale: scaleAnim }],
-          }]}>
-            <Text style={styles.orbCount}>{countdown}</Text>
-          </Animated.View>
-        </View>
+        {/* Ring 3 — outermost, slowest, staggered +15% delay */}
+        <Animated.View style={[
+          styles.ring,
+          {
+            width: ORB_SIZE - 0,
+            height: ORB_SIZE - 0,
+            borderRadius: (ORB_SIZE) / 2,
+            borderColor: accentColor,
+            transform: [{ scale: r3Scale }],
+            opacity: r3Opacity,
+          }
+        ]} />
 
-        <Text style={[styles.phaseLabel, { color: phase.color }]}>{phase.label}</Text>
-        <Text style={styles.phaseInstruction}>{phase.instruction}</Text>
+        {/* Ring 2 — middle, staggered +10% */}
+        <Animated.View style={[
+          styles.ring,
+          {
+            width: ORB_SIZE * 0.78,
+            height: ORB_SIZE * 0.78,
+            borderRadius: (ORB_SIZE * 0.78) / 2,
+            borderColor: accentColor,
+            transform: [{ scale: r2Scale }],
+            opacity: r2Opacity,
+          }
+        ]} />
 
-        <View style={styles.cycleRow}>
-          {Array.from({ length: TOTAL_CYCLES }).map((_, i) => (
-            <View key={i} style={[styles.cycleDot, {
-              backgroundColor: i < cycles ? phase.color : phase.color + '33',
-            }]} />
-          ))}
-        </View>
+        {/* Ring 1 — inner ring */}
+        <Animated.View style={[
+          styles.ring,
+          {
+            width: ORB_SIZE * 0.59,
+            height: ORB_SIZE * 0.59,
+            borderRadius: (ORB_SIZE * 0.59) / 2,
+            borderColor: accentColor,
+            transform: [{ scale: r1Scale }],
+            opacity: r1Opacity,
+          }
+        ]} />
 
-        <View style={styles.controls}>
-          <TouchableOpacity onPress={reset} style={styles.controlBtn} hitSlop={12}>
-            <Text style={styles.controlIcon}>↺</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={togglePlay} style={[styles.playBtn, { backgroundColor: phase.color }]}>
-            <Text style={styles.playIcon}>{running ? '⏸' : '▶'}</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Core — the breath itself */}
+        <Animated.View style={[
+          styles.core,
+          {
+            width: ORB_SIZE * 0.36,
+            height: ORB_SIZE * 0.36,
+            borderRadius: (ORB_SIZE * 0.36) / 2,
+            backgroundColor: accentDim,
+            borderColor: accentColor,
+            transform: [{ scale: coreScale }],
+            opacity: coreOpacity,
+          }
+        ]} />
 
-        {done && (
-          <View style={styles.completionOverlay}>
-            <Text style={styles.completionGlyph}>✦</Text>
-            <Text style={styles.completionTitle}>well done</Text>
-            <Text style={styles.completionSub}>your nervous system thanks you.</Text>
-            <TouchableOpacity onPress={onClose} style={[styles.completionBtn, { borderColor: '#7fc9c9' }]}>
-              <Text style={[styles.completionBtnText, { color: '#7fc9c9' }]}>continue</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={reset} hitSlop={10}>
-              <Text style={styles.completionAgain}>go again</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
-    </Modal>
+
+      {/* ── Labels — no button, just words ──────────────────────────────── */}
+      <Animated.View style={[styles.labelWrap, { opacity: labelOpacity }]}>
+        <Text style={[styles.mainLabel, { color: theme.text, fontFamily: 'CourierPrime' }]}>
+          {mainLabel.current}
+        </Text>
+        <Text style={[styles.subLabel, { color: theme['text-muted'], fontFamily: 'CourierPrime' }]}>
+          {subLabel.current}
+        </Text>
+      </Animated.View>
+
+      {/* ── Dismiss — only after 2 cycles, no play/pause ────────────────── */}
+      <Animated.View style={{ opacity: dismissOpacity }}>
+        <TouchableOpacity onPress={handleDismiss} style={styles.dismiss}>
+          <Text style={[styles.dismissText, { color: theme['text-muted'], fontFamily: 'CourierPrime' }]}>
+            i feel it
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  root: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 28,
+    justifyContent: 'center',
+    paddingBottom: 64,
   },
-  closeBtn: { alignSelf: 'flex-end', padding: 4 },
-  closeText: { color: '#ffffff44', fontFamily: 'CourierPrime', fontSize: 18 },
-  title: { fontFamily: 'CourierPrime', fontSize: 22, color: '#ffffff', letterSpacing: 6, fontWeight: '700' },
-  subtitle: { fontFamily: 'CourierPrime', fontSize: 11, color: '#ffffff44', letterSpacing: 4, textTransform: 'uppercase', marginTop: -2 },
-  orbArea: { alignItems: 'center', justifyContent: 'center', flex: 1 },
+  orbWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 40,
+    position: 'relative',
+  },
   ring: {
     position: 'absolute',
     borderWidth: 1,
   },
-  orb: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 30,
-    elevation: 20,
+  core: {
+    borderWidth: 1,
   },
-  orbCount: { fontFamily: 'CourierPrime', fontSize: 52, color: '#ffffff', fontWeight: '700' },
-  phaseLabel: { fontFamily: 'CourierPrime', fontSize: 26, fontWeight: '700', letterSpacing: 3 },
-  phaseInstruction: { fontFamily: 'CourierPrime', fontSize: 12, color: '#ffffff66', letterSpacing: 0.5, textAlign: 'center', maxWidth: 260 },
-  cycleRow: { flexDirection: 'row', gap: 10, marginVertical: 8 },
-  cycleDot: { width: 8, height: 8, borderRadius: 4 },
-  controls: { flexDirection: 'row', alignItems: 'center', gap: 24, marginBottom: 8 },
-  controlBtn: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 23, backgroundColor: '#ffffff14' },
-  controlIcon: { color: '#ffffff99', fontSize: 20, fontFamily: 'CourierPrime' },
-  playBtn: { width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center' },
-  playIcon: { fontSize: 22, color: '#ffffff' },
-  completionOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#09080fee',
+  labelWrap: {
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
+    gap: 8,
+    marginBottom: 48,
   },
-  completionGlyph: { fontSize: 40, color: '#7fc9c9' },
-  completionTitle: { fontFamily: 'CourierPrime', fontSize: 28, color: '#ffffff', letterSpacing: 4, fontWeight: '700' },
-  completionSub: { fontFamily: 'CourierPrime', fontSize: 13, color: '#ffffff66', letterSpacing: 0.5 },
-  completionBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 40, marginTop: 8 },
-  completionBtnText: { fontFamily: 'CourierPrime', fontSize: 13, letterSpacing: 2 },
-  completionAgain: { fontFamily: 'CourierPrime', fontSize: 11, color: '#ffffff33', letterSpacing: 2, marginTop: 4 },
+  mainLabel: {
+    fontSize: 20,
+    letterSpacing: 1,
+    textTransform: 'lowercase',
+    textAlign: 'center',
+  },
+  subLabel: {
+    fontSize: 12,
+    letterSpacing: 2.5,
+    textTransform: 'lowercase',
+    textAlign: 'center',
+    opacity: 0.7,
+  },
+  dismiss: {
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+  },
+  dismissText: {
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+    opacity: 0.5,
+  },
 });

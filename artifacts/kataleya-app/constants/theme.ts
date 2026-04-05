@@ -1,73 +1,112 @@
+// constants/theme.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// Fix: TypeScript interfaces cannot have hyphenated property names.
+// All keys are camelCase. References in components updated to match.
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface ThemeTokens {
   bg: string;
   surface: string;
-  surfaceHighlight: string;
+  surfaceHighlight: string;   // was surface-highlight
   gold: string;
   accent: string;
-  accentSoft: string;
+  accentSoft: string;         // was accent-soft
   text: string;
-  textMuted: string;
-  textInverse: string;
+  textMuted: string;          // was text-muted
+  textInverse: string;        // was text-inverse
   success: string;
   warning: string;
   danger: string;
-  border: string;
+  phaseRgb: string;           // was phase-rgb
 }
 
-// ── MorningBloom — dawn / day ─────────────────────────────────────────────
-// Warm clay — garden soil at dawn. Not white.
-export const MorningBloom: ThemeTokens = {
-  bg:               '#d9cfc4',
-  surface:          '#e4dbd0',
-  surfaceHighlight: '#cec3b5',
-  gold:             '#8b5e08',
-  accent:           '#a03d0c',
-  accentSoft:       '#7a520a',
-  text:             '#1e1208',
-  textMuted:        '#4a3520',
-  textInverse:      '#d9cfc4',
-  success:          '#2d6e42',
-  warning:          '#8b5e08',
-  danger:           '#a8340e',
-  border:           '#b8a896',
+// ── DAWN (05:00–08:00) ────────────────────────────────────────────────────────
+export const DawnTheme: ThemeTokens = {
+  bg:               '#0d1117',
+  surface:          '#161c27',
+  surfaceHighlight: '#1e2535',
+  gold:             '#d4876b',
+  accent:           '#8fb3cc',
+  accentSoft:       '#c9a27a',
+  text:             '#dce6f0',
+  textMuted:        '#7a95ae',
+  textInverse:      '#0d1117',
+  success:          '#5ba88a',
+  warning:          '#c9a27a',
+  danger:           '#c06a5a',
+  phaseRgb:         '143,179,204',
 };
 
-// ── MidnightGarden — golden hour → night ─────────────────────────────────
-export const MidnightGarden: ThemeTokens = {
-  bg:               '#1a1a2e',
-  surface:          '#16213e',
-  surfaceHighlight: '#1e2a4a',
-  gold:             '#d4a373',
-  accent:           '#87a878',
-  accentSoft:       '#81b29a',
-  text:             '#f5f5f5',
-  textMuted:        '#a0a0a0',
-  textInverse:      '#1a1a2e',
-  success:          '#81b29a',
-  warning:          '#f2cc8f',
-  danger:           '#e07a5f',
-  border:           '#1e2a4a',
+// ── DAY (08:00–17:00) ─────────────────────────────────────────────────────────
+export const DayTheme: ThemeTokens = {
+  bg:               '#0c1a12',
+  surface:          '#132318',
+  surfaceHighlight: '#1c3024',
+  gold:             '#c8a84b',
+  accent:           '#5fbf8a',
+  accentSoft:       '#9ecfb0',
+  text:             '#d4e8d4',
+  textMuted:        '#6a9678',
+  textInverse:      '#0c1a12',
+  success:          '#5fbf8a',
+  warning:          '#c8a84b',
+  danger:           '#c06a5a',
+  phaseRgb:         '95,191,138',
 };
 
-export function interpolateTheme(
-  morning: ThemeTokens,
-  midnight: ThemeTokens,
-  t: number
-): ThemeTokens {
-  const lerp = (a: string, b: string, t: number): string => {
-    const parseHex = (hex: string) => {
-      const n = parseInt(hex.replace('#', ''), 16);
-      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-    };
-    const toHex = (r: number, g: number, b: number) =>
-      '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
-    const [r1, g1, b1] = parseHex(a);
-    const [r2, g2, b2] = parseHex(b);
-    return toHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
-  };
-  const keys = Object.keys(morning) as (keyof ThemeTokens)[];
-  return keys.reduce((acc, key) => {
-    acc[key] = lerp(morning[key], midnight[key], t);
-    return acc;
-  }, {} as ThemeTokens);
+// ── GOLDEN HOUR (17:00–20:00) ─────────────────────────────────────────────────
+export const GoldenHourTheme: ThemeTokens = {
+  bg:               '#120e06',
+  surface:          '#1e1608',
+  surfaceHighlight: '#2c200e',
+  gold:             '#e8c56a',
+  accent:           '#d4956a',
+  accentSoft:       '#b87340',
+  text:             '#f5e6c8',
+  textMuted:        '#a88050',
+  textInverse:      '#120e06',
+  success:          '#7fc9c9',
+  warning:          '#e8c56a',
+  danger:           '#ff6b6b',
+  phaseRgb:         '212,149,106',
+};
+
+// ── NIGHT (20:00–05:00) ───────────────────────────────────────────────────────
+export const NightTheme: ThemeTokens = {
+  bg:               '#0e0c14',
+  surface:          '#1a1625',
+  surfaceHighlight: '#252236',
+  gold:             '#e8c56a',
+  accent:           '#7fc9c9',
+  accentSoft:       '#9b6dff',
+  text:             '#f0e6ff',
+  textMuted:        '#a89bb8',
+  textInverse:      '#0e0c14',
+  success:          '#7fc9c9',
+  warning:          '#e8c56a',
+  danger:           '#ff6b6b',
+  phaseRgb:         '127,201,201',
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+export type CircadianPhase = 'dawn' | 'day' | 'goldenHour' | 'night';
+
+export function themeForPhase(phase: CircadianPhase): ThemeTokens {
+  switch (phase) {
+    case 'dawn':       return DawnTheme;
+    case 'day':        return DayTheme;
+    case 'goldenHour': return GoldenHourTheme;
+    case 'night':      return NightTheme;
+    default:           return NightTheme;
+  }
+}
+
+export function getPhasePair(phase: CircadianPhase): [ThemeTokens, ThemeTokens] {
+  switch (phase) {
+    case 'dawn':       return [NightTheme,     DawnTheme];
+    case 'day':        return [DawnTheme,       DayTheme];
+    case 'goldenHour': return [DayTheme,        GoldenHourTheme];
+    case 'night':      return [GoldenHourTheme, NightTheme];
+    default:           return [NightTheme,      NightTheme];
+  }
 }

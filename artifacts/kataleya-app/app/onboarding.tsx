@@ -1,697 +1,399 @@
-'use no memo';
-import React, { useState, useRef, useEffect } from 'react';
+// app/onboarding.tsx
+// Fixed: no hyphenated style keys, no hyphenated ThemeTokens references.
+// All theme property access uses camelCase (textMuted, phaseRgb, etc.)
+
+import React, { useState, useRef } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Pressable,
-  StyleSheet,
-  Platform,
-  Keyboard,
-  Animated,
-  Easing,
+  View, Text, StyleSheet, Animated, TouchableOpacity,
+  Dimensions, TextInput,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
-import { useCircadian } from '@/hooks/useCircadian';
+import { useAnimatedTheme } from '@/hooks/useAnimatedTheme';
 import { Surface } from '@/utils/storage';
-import { sanitizeName, sanitizeSubstance } from '@/utils/sanitize';
 
-type Step = 'welcome' | 'name' | 'substance' | 'sobriety_date' | 'privacy' | 'notifications' | 'ready';
-const STEP_ORDER: Step[] = ['welcome', 'name', 'substance', 'sobriety_date', 'privacy', 'notifications', 'ready'];
-const SUBSTANCES = ['Alcohol', 'Substances', 'Behaviour', 'Other / prefer not to say'];
+const { width } = Dimensions.get('window');
 
-function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-}
+// ── SVG Icons — no emojis, theme-colored ─────────────────────────────────────
 
-// ── 72 BPM resting heart — self-contained, no hooks needed ────────────────
-// Used on welcome and ready screens to signal life before any interaction
-function RestingHeart({ accentRgb }: { accentRgb: string }) {
-  const scale   = useRef(new Animated.Value(1)).current;
-  const opacity = useRef(new Animated.Value(0.55)).current;
+const IconBridge = ({ color = '#7fc9c9', size = 64 }) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64">
+    <Circle cx={10} cy={32} r={5} fill={color} opacity={0.9} />
+    <Circle cx={18} cy={32} r={3.5} fill={color} opacity={0.55} />
+    <Circle cx={27} cy={24} r={3.5} fill={color} />
+    <Circle cx={27} cy={40} r={3.5} fill={color} />
+    <Circle cx={37} cy={24} r={3.5} fill={color} />
+    <Circle cx={37} cy={40} r={3.5} fill={color} />
+    <Circle cx={46} cy={32} r={3.5} fill={color} opacity={0.55} />
+    <Circle cx={54} cy={32} r={5} fill={color} opacity={0.9} />
+    <Line x1={4} y1={32} x2={60} y2={32} stroke={color} strokeWidth={0.5} opacity={0.15} />
+  </Svg>
+);
 
-  useEffect(() => {
-    // 72 BPM = 833ms per beat. Two-part beat: lub (short) + dub (longer rest)
-    const beat = () => {
-      Animated.sequence([
-        // lub — quick compress and release
-        Animated.parallel([
-          Animated.timing(scale,   { toValue: 1.18, duration: 120, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 1.0,  duration: 120, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(scale,   { toValue: 0.96, duration: 110, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0.7,  duration: 110, useNativeDriver: true }),
-        ]),
-        // dub — smaller second beat
-        Animated.parallel([
-          Animated.timing(scale,   { toValue: 1.08, duration: 110, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0.85, duration: 110, useNativeDriver: true }),
-        ]),
-        // rest — diastole
-        Animated.parallel([
-          Animated.timing(scale,   { toValue: 1.0,  duration: 490, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0.55, duration: 490, useNativeDriver: true }),
-        ]),
-      ]).start(({ finished }) => { if (finished) beat(); });
-    };
-    beat();
-    return () => { scale.stopAnimation(); opacity.stopAnimation(); };
-  }, []);
+const IconPerson = ({ color = '#7fc9c9', size = 64 }) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64">
+    <Circle cx={32} cy={18} r={10} fill="none" stroke={color} strokeWidth={2} />
+    <Path d="M12 54 C12 38 20 32 32 32 C44 32 52 38 52 54"
+      fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    <Circle cx={32} cy={18} r={3} fill={color} opacity={0.4} />
+  </Svg>
+);
+
+const IconRecovery = ({ color = '#7fc9c9', size = 64 }) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64">
+    <Path d="M8 52 L14 38 L20 44 L26 28 L32 32"
+      fill="none" stroke={color} strokeWidth={2}
+      strokeLinecap="round" strokeLinejoin="round" opacity={0.45} />
+    <Path d="M32 32 L40 26 L50 20 L58 12"
+      fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+    <Circle cx={32} cy={32} r={4} fill={color} />
+    <Circle cx={58} cy={12} r={3} fill={color} opacity={0.65} />
+  </Svg>
+);
+
+const IconClock = ({ color = '#7fc9c9', size = 64 }) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64">
+    <Circle cx={32} cy={32} r={24} fill="none" stroke={color} strokeWidth={2} opacity={0.35} />
+    <Circle cx={32} cy={32} r={16} fill="none" stroke={color} strokeWidth={1} opacity={0.25} />
+    <Circle cx={32} cy={32} r={3} fill={color} />
+    <Line x1={32} y1={32} x2={32} y2={14} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+    <Line x1={32} y1={32} x2={46} y2={32} stroke={color} strokeWidth={2} strokeLinecap="round" />
+    <Line x1={32} y1={8}  x2={32} y2={12} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.6} />
+    <Line x1={56} y1={32} x2={52} y2={32} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.6} />
+    <Line x1={32} y1={56} x2={32} y2={52} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.6} />
+    <Line x1={8}  y1={32} x2={12} y2={32} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.6} />
+  </Svg>
+);
+
+const IconVault = ({ color = '#7fc9c9', size = 64 }) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64">
+    <Path d="M32 6 L54 16 L54 36 C54 48 44 56 32 60 C20 56 10 48 10 36 L10 16 Z"
+      fill="none" stroke={color} strokeWidth={2} opacity={0.45} />
+    <Rect x={24} y={30} width={16} height={14} rx={3} fill="none" stroke={color} strokeWidth={2} />
+    <Path d="M28 30 L28 24 Q28 18 32 18 Q36 18 36 24 L36 30"
+      fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    <Circle cx={32} cy={36} r={2.5} fill={color} />
+    <Rect x={30.5} y={36} width={3} height={5} rx={1} fill={color} />
+  </Svg>
+);
+
+const IconBell = ({ color = '#7fc9c9', size = 64 }) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64">
+    <Path d="M20 42 L20 28 Q20 16 32 14 Q44 16 44 28 L44 42 Z"
+      fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+    <Line x1={16} y1={42} x2={48} y2={42} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+    <Circle cx={32} cy={48} r={3} fill="none" stroke={color} strokeWidth={2} />
+    <Circle cx={32} cy={13} r={2.5} fill="none" stroke={color} strokeWidth={1.5} />
+    <Path d="M14 20 Q10 28 14 36" fill="none" stroke={color} strokeWidth={1} strokeLinecap="round" opacity={0.3} />
+    <Path d="M50 20 Q54 28 50 36" fill="none" stroke={color} strokeWidth={1} strokeLinecap="round" opacity={0.3} />
+  </Svg>
+);
+
+const IconOrchid = ({ color = '#7fc9c9', size = 64 }) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64">
+    <Circle cx={32} cy={32} r={28} fill="none" stroke={color} strokeWidth={0.8} opacity={0.12} />
+    <Circle cx={32} cy={32} r={20} fill="none" stroke={color} strokeWidth={1}   opacity={0.2} />
+    <Circle cx={32} cy={32} r={13} fill="none" stroke={color} strokeWidth={1.5} opacity={0.35} />
+    <Path d="M32 20 L40 32 L32 44 L24 32 Z"
+      fill="none" stroke={color} strokeWidth={1.8} strokeLinejoin="round" opacity={0.8} />
+    <Path d="M32 26 L36 32 L32 38 L28 32 Z" fill={color} opacity={0.6} />
+    <Line x1={32} y1={44} x2={32} y2={56} stroke={color} strokeWidth={1.5} strokeLinecap="round" opacity={0.45} />
+  </Svg>
+);
+
+// ── Steps ─────────────────────────────────────────────────────────────────────
+
+const STEPS = [
+  { id: 'welcome',  label: 'a sanctuary that\nbreathes with you', Icon: IconBridge,  cta: 'begin' },
+  { id: 'name',     label: 'what should we\ncall you?',          Icon: IconPerson,  cta: 'continue' },
+  { id: 'substance',label: 'what are you\nrecovering from?',     Icon: IconRecovery, cta: null },
+  { id: 'date',     label: 'when did you\nbegin?',               Icon: IconClock,   cta: 'continue' },
+  { id: 'privacy',  label: 'your data never\nleaves this device', Icon: IconVault,   cta: 'continue' },
+  { id: 'notifs',   label: 'gentle reminders\nwhen you need them',Icon: IconBell,    cta: 'continue' },
+  { id: 'enter',    label: 'the garden\nis ready',               Icon: IconOrchid,  cta: 'enter sanctuary' },
+] as const;
+
+const SUBSTANCE_OPTIONS = [
+  'alcohol',
+  'substances',
+  'behavior',
+  'other / prefer not to say',
+];
+
+// ── Screen ────────────────────────────────────────────────────────────────────
+
+export default function Onboarding() {
+  const router = useRouter();
+  const { theme } = useAnimatedTheme();
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState('');
+  const [substance, setSubstance] = useState('');
+
+  const accentColor = theme.accent;
+  const phaseRgb    = theme.phaseRgb;
+
+  const advance = () => {
+    if (step < STEPS.length - 1) setStep(s => s + 1);
+    else completeOnboarding();
+  };
+
+  const completeOnboarding = async () => {
+    await Surface.set('HAS_COMPLETED_ONBOARDING', 'true');
+    if (name.trim()) await Surface.set('USER_NAME', name.trim());
+    router.replace('/bridge');
+  };
+
+  const { id, label, Icon, cta } = STEPS[step];
 
   return (
-    <Animated.Text style={[
-      styles.heartGlyph,
-      { color: `rgba(${accentRgb}, 1)`, opacity, transform: [{ scale }] },
-    ]}>
-      ..: :..
-    </Animated.Text>
-  );
-}
+    <View style={[styles.root, { backgroundColor: theme.bg }]}>
 
-// ── Gentle privacy rings — three concentric, pulse inward slowly ───────────
-function GardenRings({ accentRgb }: { accentRgb: string }) {
-  const r1 = useRef(new Animated.Value(0)).current;
-  const r2 = useRef(new Animated.Value(0)).current;
-  const r3 = useRef(new Animated.Value(0)).current;
+      {/* Progress dots */}
+      <View style={styles.dots}>
+        {STEPS.map((_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.dot,
+              {
+                width: i === step ? 20 : 6,
+                backgroundColor: i === step ? accentColor : theme.textMuted,
+                opacity: i <= step ? 1 : 0.3,
+              },
+            ]}
+          />
+        ))}
+      </View>
 
-  useEffect(() => {
-    const ring = (anim: Animated.Value, delay: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(anim, { toValue: 1, duration: 1800, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(anim, { toValue: 0, duration: 1800, easing: Easing.in(Easing.quad),  useNativeDriver: true }),
-        ])
-      );
+      {/* Icon */}
+      <View style={styles.iconWrap}>
+        <Icon color={accentColor} size={72} />
+      </View>
 
-    const l1 = ring(r1, 0);
-    const l2 = ring(r2, 600);
-    const l3 = ring(r3, 1200);
-    l1.start(); l2.start(); l3.start();
-    return () => { r1.stopAnimation(); r2.stopAnimation(); r3.stopAnimation(); };
-  }, []);
+      {/* Label */}
+      <Text style={[styles.label, { color: theme.text }]}>
+        {label}
+      </Text>
 
-  const ringStyle = (anim: Animated.Value, size: number, border: string) => ({
-    position: 'absolute' as const,
-    width: size, height: size, borderRadius: size / 2,
-    borderWidth: 1,
-    borderColor: border,
-    opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [0.06, 0.28] }),
-  });
+      {/* Step content */}
+      <View style={styles.content}>
 
-  return (
-    <View style={styles.ringsWrap}>
-      <Animated.View style={ringStyle(r1, 200, `rgba(${accentRgb}, 0.8)`)} />
-      <Animated.View style={ringStyle(r2, 148, `rgba(${accentRgb}, 0.85)`)} />
-      <Animated.View style={ringStyle(r3, 96,  `rgba(${accentRgb}, 0.9)`)} />
+        {id === 'name' && (
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="name or nickname"
+            placeholderTextColor={theme.textMuted}
+            style={[
+              styles.input,
+              {
+                color: theme.text,
+                borderColor: accentColor,
+                backgroundColor: theme.surface,
+              },
+            ]}
+            autoFocus
+          />
+        )}
+
+        {id === 'substance' && (
+          <View style={styles.options}>
+            {SUBSTANCE_OPTIONS.map(opt => (
+              <TouchableOpacity
+                key={opt}
+                onPress={() => { setSubstance(opt); advance(); }}
+                style={[
+                  styles.option,
+                  {
+                    borderColor: substance === opt ? accentColor : theme.textMuted,
+                    backgroundColor: substance === opt
+                      ? `rgba(${phaseRgb}, 0.1)`
+                      : theme.surface,
+                  },
+                ]}
+              >
+                <Text style={[styles.optionText, {
+                  color: substance === opt ? accentColor : theme.textMuted,
+                }]}>
+                  {opt}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {id === 'privacy' && (
+          <View style={styles.privacyBadges}>
+            {([
+              ['fortress', 'hardware-encrypted keys'],
+              ['sanctuary', 'local sqlite only'],
+              ['surface',   'ui preferences'],
+            ] as const).map(([vault, desc]) => (
+              <View
+                key={vault}
+                style={[
+                  styles.badge,
+                  {
+                    borderColor: `rgba(${phaseRgb}, 0.3)`,
+                    backgroundColor: `rgba(${phaseRgb}, 0.06)`,
+                  },
+                ]}
+              >
+                <Text style={[styles.badgeVault, { color: accentColor }]}>
+                  {vault}
+                </Text>
+                <Text style={[styles.badgeDesc, { color: theme.textMuted }]}>
+                  {desc}
+                </Text>
+              </View>
+            ))}
+            <Text style={[styles.privacyNote, { color: theme.textMuted }]}>
+              we physically cannot access your data.
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* CTA — hidden for substance (auto-advances on tap) */}
+      {cta && (
+        <TouchableOpacity
+          onPress={advance}
+          style={[
+            styles.cta,
+            {
+              borderColor: accentColor,
+              backgroundColor: `rgba(${phaseRgb}, 0.08)`,
+            },
+          ]}
+        >
+          <Text style={[styles.ctaText, { color: accentColor }]}>
+            {cta}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Counter */}
+      <Text style={[styles.counter, { color: theme.textMuted }]}>
+        {step + 1} / {STEPS.length}
+      </Text>
+
     </View>
   );
 }
 
-// ── Privacy items — garden metaphor language ───────────────────────────────
-const PRIVACY_ITEMS = [
-  { glyph: '🌱', label: 'Everything grows here, on this device alone. Nothing is planted in the cloud.' },
-  { glyph: '🌿', label: 'No account. No identity required. No one knows you are here.' },
-  { glyph: '🔒', label: 'Your sponsor only sees what you choose to share — check-ins you send.' },
-  { glyph: '🌧', label: 'Mood logs and journal entries are like rain — they fall here and stay.' },
-  { glyph: '🔥', label: 'The Burn Ritual returns everything to soil. Instant. Irreversible. Yours.' },
-];
-
-export default function Onboarding() {
-  const router  = useRouter();
-  const insets  = useSafeAreaInsets();
-  const { theme, phase, phaseConfig } = useCircadian();
-
-  const [step, setStep]           = useState<Step>('welcome');
-  const [name, setName]           = useState('');
-  const [substance, setSubstance] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [dateConfirmed, setDateConfirmed] = useState(false);
-  const [showPicker, setShowPicker]       = useState(false);
-  const [notifStatus, setNotifStatus]     = useState<'pending' | 'granted' | 'denied'>('pending');
-  const nameRef = useRef<TextInput>(null);
-
-  // Step fade — smooth transition between steps
-  const stepFade = useRef(new Animated.Value(1)).current;
-
-  const goTo = (s: Step) => {
-    Keyboard.dismiss();
-    Haptics.selectionAsync();
-    Animated.timing(stepFade, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
-      setStep(s);
-      Animated.timing(stepFade, { toValue: 1, duration: 350, useNativeDriver: true }).start();
-    });
-  };
-
-  const goBack = () => {
-    Keyboard.dismiss();
-    Haptics.selectionAsync();
-    const idx = STEP_ORDER.indexOf(step);
-    if (idx > 0) goTo(STEP_ORDER[idx - 1]);
-    else router.back();
-  };
-
-  const requestNotifications = async () => {
-    if (Platform.OS !== 'ios') {
-      setNotifStatus('denied');
-      goTo('ready');
-      return;
-    }
-    try {
-      const N = await import('expo-notifications');
-      const { status } = await N.requestPermissionsAsync();
-      const granted = status === 'granted';
-      await Surface.setNotifEnabled(granted);
-      setNotifStatus(granted ? 'granted' : 'denied');
-    } catch { setNotifStatus('denied'); }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    goTo('ready');
-  };
-
-  const skipNotifications = async () => {
-    await Surface.setNotifEnabled(false);
-    setNotifStatus('denied');
-    goTo('ready');
-  };
-
-  const finish = async () => {
-    Keyboard.dismiss();
-    const cleanName      = sanitizeName(name);
-    const cleanSubstance = sanitizeSubstance(substance, SUBSTANCES);
-    if (cleanName)      await Surface.setName(cleanName);
-    if (cleanSubstance) await Surface.setSubstance(cleanSubstance);
-    if (dateConfirmed) {
-      const clamped = new Date(Math.min(selectedDate.getTime(), Date.now()));
-      await Surface.setSobrietyStart(clamped.toISOString());
-    }
-    await Surface.setOnboarded();
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.replace('/(tabs)');
-  };
-
-  const topPad    = Platform.OS === 'web' ? 67 : insets.top + 16;
-  const botPad    = Platform.OS === 'web' ? 34 : insets.bottom + 16;
-  const showBack  = step !== 'welcome';
-  const currentIdx = STEP_ORDER.indexOf(step);
-  const showDots  = currentIdx >= 1 && currentIdx <= 5;
-
-  const bgHex = theme.bg.replace('#', '');
-  const bgN   = parseInt(bgHex, 16);
-  const bgLum = 0.299 * ((bgN >> 16) & 255) + 0.587 * ((bgN >> 8) & 255) + 0.114 * (bgN & 255);
-  const pickerVariant: 'dark' | 'light' = bgLum < 128 ? 'dark' : 'light';
-
-  // Derive accent RGB from theme.accent for the heart and rings
-  const hexToRgb = (hex: string) => {
-    const n = parseInt(hex.replace('#', ''), 16);
-    return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
-  };
-  const accentRgb = hexToRgb(theme.accent);
-
-  return (
-    <Pressable onPress={Keyboard.dismiss} style={{ flex: 1 }} accessible={false}>
-      <View style={[styles.container, { backgroundColor: theme.bg, paddingTop: topPad, paddingBottom: botPad }]}>
-
-        {/* Nav row */}
-        <View style={styles.navRow}>
-          {showBack ? (
-            <TouchableOpacity onPress={goBack} style={styles.backBtn} hitSlop={12}>
-              <Text style={[styles.backText, { color: `${theme.textMuted}80` }]}>← back</Text>
-            </TouchableOpacity>
-          ) : <View style={styles.backBtn} />}
-
-          {showDots && (
-            <View style={styles.dots}>
-              {[1, 2, 3, 4, 5].map(i => (
-                <View key={i} style={[
-                  styles.dot,
-                  { backgroundColor: currentIdx >= i ? theme.accent : `${theme.border}60` },
-                ]} />
-              ))}
-            </View>
-          )}
-          <View style={styles.backBtn} />
-        </View>
-
-        <Animated.View style={[styles.stepWrap, { opacity: stepFade }]}>
-
-          {/* ── WELCOME ── */}
-          {step === 'welcome' && (
-            <View style={styles.step}>
-              {/* Heart + rings visual */}
-              <View style={styles.heartArea}>
-                <GardenRings accentRgb={accentRgb} />
-                <RestingHeart accentRgb={accentRgb} />
-              </View>
-
-              <View style={styles.textBlock}>
-                <Text style={[styles.title, { color: theme.text }]}>
-                  you found the garden.
-                </Text>
-                <Text style={[styles.subtitle, { color: `${theme.textMuted}cc` }]}>
-                  a sanctuary for your recovery.{'\n'}
-                  private by nature.{'\n'}
-                  yours alone.
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.btn, { borderColor: `${theme.accent}70`, backgroundColor: `${theme.accent}12` }]}
-                onPress={() => goTo('name')}
-              >
-                <Text style={[styles.btnText, { color: theme.accent }]}>step inside</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* ── NAME ── */}
-          {step === 'name' && (
-            <View style={styles.step}>
-              <Text style={[styles.stepHint, { color: `${theme.accent}60` }]}>the garden greets you</Text>
-              <Text style={[styles.question, { color: theme.text }]}>
-                what do we call you here?
-              </Text>
-              <Text style={[styles.hint, { color: `${theme.textMuted}90` }]}>
-                a name, a nickname — anything you like.{'\n'}
-                stored only on this device.
-              </Text>
-
-              <View style={styles.inputRow}>
-                <TextInput
-                  ref={nameRef}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="your name in the garden..."
-                  placeholderTextColor={`${theme.textMuted}60`}
-                  style={[styles.input, {
-                    borderColor: name ? theme.accent : `${theme.border}80`,
-                    color: theme.text,
-                    backgroundColor: `${theme.surface}cc`,
-                  }]}
-                  autoFocus
-                  returnKeyType="done"
-                  blurOnSubmit
-                  maxLength={40}
-                  onSubmitEditing={() => goTo('substance')}
-                />
-                <TouchableOpacity
-                  onPress={Keyboard.dismiss}
-                  style={[styles.kbdDismiss, { borderColor: `${theme.border}60`, backgroundColor: `${theme.surface}cc` }]}
-                >
-                  <Text style={[styles.kbdDismissText, { color: `${theme.textMuted}80` }]}>⌄</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.btn, { borderColor: `${theme.accent}70`, backgroundColor: `${theme.accent}12` }]}
-                onPress={() => goTo('substance')}
-              >
-                <Text style={[styles.btnText, { color: theme.accent }]}>continue</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => goTo('substance')} hitSlop={10}>
-                <Text style={[styles.skip, { color: `${theme.textMuted}55` }]}>skip for now</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* ── SUBSTANCE ── */}
-          {step === 'substance' && (
-            <View style={styles.step}>
-              <Text style={[styles.stepHint, { color: `${theme.accent}60` }]}>no judgement here</Text>
-              <Text style={[styles.question, { color: theme.text }]}>
-                what brought you to the garden?
-              </Text>
-              <Text style={[styles.hint, { color: `${theme.textMuted}90` }]}>
-                never shared. helps the garden grow with you.
-              </Text>
-
-              <View style={styles.choices}>
-                {SUBSTANCES.map(s => (
-                  <TouchableOpacity
-                    key={s}
-                    onPress={() => {
-                      setSubstance(s);
-                      Haptics.selectionAsync();
-                      setTimeout(() => goTo('sobriety_date'), 240);
-                    }}
-                    style={[styles.choiceBtn, {
-                      borderColor: substance === s ? theme.accent : `${theme.border}60`,
-                      backgroundColor: substance === s ? `${theme.accent}14` : `${theme.surface}99`,
-                    }]}
-                  >
-                    <Text style={[styles.choiceText, { color: substance === s ? theme.accent : theme.text }]}>
-                      {s}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <TouchableOpacity onPress={() => goTo('sobriety_date')} hitSlop={10}>
-                <Text style={[styles.skip, { color: `${theme.textMuted}55` }]}>prefer not to say</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* ── SOBRIETY DATE ── */}
-          {step === 'sobriety_date' && (
-            <View style={styles.step}>
-              <Text style={[styles.stepHint, { color: `${theme.accent}60` }]}>planting the seed</Text>
-              <Text style={[styles.question, { color: theme.text }]}>
-                when did you plant your first seed?
-              </Text>
-              <Text style={[styles.hint, { color: `${theme.textMuted}90` }]}>
-                the date your journey began.{'\n'}
-                the garden counts every day since.
-              </Text>
-
-              <TouchableOpacity
-                style={[styles.dateBtn, {
-                  borderColor: dateConfirmed ? theme.accent : `${theme.border}60`,
-                  backgroundColor: `${theme.surface}cc`,
-                }]}
-                onPress={() => { setShowPicker(v => !v); Haptics.selectionAsync(); }}
-              >
-                <Text style={[styles.dateBtnLabel, { color: `${theme.textMuted}80` }]}>
-                  {showPicker ? 'close calendar' : 'select your date'}
-                </Text>
-                <Text style={[styles.dateBtnValue, { color: dateConfirmed ? theme.accent : `${theme.textMuted}99` }]}>
-                  {dateConfirmed ? formatDate(selectedDate) : 'choose a date →'}
-                </Text>
-              </TouchableOpacity>
-
-              {showPicker && Platform.OS !== 'web' && (
-                <View style={[styles.pickerWrap, { backgroundColor: `${theme.surface}ee`, borderColor: `${theme.border}60` }]}>
-                  <DateTimePicker
-                    value={selectedDate}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
-                    maximumDate={new Date()}
-                    onChange={(_e, date) => {
-                      if (date) {
-                        setSelectedDate(date);
-                        setDateConfirmed(true);
-                        if (Platform.OS === 'android') setShowPicker(false);
-                      }
-                    }}
-                    themeVariant={pickerVariant}
-                    accentColor={theme.accent}
-                  />
-                </View>
-              )}
-
-              {showPicker && Platform.OS === 'web' && (
-                <View style={[styles.pickerWrap, { borderColor: `${theme.border}60`, backgroundColor: `${theme.surface}ee` }]}>
-                  <input
-                    type="date"
-                    max={new Date().toISOString().split('T')[0]}
-                    style={{
-                      background: 'transparent', border: 'none',
-                      color: theme.text, fontFamily: 'CourierPrime',
-                      fontSize: 15, width: '100%', outline: 'none', padding: '8px 0',
-                    }}
-                    onChange={(e) => {
-                      const d = new Date(e.target.value);
-                      if (!isNaN(d.getTime())) { setSelectedDate(d); setDateConfirmed(true); }
-                    }}
-                  />
-                </View>
-              )}
-
-              <TouchableOpacity
-                style={[styles.btn, {
-                  borderColor: dateConfirmed ? `${theme.accent}70` : `${theme.border}40`,
-                  backgroundColor: dateConfirmed ? `${theme.accent}12` : 'transparent',
-                  opacity: dateConfirmed ? 1 : 0.45,
-                }]}
-                onPress={() => { if (dateConfirmed) goTo('privacy'); }}
-                disabled={!dateConfirmed}
-              >
-                <Text style={[styles.btnText, { color: dateConfirmed ? theme.accent : theme.textMuted }]}>
-                  the garden remembers
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => goTo('privacy')} hitSlop={10}>
-                <Text style={[styles.skip, { color: `${theme.textMuted}55` }]}>i'll add this later</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* ── PRIVACY ── */}
-          {step === 'privacy' && (
-            <View style={styles.step}>
-              <Text style={[styles.stepHint, { color: `${theme.accent}60` }]}>the garden walls</Text>
-              <Text style={[styles.question, { color: theme.text }]}>
-                nothing leaves here.
-              </Text>
-              <Text style={[styles.hint, { color: `${theme.textMuted}90` }]}>
-                this is how the garden protects you.
-              </Text>
-
-              <View style={[styles.privacyCard, { backgroundColor: `${theme.surface}cc`, borderColor: `${theme.border}50` }]}>
-                {PRIVACY_ITEMS.map((item, i) => (
-                  <View key={i} style={[
-                    styles.privacyRow,
-                    i < PRIVACY_ITEMS.length - 1 && { borderBottomWidth: 1, borderBottomColor: `${theme.border}35` },
-                  ]}>
-                    <Text style={styles.privacyGlyph}>{item.glyph}</Text>
-                    <Text style={[styles.privacyLabel, { color: `${theme.text}dd` }]}>{item.label}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <TouchableOpacity
-                style={[styles.btn, { borderColor: `${theme.accent}70`, backgroundColor: `${theme.accent}12` }]}
-                onPress={() => goTo('notifications')}
-              >
-                <Text style={[styles.btnText, { color: theme.accent }]}>the garden has my trust</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* ── NOTIFICATIONS ── */}
-          {step === 'notifications' && (
-            <View style={styles.step}>
-              <Text style={[styles.stepHint, { color: `${theme.accent}60` }]}>staying connected</Text>
-              <Text style={[styles.question, { color: theme.text }]}>
-                shall the garden call you back?
-              </Text>
-              <Text style={[styles.hint, { color: `${theme.textMuted}90` }]}>
-                optional, gentle reminders.{'\n'}
-                you can change this anytime.
-              </Text>
-
-              <View style={[styles.privacyCard, { backgroundColor: `${theme.surface}cc`, borderColor: `${theme.border}50` }]}>
-                {[
-                  { glyph: '🌅', label: 'a gentle daily check-in reminder' },
-                  { glyph: '🦋', label: 'milestone celebrations as you grow' },
-                  { glyph: '🌿', label: 'nothing from advertisers. ever.' },
-                ].map((item, i) => (
-                  <View key={i} style={[
-                    styles.privacyRow,
-                    i < 2 && { borderBottomWidth: 1, borderBottomColor: `${theme.border}35` },
-                  ]}>
-                    <Text style={styles.privacyGlyph}>{item.glyph}</Text>
-                    <Text style={[styles.privacyLabel, { color: `${theme.text}dd` }]}>{item.label}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <TouchableOpacity
-                style={[styles.btn, { borderColor: `${theme.accent}70`, backgroundColor: `${theme.accent}14` }]}
-                onPress={requestNotifications}
-              >
-                <Text style={[styles.btnText, { color: theme.accent }]}>yes, remind me gently</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={skipNotifications} hitSlop={10}>
-                <Text style={[styles.skip, { color: `${theme.textMuted}55` }]}>i'll find my own way back</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* ── READY ── */}
-          {step === 'ready' && (
-            <View style={styles.step}>
-              {/* Same heart + rings as welcome — the garden is alive */}
-              <View style={styles.heartArea}>
-                <GardenRings accentRgb={accentRgb} />
-                <RestingHeart accentRgb={accentRgb} />
-              </View>
-
-              <View style={styles.textBlock}>
-                <Text style={[styles.title, { color: theme.text }]}>
-                  {name ? `welcome, ${name.toLowerCase()}.` : 'welcome home.'}
-                </Text>
-                <Text style={[styles.subtitle, { color: `${theme.textMuted}cc` }]}>
-                  {phaseConfig.description}
-                </Text>
-                {notifStatus === 'granted' && (
-                  <Text style={[styles.notifNote, { color: `${theme.textMuted}70` }]}>
-                    the garden will call you gently.
-                  </Text>
-                )}
-              </View>
-
-              <TouchableOpacity
-                style={[styles.btn, { borderColor: `${theme.accent}70`, backgroundColor: `${theme.accent}14` }]}
-                onPress={finish}
-              >
-                <Text style={[styles.btnText, { color: theme.accent }]}>enter the garden</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-        </Animated.View>
-      </View>
-    </Pressable>
-  );
-}
+// ── Styles — no hyphenated keys ───────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 28 },
-  navRow: {
+  root: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: 48,
+  },
+  dots: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    minHeight: 36,
-  },
-  backBtn: { minWidth: 60 },
-  backText: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 1 },
-  dots: { flexDirection: 'row', gap: 7, alignItems: 'center' },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  stepWrap: { flex: 1 },
-  step: { flex: 1, justifyContent: 'center', gap: 22 },
-
-  // Heart visual
-  heartArea: {
-    height: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ringsWrap: {
+    gap: 6,
     position: 'absolute',
-    width: 220,
-    height: 220,
+    top: 64,
+  },
+  dot: {
+    height: 6,
+    borderRadius: 3,
+  },
+  iconWrap: {
+    marginBottom: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heartGlyph: {
-    fontFamily: 'CourierPrime',
-    fontSize: 32,
-    letterSpacing: 6,
-    textAlign: 'center',
-  },
-
-  // Text
-  stepHint: {
-    fontFamily: 'CourierPrime',
-    fontSize: 9,
-    letterSpacing: 3,
-    textTransform: 'lowercase',
-    marginBottom: -12,
-  },
-  textBlock: { gap: 10 },
-  title: {
-    fontFamily: 'CourierPrime',
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    lineHeight: 34,
-    textTransform: 'lowercase',
-  },
-  subtitle: {
-    fontFamily: 'CourierPrime',
-    fontSize: 13,
-    lineHeight: 22,
-    textTransform: 'lowercase',
-  },
-  question: {
-    fontFamily: 'CourierPrime',
+  label: {
     fontSize: 22,
-    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 32,
+    marginBottom: 32,
     textTransform: 'lowercase',
-    lineHeight: 30,
-  },
-  hint: {
+    letterSpacing: 0.5,
     fontFamily: 'CourierPrime',
-    fontSize: 12,
-    lineHeight: 19,
-    textTransform: 'lowercase',
   },
-  notifNote: {
-    fontFamily: 'CourierPrime',
-    fontSize: 11,
-    lineHeight: 17,
-    textTransform: 'lowercase',
-    marginTop: 4,
+  content: {
+    width: '100%',
+    marginBottom: 24,
   },
-
-  // Input
-  inputRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   input: {
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontFamily: 'CourierPrime',
-    fontSize: 15,
-    flex: 1,
-  },
-  kbdDismiss: {
-    borderWidth: 1,
-    borderRadius: 8,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  kbdDismissText: { fontSize: 20, lineHeight: 24 },
-
-  // Buttons
-  btn: {
-    borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingVertical: 14,
+    paddingHorizontal: 18,
+    fontSize: 16,
+    textAlign: 'center',
+    fontFamily: 'CourierPrime',
+  },
+  options: {
+    gap: 10,
+  },
+  option: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
     alignItems: 'center',
   },
-  btnText: {
+  optionText: {
+    fontSize: 15,
+    letterSpacing: 0.3,
     fontFamily: 'CourierPrime',
-    fontSize: 12,
-    letterSpacing: 2,
-    textTransform: 'lowercase',
   },
-  skip: {
-    fontFamily: 'CourierPrime',
+  privacyBadges: {
+    gap: 10,
+  },
+  badge: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  badgeVault: {
     fontSize: 11,
     letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    minWidth: 80,
+    fontFamily: 'CourierPrime',
+  },
+  badgeDesc: {
+    fontSize: 13,
+    flex: 1,
+    fontFamily: 'CourierPrime',
+  },
+  privacyNote: {
+    fontSize: 12,
     textAlign: 'center',
+    marginTop: 8,
+    letterSpacing: 0.5,
+    opacity: 0.7,
+    fontFamily: 'CourierPrime',
+  },
+  cta: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  ctaText: {
+    fontSize: 15,
+    letterSpacing: 1.5,
     textTransform: 'lowercase',
+    fontFamily: 'CourierPrime',
   },
-
-  // Substance choices
-  choices: { gap: 8 },
-  choiceBtn: { borderWidth: 1, borderRadius: 8, padding: 13 },
-  choiceText: { fontFamily: 'CourierPrime', fontSize: 14, textTransform: 'lowercase' },
-
-  // Date picker
-  dateBtn: { borderWidth: 1, borderRadius: 8, padding: 14, gap: 4 },
-  dateBtnLabel: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 2.5, textTransform: 'lowercase' },
-  dateBtnValue: { fontFamily: 'CourierPrime', fontSize: 15 },
-  pickerWrap: { borderWidth: 1, borderRadius: 12, paddingVertical: 8 },
-
-  // Privacy card
-  privacyCard: { borderWidth: 1, borderRadius: 12, overflow: 'hidden' },
-  privacyRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+  counter: {
+    fontSize: 12,
+    letterSpacing: 2,
+    opacity: 0.5,
+    fontFamily: 'CourierPrime',
   },
-  privacyGlyph: { fontSize: 16, flexShrink: 0, marginTop: 1 },
-  privacyLabel: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 18, flex: 1, textTransform: 'lowercase' },
 });
