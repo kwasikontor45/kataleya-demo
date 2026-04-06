@@ -59,11 +59,6 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "extra": {
-      "eas": {
-        "projectId": "72297d8e-1e5e-45f4-9e04-da70ac5d7207"
-      }
-    },
     "owner": "bleedin6ed6e"
   }
 }
