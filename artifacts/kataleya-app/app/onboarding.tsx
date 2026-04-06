@@ -2,11 +2,12 @@
 // Fixed: no hyphenated style keys, no hyphenated ThemeTokens references.
 // All theme property access uses camelCase (textMuted, phaseRgb, etc.)
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, Animated, TouchableOpacity,
-  Dimensions, TextInput,
+  View, Text, StyleSheet, TouchableOpacity,
+  Dimensions, TextInput, Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { useAnimatedTheme } from '@/hooks/useAnimatedTheme';
@@ -128,6 +129,7 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [substance, setSubstance] = useState('');
+  const [sobrietyDate, setSobrietyDate] = useState(new Date());
 
   const accentColor = theme.accent;
   const phaseRgb    = theme.phaseRgb;
@@ -137,16 +139,28 @@ export default function Onboarding() {
     else completeOnboarding();
   };
 
+  const goBack = () => {
+    if (step > 0) setStep(s => s - 1);
+    else router.replace('/bridge');
+  };
+
   const completeOnboarding = async () => {
-    await Surface.set('HAS_COMPLETED_ONBOARDING', 'true');
-    if (name.trim()) await Surface.set('USER_NAME', name.trim());
-    router.replace('/bridge');
+    await Surface.setOnboarded();
+    if (name.trim()) await Surface.setName(name.trim());
+    if (substance) await Surface.setSubstance(substance);
+    await Surface.setSobrietyStart(sobrietyDate.toISOString());
+    router.replace('/(tabs)');
   };
 
   const { id, label, Icon, cta } = STEPS[step];
 
   return (
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
+
+      {/* Back button */}
+      <TouchableOpacity style={styles.backBtn} onPress={goBack}>
+        <Text style={[styles.backText, { color: theme.textMuted }]}>←</Text>
+      </TouchableOpacity>
 
       {/* Progress dots */}
       <View style={styles.dots}>
@@ -219,6 +233,20 @@ export default function Onboarding() {
                 </Text>
               </TouchableOpacity>
             ))}
+          </View>
+        )}
+
+        {id === 'date' && (
+          <View style={styles.dateWrap}>
+            <DateTimePicker
+              value={sobrietyDate}
+              mode="date"
+              display="spinner"
+              onChange={(_e, date) => { if (date) setSobrietyDate(date); }}
+              maximumDate={new Date()}
+              themeVariant="dark"
+              style={styles.datePicker}
+            />
           </View>
         )}
 
@@ -395,5 +423,23 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     opacity: 0.5,
     fontFamily: 'CourierPrime',
+  },
+  backBtn: {
+    position: 'absolute',
+    top: 56,
+    left: 24,
+    padding: 8,
+  },
+  backText: {
+    fontSize: 20,
+    letterSpacing: 1,
+  },
+  dateWrap: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  datePicker: {
+    width: '100%',
+    height: 160,
   },
 });
