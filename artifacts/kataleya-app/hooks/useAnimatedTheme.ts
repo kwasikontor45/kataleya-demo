@@ -1,10 +1,16 @@
 // hooks/useAnimatedTheme.ts
-import { useDerivedValue, useAnimatedStyle, interpolateColor } from 'react-native-reanimated';
+import { useEffect } from 'react';
+import { useDerivedValue, useAnimatedStyle, interpolateColor, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useCircadian } from './useCircadian';
 import { getPhasePair, themeForPhase, ThemeTokens } from '@/constants/theme';
 
 export function useAnimatedTheme() {
-  const { blendValue, phase } = useCircadian();
+  const { blend, phase } = useCircadian();
+  const blendValue = useSharedValue(blend);
+
+  useEffect(() => {
+    blendValue.value = withTiming(blend, { duration: 400 });
+  }, [blend]);
   const [from, to] = getPhasePair(phase);
 
   const bg = useDerivedValue(() =>

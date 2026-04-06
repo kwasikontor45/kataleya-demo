@@ -18,6 +18,7 @@ export interface ThemeTokens {
   warning: string;
   danger: string;
   phaseRgb: string;           // was phase-rgb
+  border: string;
 }
 
 // ── DAWN (05:00–08:00) ────────────────────────────────────────────────────────
@@ -35,6 +36,7 @@ export const DawnTheme: ThemeTokens = {
   warning:          '#c9a27a',
   danger:           '#c06a5a',
   phaseRgb:         '143,179,204',
+  border:           '#2a3648',
 };
 
 // ── DAY (08:00–17:00) ─────────────────────────────────────────────────────────
@@ -52,6 +54,7 @@ export const DayTheme: ThemeTokens = {
   warning:          '#c8a84b',
   danger:           '#c06a5a',
   phaseRgb:         '95,191,138',
+  border:           '#283d2f',
 };
 
 // ── GOLDEN HOUR (17:00–20:00) ─────────────────────────────────────────────────
@@ -69,6 +72,7 @@ export const GoldenHourTheme: ThemeTokens = {
   warning:          '#e8c56a',
   danger:           '#ff6b6b',
   phaseRgb:         '212,149,106',
+  border:           '#3d2e14',
 };
 
 // ── NIGHT (20:00–05:00) ───────────────────────────────────────────────────────
@@ -86,6 +90,7 @@ export const NightTheme: ThemeTokens = {
   warning:          '#e8c56a',
   danger:           '#ff6b6b',
   phaseRgb:         '127,201,201',
+  border:           '#302d44',
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -100,6 +105,9 @@ export function themeForPhase(phase: CircadianPhase): ThemeTokens {
     default:           return NightTheme;
   }
 }
+
+// Legacy aliases — bridge.tsx and any old imports
+export const MidnightGarden = NightTheme;
 
 export function getPhasePair(phase: CircadianPhase): [ThemeTokens, ThemeTokens] {
   switch (phase) {

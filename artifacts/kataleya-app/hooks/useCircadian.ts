@@ -8,7 +8,7 @@ import {
   isInTransition,
   msUntilNextMinute,
 } from '@/constants/circadian';
-import { MorningBloom, MidnightGarden, interpolateTheme, ThemeTokens } from '@/constants/theme';
+import { themeForPhase, ThemeTokens } from '@/constants/theme';
 import { Surface } from '@/utils/storage';
 
 export interface CircadianState {
@@ -70,7 +70,7 @@ export function useCircadian(): CircadianState {
   }, [schedule]);
 
   const effectiveBlend = darkOverride ? 1 : state.blend;
-  const theme = interpolateTheme(MorningBloom, MidnightGarden, effectiveBlend);
+  const theme = themeForPhase(darkOverride ? 'night' : state.phase);
 
   return {
     phase: state.phase,

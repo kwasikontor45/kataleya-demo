@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"from PIL import Image; print\\('PIL available'\\)\")",
+      "Bash(node -e \"const {createCanvas} = require\\('canvas'\\); console.log\\('canvas ok'\\)\")",
+      "Bash(git add:*)",
+      "Bash(ls /home/architect-of-chaos/kataleya/artifacts/kataleya-app/components/BreathingExercise*)"
+    ]
+  }
+}
