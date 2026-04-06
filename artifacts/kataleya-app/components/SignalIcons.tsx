@@ -1,5 +1,5 @@
 'use no memo';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Animated, Easing } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 
@@ -201,4 +201,147 @@ export function WaterBanner({ color = '#87a878' }: { color?: string }) {
 
 export function LightBanner({ color = '#d4a373' }: { color?: string }) {
   return <LightVisual color={color} size={28} />;
+}
+
+// ── WaterFlood — full-bleed hold-button background ────────────────────────────
+// Rising translucent flood fill with three scrolling wave planes.
+// Designed to fill a parent absolutely-positioned view.
+
+export function WaterFlood({ color = 'rgba(127,201,201,1)' }: { color?: string }) {
+  const [sz, setSz] = useState({ w: 300, h: 80 });
+  const fillAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(fillAnim, { toValue: 1, duration: 5200, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
+        Animated.timing(fillAnim, { toValue: 0.3, duration: 5200, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
+      ])
+    ).start();
+    return () => fillAnim.stopAnimation();
+  }, []);
+
+  const floodH = fillAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [sz.h * 0.12, sz.h * 0.62],
+  });
+
+  const svgW = sz.w * 2;
+  const waves = [
+    { cy: sz.h * 0.58, amp: sz.h * 0.13, opacity: 0.72, sw: 1.3, period: 5600, phase: 0 },
+    { cy: sz.h * 0.40, amp: sz.h * 0.09, opacity: 0.44, sw: 0.9, period: 4200, phase: sz.w * 0.25 },
+    { cy: sz.h * 0.22, amp: sz.h * 0.06, opacity: 0.22, sw: 0.65, period: 3100, phase: sz.w * 0.6 },
+  ];
+
+  return (
+    <View
+      style={{ flex: 1, overflow: 'hidden' }}
+      onLayout={e => setSz({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+    >
+      <Animated.View
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: floodH,
+          backgroundColor: color,
+          opacity: 0.11,
+        }}
+      />
+      {waves.map((w, i) => (
+        <WaveLayer
+          key={i}
+          color={color}
+          svgW={svgW}
+          height={sz.h}
+          cy={w.cy}
+          amplitude={w.amp}
+          opacity={w.opacity}
+          strokeWidth={w.sw}
+          period={w.period}
+          phaseShift={w.phase}
+        />
+      ))}
+    </View>
+  );
+}
+
+// ── LightBloom — full-bleed hold-button background ────────────────────────────
+// Three expanding rings radiating from center on a staggered loop,
+// with a soft center glow. Fills parent view absolutely.
+
+export function LightBloom({ color = 'rgba(232,197,106,1)' }: { color?: string }) {
+  const [sz, setSz] = useState({ w: 300, h: 80 });
+  const ring1 = useRef(new Animated.Value(0)).current;
+  const ring2 = useRef(new Animated.Value(0)).current;
+  const ring3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let cancelled = false;
+    const startRing = (anim: Animated.Value, delay: number) => {
+      const go = () => {
+        if (cancelled) return;
+        anim.setValue(0);
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 2400,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.quad),
+        }).start(({ finished }) => { if (finished && !cancelled) go(); });
+      };
+      setTimeout(go, delay);
+    };
+    startRing(ring1, 0);
+    startRing(ring2, 800);
+    startRing(ring3, 1600);
+    return () => {
+      cancelled = true;
+      ring1.stopAnimation();
+      ring2.stopAnimation();
+      ring3.stopAnimation();
+    };
+  }, []);
+
+  const cx = sz.w / 2;
+  const cy = sz.h / 2;
+  const maxR = Math.max(sz.w, sz.h) * 0.80;
+
+  return (
+    <View
+      style={{ flex: 1, overflow: 'hidden' }}
+      onLayout={e => setSz({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+    >
+      {/* soft center glow */}
+      <View
+        style={{
+          position: 'absolute',
+          left: cx - 28,
+          top: cy - 28,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: color,
+          opacity: 0.16,
+        }}
+      />
+      {[ring1, ring2, ring3].map((anim, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: cx - maxR,
+            top: cy - maxR,
+            width: maxR * 2,
+            height: maxR * 2,
+            borderRadius: maxR,
+            borderWidth: 1.5,
+            borderColor: color,
+            opacity: anim.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 0.42, 0] }),
+            transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.05, 1] }) }],
+          }}
+        />
+      ))}
+    </View>
+  );
 }

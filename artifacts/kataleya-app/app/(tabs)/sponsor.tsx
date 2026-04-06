@@ -8,15 +8,11 @@ import * as Haptics from 'expo-haptics';
 import { useCircadian } from '@/hooks/useCircadian';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { useSponsorChannel } from '@/hooks/useSponsorChannel';
-import { WaterVisual, LightVisual, WaterBanner, LightBanner } from '@/components/SignalIcons';
+import { WaterVisual, LightVisual, WaterBanner, LightBanner, WaterFlood, LightBloom } from '@/components/SignalIcons';
 import { sponsorWater, sponsorLight } from '@/utils/hapticBloom';
 import type { PresenceLogEntry } from '@/hooks/useSponsorChannel';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
-import { Image } from 'react-native';
 import * as Sharing from 'expo-sharing';
-
-const WATER_IMG = require('@/assets/images/water.gif');
-const LIGHT_IMG = require('@/assets/images/light.gif');
 
 type RoleChoice = 'user' | 'sponsor' | null;
 
@@ -54,11 +50,11 @@ function CodeInput({ value, onChange, theme, accentRgb }: {
 }
 
 function HoldButton({
-  label, sublabel, colorRgb, onFire, disabled, theme, visual, holdDuration = 2000, bgImage,
+  label, sublabel, colorRgb, onFire, disabled, theme, visual, holdDuration = 2000, bgOverlay,
 }: {
   label: string; sublabel: string; colorRgb: string; onFire: () => void;
   disabled?: boolean; theme: any; visual?: React.ReactNode; holdDuration?: number;
-  bgImage?: any;
+  bgOverlay?: React.ReactNode;
 }) {
   const progress = useRef(new Animated.Value(0)).current;
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -111,12 +107,10 @@ function HoldButton({
       ]}
     >
       <View style={styles.holdBtnInner}>
-        {bgImage && (
-          <Animated.Image
-            source={bgImage}
-            style={[styles.holdBgImage, { opacity: imgOpacity }]}
-            resizeMode="cover"
-          />
+        {bgOverlay && (
+          <Animated.View style={[styles.holdBgImage, { opacity: imgOpacity }]}>
+            {bgOverlay}
+          </Animated.View>
         )}
         <Animated.View style={[styles.holdFill, { width: fill, backgroundColor: `rgba(${colorRgb},0.15)` }]} />
         <View style={styles.holdBtnContent}>
@@ -625,11 +619,11 @@ export default function SponsorScreen() {
                 <HoldButton label="water" sublabel="cool · present · hold to pour" colorRgb={WATER_RGB}
                   onFire={() => handleSendPresence('water')} theme={theme}
                   visual={<WaterVisual color={`rgba(${WATER_RGB},0.7)`} />} holdDuration={2000}
-                  bgImage={WATER_IMG} />
+                  bgOverlay={<WaterFlood />} />
                 <HoldButton label="light" sublabel="warm · witnessed · press to strike" colorRgb={LIGHT_RGB}
                   onFire={() => handleSendPresence('light')} theme={theme}
                   visual={<LightVisual color={`rgba(${LIGHT_RGB},0.7)`} />} holdDuration={700}
-                  bgImage={LIGHT_IMG} />
+                  bgOverlay={<LightBloom />} />
               </View>
             </NeonCard>
 
@@ -690,11 +684,11 @@ export default function SponsorScreen() {
                 <HoldButton label="water" sublabel="cool · present · hold to pour" colorRgb={WATER_RGB}
                   onFire={() => handleSendPresence('water')} theme={theme}
                   visual={<WaterVisual color={`rgba(${WATER_RGB},0.7)`} />} holdDuration={2000}
-                  bgImage={WATER_IMG} />
+                  bgOverlay={<WaterFlood />} />
                 <HoldButton label="light" sublabel="warm · witnessed · press to strike" colorRgb={LIGHT_RGB}
                   onFire={() => handleSendPresence('light')} theme={theme}
                   visual={<LightVisual color={`rgba(${LIGHT_RGB},0.7)`} />} holdDuration={700}
-                  bgImage={LIGHT_IMG} />
+                  bgOverlay={<LightBloom />} />
               </View>
             </NeonCard>
           </>
