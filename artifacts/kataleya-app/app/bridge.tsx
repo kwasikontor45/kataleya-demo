@@ -27,23 +27,9 @@ const RING_COLORS = [
   { rgb: '129,178,154', label: 'fortress'  }, // safe/amber   — innermost
 ];
 
-// ── Heart assembly stages ──────────────────────────────────────────────────
-const HEART_STAGES = [
-  '',
-  '.',
-  '. .',
-  '.. .',
-  '..: .',
-  '..: :.',
-  '..: :..',   // complete — pulse here (index 6)
-  '..: :..',   // hold
-  '..: :..',   // hold
-  '. : :.',
-  ': :',
-  ':',
-  '',
-];
-const STAGE_MS = 320;
+// ── Heart symbol — monarch/amber palette ─────────────────────────────────
+const HEART_SYMBOL = '..: :..';
+const HEART_COLOR  = '#d4956a';  // amber — monarch wing tone
 
 // ── Status messages — privacy-first, empowering ───────────────────────────
 const STATUS = [
@@ -60,13 +46,12 @@ export default function BridgeScreen() {
   const [onboarded, setOnboarded]       = useState<boolean | null>(null);
   const [enterReady, setEnterReady]     = useState(false);
   const [statusIdx, setStatusIdx]       = useState(0);
-  const [heartStage, setHeartStage]     = useState(0);
   const [showContinue, setShowContinue] = useState(false);
 
   // Core anims
   const fadeIn        = useRef(new Animated.Value(0)).current;
-  const heartScale    = useRef(new Animated.Value(1.0)).current;
-  const heartOpacity  = useRef(new Animated.Value(0)).current;
+  const breatheScale  = useRef(new Animated.Value(1.0)).current;
+  const breatheGlow   = useRef(new Animated.Value(0.0)).current;
   const statusOpacity = useRef(new Animated.Value(1)).current;
   const scanAnim      = useRef(new Animated.Value(0)).current;
   const enterFade     = useRef(new Animated.Value(0)).current;
@@ -159,42 +144,23 @@ export default function BridgeScreen() {
     return () => clearTimeout(t);
   }, []);
 
-  // ── Heart assembly → pulse → dissolve → loop ─────────────────────────────
+  // ── Heart breath — slow inhale / exhale loop ─────────────────────────────
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    let idx = 0;
-
-    const advance = () => {
-      idx = (idx + 1) % HEART_STAGES.length;
-      setHeartStage(idx);
-
-      // Pulse on complete stage
-      if (idx === 6) {
-        Animated.sequence([
-          Animated.timing(heartScale, { toValue: 1.22, duration: 160, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(heartScale, { toValue: 0.94, duration: 140, useNativeDriver: true }),
-          Animated.timing(heartScale, { toValue: 1.08, duration: 160, useNativeDriver: true }),
-          Animated.timing(heartScale, { toValue: 1.0,  duration: 350, useNativeDriver: true }),
-        ]).start();
-      }
-
-      const targetOpacity = idx === 0 ? 0
-        : idx <= 6  ? 0.35 + (idx / 6) * 0.6
-        : idx <= 12 ? Math.max(0, (12 - idx) / 6)
-        : 0;
-
-      Animated.timing(heartOpacity, {
-        toValue: targetOpacity,
-        duration: idx === 6 ? 60 : STAGE_MS * 0.65,
-        useNativeDriver: true,
-      }).start();
-
-      const delay = (idx >= 6 && idx <= 8) ? STAGE_MS * 2.5 : STAGE_MS;
-      timer = setTimeout(advance, delay);
-    };
-
-    timer = setTimeout(advance, 1200);
-    return () => clearTimeout(timer);
+    Animated.loop(
+      Animated.sequence([
+        // inhale — swell and glow
+        Animated.parallel([
+          Animated.timing(breatheScale, { toValue: 1.14, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(breatheGlow,  { toValue: 1.0,  duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ]),
+        // exhale — settle back
+        Animated.parallel([
+          Animated.timing(breatheScale, { toValue: 1.0,  duration: 2800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(breatheGlow,  { toValue: 0.3,  duration: 2800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ]),
+      ])
+    ).start();
+    return () => { breatheScale.stopAnimation(); breatheGlow.stopAnimation(); };
   }, []);
 
   // ── Status cycling ────────────────────────────────────────────────────────
@@ -298,16 +264,26 @@ export default function BridgeScreen() {
             },
           ]}/>
 
-          {/* The heart — assembles, pulses, dissolves */}
-          <Animated.Text style={[
-            styles.heart,
-            {
-              opacity: heartOpacity,
-              transform: [{ scale: heartScale }],
-            },
-          ]}>
-            {HEART_STAGES[heartStage]}
-          </Animated.Text>
+          {/* The heart — breathes */}
+          <Animated.View style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            transform: [{ scale: breatheScale }],
+          }}>
+            {/* Amber glow ring behind the symbol */}
+            <Animated.View style={{
+              position: 'absolute',
+              width: 80, height: 80, borderRadius: 40,
+              backgroundColor: HEART_COLOR,
+              opacity: breatheGlow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.10] }),
+            }} />
+            <Animated.Text style={[
+              styles.heart,
+              { opacity: breatheGlow.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1.0] }) },
+            ]}>
+              {HEART_SYMBOL}
+            </Animated.Text>
+          </Animated.View>
         </View>
 
         {/* Status — privacy-first cycling messages */}
@@ -365,7 +341,7 @@ const styles = StyleSheet.create({
   heart: {
     fontFamily: 'CourierPrime',
     fontSize: 34,
-    color: THEME.accent,
+    color: HEART_COLOR,
     letterSpacing: 6,
     textAlign: 'center',
   },
