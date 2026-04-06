@@ -13,7 +13,9 @@ const router: IRouter = Router();
 // blobs (ciphertext+nonce only), and X25519 public keys.
 // All of this is already visible to the relay server in normal operation.
 
-const PERSIST_PATH = join(dirname(new URL(import.meta.url).pathname), "../../data/channels.json");
+const PERSIST_PATH = process.env['DATA_DIR']
+  ? join(process.env['DATA_DIR'], 'channels.json')
+  : join(dirname(new URL(import.meta.url).pathname), "../../data/channels.json");
 
 function ensureDataDir() {
   const dir = dirname(PERSIST_PATH);
