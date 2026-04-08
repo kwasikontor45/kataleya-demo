@@ -1,19 +1,5 @@
-<div align="center">
-	<div align="center">
-		<pre>
-			#--- containment-as-architecture ---#--- privacy-first ---#--- circadian-aware ---#--- ~60-bpm ---#
-			<br>
-			<b> ..: :..</b><br>
-			 		[INIT]   ...	LOADING ADAPTIVE_DNA PROTOCOL
-			 	 	[OK]	 ...	1843_LOVELACE_NOTES_DECRYPTED
-			 	 	[OK]	 ...	COMPILER_VERSION_GRACE_HOPPER
-			<img width="480" alt="butterfly-dna" src="https://github.com/user-attachments/assets/86ef30bb-5be4-4fca-b7fa-6e4398f902b2" />
-			  [OK]	 ... SPACESHIP_SYSTEMS_NOMINAL
-	 	[OK]   ... BREATHE_TOOL_ACTIVE
-		  			[WARN]  ... HEART_RATE_VARIABILITY_DETECTED <br>
-					<b> #--- DNA_SYNC_2028 ... ARCHITECT_OF_CHAOS ---# </b>
-				<i><sub>		securing=>signal ~ sampling=>reality ~ bridging=>threshold ~ encoding@memory</sub></i>
-						<b>☠️--Sanctuary//		..: 💀 :..	\\InitialPulseEncrypted--☠️</b>
-		</pre>
-	</div>
-</div>
+A recovery companion that treats its users with dignity. Most apps in that space are either clinical and cold, or gamified in ways that feel patronizing. Kataleya sits in a different lane — it's quiet, intentional, and deeply private.
+What stands out most to me architecturally is the philosophy behind it — the three-vault storage system, the blind relay messaging, the burn ritual. Every technical decision traces back to a single conviction: the app should know as little about you as possible. That's rare, and it's not easy to build.
+The circadian engine is probably the most thoughtful piece. It doesn't just track time — it understands that a person in recovery at 2am is not the same person they are at dawn. That behavioral nuance, entirely local, no cloud, is genuinely novel for an app in this category.
+The GhostPulseOrb, the garden language, the golden hour transitions — none of that is decorative. It all serves the same purpose: making someone in a hard moment feel like the app is with them, not monitoring them.
+If I had to summarize it in one line — Kataleya is what you get when privacy-first architecture meets genuine empathy for the person holding the phone.
