@@ -1,17 +1,47 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Switch, Platform, Alert, Keyboard, ActivityIndicator,
+  TextInput, Platform, Alert, Keyboard, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { useCircadian } from '@/hooks/useCircadian';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { Sanctuary } from '@/utils/storage';
 import { encryptBackup, decryptBackup, restorePayload, saveAndShareBackup, pickBackupFile } from '@/utils/backup';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { HoldToConfirm } from '@/components/HoldToConfirm';
+
+// ── FAQ data ─────────────────────────────────────────────────────────────────
+const FAQ_ITEMS = [
+  {
+    q: 'Do you collect any analytics?',
+    a: 'No. Kataleya has no analytics engine, no crash reporter, and no advertising network. There is no Firebase, Amplitude, Sentry, or Mixpanel. We are structurally incapable of collecting data about how you use the app.',
+  },
+  {
+    q: 'Where is my data stored?',
+    a: 'Everything lives on this device. Mood logs, journal entries, sobriety data, and your name are stored in a local SQLite database (Sanctuary vault). Sponsor credentials are held in the OS keychain (Fortress vault). Nothing is transmitted to any server.',
+  },
+  {
+    q: 'What happens if I enable cloud backup?',
+    a: 'The encrypted backup file leaves this device and goes to whatever destination you choose (iCloud, Google Drive, etc.). The file is AES-256 encrypted with your passphrase — we never see the contents. The key never leaves your phone. Once the file reaches a cloud provider, it is under their terms.',
+  },
+  {
+    q: 'Can push notifications be intercepted?',
+    a: 'No. Notifications are scheduled entirely on-device using local OS notifications. No notification content is sent to or stored by Kataleya.',
+  },
+  {
+    q: 'Is Kataleya HIPAA compliant?',
+    a: 'Kataleya is designed with privacy-first architecture that exceeds typical app standards. Because no health data is transmitted to our servers, HIPAA obligations are minimized to the connection layer.',
+  },
+  {
+    q: 'What does my sponsor see?',
+    a: 'Only what you choose to send: daily check-in (yes or no), your recovery stage (a single word), number of milestones reached (a number), and presence signals you explicitly trigger (water, light). They cannot see mood logs, journal entries, sobriety date, or any health data.',
+  },
+];
 
 function phaseAccentRgb(phase: string): string {
   if (phase === 'goldenHour') return NEON_RGB.amber;
@@ -35,6 +65,36 @@ export default function VaultScreen() {
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [pendingBlob, setPendingBlob] = useState<string | null>(null);
+
+  // ── FAQ accordion state ───────────────────────────────────────────────────
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // ── Export all data ───────────────────────────────────────────────────────
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      const [logs, entries] = await Promise.all([
+        Sanctuary.getMoodLogs(),
+        Sanctuary.getJournalEntries(),
+      ]);
+      const payload = JSON.stringify({ mood_logs: logs, journal_entries: entries, exported_at: new Date().toISOString() }, null, 2);
+      const path = `${FileSystem.cacheDirectory}kataleya-export.json`;
+      await FileSystem.writeAsStringAsync(path, payload, { encoding: FileSystem.EncodingType.UTF8 });
+      await Sharing.shareAsync(path, { mimeType: 'application/json', dialogTitle: 'Export Kataleya data' });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'your data has been saved',
+        'you can open it with any notes app, send it to yourself, or keep it somewhere safe.',
+        [{ text: 'got it', style: 'default' }]
+      );
+    } catch (e) {
+      Alert.alert('export failed', e instanceof Error ? e.message : 'unknown error');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const resetBackup = () => {
     setBackupMode('idle'); setBackupPassphrase(''); setBackupConfirm('');
@@ -98,9 +158,62 @@ export default function VaultScreen() {
         keyboardShouldPersistTaps="handled"
       >
 
+        {/* ── PRIVACY POLICY HEADER ── */}
+        <View style={styles.policyHeader}>
+          <View style={[styles.policyIcon, { borderColor: `rgba(${NEON_RGB.cyan},0.3)`, backgroundColor: `rgba(${NEON_RGB.cyan},0.08)` }]}>
+            <Text style={styles.policyIconText}>🛡</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.policyTitle, { color: theme.text }]}>Privacy Policy</Text>
+            <Text style={[styles.policySubtitle, { color: `rgba(${NEON_RGB.cyan},0.8)` }]}>
+              Your data. Your control. Always.
+            </Text>
+          </View>
+        </View>
+
+        <NeonCard theme={theme} accentRgb={NEON_RGB.cyan} fillIntensity={0.04} borderIntensity={0.15}>
+          <View style={styles.cardInner}>
+            <Text style={[styles.policyBody, { color: theme.text }]}>
+              Kataleya is built on a single principle:{' '}
+              <Text style={{ fontWeight: '700' }}>your recovery data belongs to you and only you.</Text>
+              {' '}It lives on your device, encrypted, and never touches our servers unless you explicitly choose to back it up.
+            </Text>
+            <Text style={[styles.policyBody, { color: `${theme.textMuted}bb` }]}>
+              We do not collect analytics. We do not run ads. We do not sell data.{' '}
+              <Text style={{ fontWeight: '700', color: theme.text }}>Ever.</Text>
+            </Text>
+          </View>
+        </NeonCard>
+
+        {/* ── WHAT STAYS ON YOUR DEVICE ── */}
+        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>
+          what stays on your device
+        </Text>
+        <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.12}>
+          {[
+            'Journal entries',
+            'Mood logs',
+            'Sobriety start date and day count',
+            'Breathing and grounding exercise history',
+            'Your name and recovery focus',
+          ].map((item, i, arr) => (
+            <View
+              key={item}
+              style={[
+                styles.deviceRow,
+                i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: `rgba(${accentRgb},0.08)` },
+              ]}
+            >
+              <Text style={[styles.deviceIcon, { color: `rgba(${NEON_RGB.cyan},0.8)` }]}>🔒</Text>
+              <Text style={[styles.deviceItem, { color: theme.text }]}>{item}</Text>
+            </View>
+          ))}
+        </NeonCard>
 
         {/* ── PRIVACY ARCHITECTURE ── */}
-        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>privacy architecture</Text>
+        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>
+          privacy architecture
+        </Text>
         <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.12}>
           {[
             { tier: 'Fortress',  rgb: NEON_RGB.amber,  desc: 'sponsor credentials · OS keychain-backed · 8 hardware keys' },
@@ -122,6 +235,50 @@ export default function VaultScreen() {
             <Text style={[styles.assuranceText, { color: `rgba(${NEON_RGB.cyan},0.75)` }]}>
               we are physically unable to access your data.{'\n'}there is no server. there is no account. there is no trace.
             </Text>
+          </View>
+        </NeonCard>
+
+        {/* ── YOUR RIGHTS ── */}
+        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>
+          your rights
+        </Text>
+        <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.12}>
+          {/* Export */}
+          <View style={[styles.rightsRow, { borderBottomWidth: 1, borderBottomColor: `rgba(${accentRgb},0.08)` }]}>
+            <View style={[styles.rightsIcon, { backgroundColor: `rgba(${accentRgb},0.1)`, borderColor: `rgba(${accentRgb},0.2)` }]}>
+              <Text style={styles.rightsIconText}>⬇</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.rightsLabel, { color: theme.text }]}>Export all data</Text>
+              <Text style={[styles.rightsHint, { color: `${theme.textMuted}80` }]}>Save a copy of your data to your files</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.rightsBtn, { borderColor: `rgba(${accentRgb},0.35)`, backgroundColor: `rgba(${accentRgb},0.08)` }]}
+              onPress={handleExportData}
+              disabled={exporting}
+            >
+              {exporting
+                ? <ActivityIndicator size="small" color={`rgba(${accentRgb},0.8)`} />
+                : <Text style={[styles.rightsBtnText, { color: `rgba(${accentRgb},0.9)` }]}>Export</Text>
+              }
+            </TouchableOpacity>
+          </View>
+
+          {/* Delete */}
+          <View style={styles.rightsRow}>
+            <View style={[styles.rightsIcon, { backgroundColor: 'rgba(255,107,107,0.1)', borderColor: 'rgba(255,107,107,0.2)' }]}>
+              <Text style={styles.rightsIconText}>🗑</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.rightsLabel, { color: theme.text }]}>Delete all data</Text>
+              <Text style={[styles.rightsHint, { color: `${theme.textMuted}80` }]}>Permanent and immediate</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.rightsBtn, { borderColor: 'rgba(255,107,107,0.5)', backgroundColor: 'rgba(255,107,107,0.1)' }]}
+              onPress={() => router.push('/burn')}
+            >
+              <Text style={[styles.rightsBtnText, { color: 'rgba(255,107,107,0.9)' }]}>Delete</Text>
+            </TouchableOpacity>
           </View>
         </NeonCard>
 
@@ -216,6 +373,44 @@ export default function VaultScreen() {
           </View>
         </NeonCard>
 
+        {/* ── COMMON QUESTIONS (FAQ) ── */}
+        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>
+          common questions
+        </Text>
+        <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.02} borderIntensity={0.1}>
+          {FAQ_ITEMS.map((item, i) => {
+            const open = openFaq === i;
+            return (
+              <View
+                key={i}
+                style={[
+                  styles.faqItem,
+                  i < FAQ_ITEMS.length - 1 && { borderBottomWidth: 1, borderBottomColor: `rgba(${accentRgb},0.08)` },
+                ]}
+              >
+                <TouchableOpacity
+                  style={styles.faqRow}
+                  onPress={() => {
+                    setOpenFaq(open ? null : i);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.faqQuestion, { color: theme.text }]}>{item.q}</Text>
+                  <Text style={[styles.faqChevron, { color: `rgba(${accentRgb},0.5)` }]}>
+                    {open ? '∧' : '∨'}
+                  </Text>
+                </TouchableOpacity>
+                {open && (
+                  <Text style={[styles.faqAnswer, { color: `${theme.textMuted}cc` }]}>
+                    {item.a}
+                  </Text>
+                )}
+              </View>
+            );
+          })}
+        </NeonCard>
+
         {/* ── BURN RITUAL ── */}
         <Text style={[styles.sectionLabel, { color: 'rgba(224,122,95,0.5)', marginTop: 24 }]}>burn the garden</Text>
         <NeonCard theme={theme} accentRgb="224,122,95" fillIntensity={0.03} borderIntensity={0.18}>
@@ -240,6 +435,7 @@ export default function VaultScreen() {
             zero analytics · no network calls · data never leaves this device
           </Text>
         </View>
+
       </ScrollView>
     </View>
   );
@@ -252,6 +448,21 @@ const styles = StyleSheet.create({
   cardInner: { padding: 16, gap: 12 },
   cardHint: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5, lineHeight: 15 },
   noteInput: { fontFamily: 'CourierPrime', fontSize: 12, borderWidth: 1, borderRadius: 8, padding: 10, minHeight: 52, lineHeight: 18 },
+
+  // ── Privacy header ──
+  policyHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
+  policyIcon: { width: 52, height: 52, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  policyIconText: { fontSize: 24 },
+  policyTitle: { fontFamily: 'CourierPrime', fontSize: 24, fontWeight: '700' },
+  policySubtitle: { fontFamily: 'CourierPrime', fontSize: 12, marginTop: 2 },
+  policyBody: { fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 20 },
+
+  // ── What stays on device ──
+  deviceRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
+  deviceIcon: { fontSize: 16 },
+  deviceItem: { fontFamily: 'CourierPrime', fontSize: 13 },
+
+  // ── Vault rows ──
   vaultRow: { paddingHorizontal: 18, paddingVertical: 14 },
   vaultHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   vaultDot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
@@ -259,6 +470,17 @@ const styles = StyleSheet.create({
   vaultDesc: { fontFamily: 'CourierPrime', fontSize: 11, lineHeight: 16, marginLeft: 14 },
   assuranceInner: { paddingVertical: 14, paddingHorizontal: 18 },
   assuranceText: { fontFamily: 'CourierPrime', fontSize: 11, lineHeight: 18, textAlign: 'center' },
+
+  // ── Your rights ──
+  rightsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  rightsIcon: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  rightsIconText: { fontSize: 18 },
+  rightsLabel: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '600' },
+  rightsHint: { fontFamily: 'CourierPrime', fontSize: 11, marginTop: 2 },
+  rightsBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 14, minWidth: 72, alignItems: 'center' },
+  rightsBtnText: { fontFamily: 'CourierPrime', fontSize: 12, fontWeight: '600' },
+
+  // ── Backup ──
   backupIdleRow: { flexDirection: 'row', gap: 8 },
   backupBtn: { flex: 1, borderWidth: 1, borderRadius: 8, paddingVertical: 11, alignItems: 'center', justifyContent: 'center', minHeight: 40 },
   backupBtnText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1.5, textTransform: 'lowercase' },
@@ -266,10 +488,19 @@ const styles = StyleSheet.create({
   warningInner: { padding: 14, gap: 6 },
   warningLabel: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', fontWeight: '700' },
   warningText: { fontFamily: 'CourierPrime', fontSize: 11, lineHeight: 17 },
+
+  // ── FAQ ──
+  faqItem: {},
+  faqRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
+  faqQuestion: { fontFamily: 'CourierPrime', fontSize: 13, flex: 1, lineHeight: 19 },
+  faqChevron: { fontFamily: 'CourierPrime', fontSize: 14, flexShrink: 0 },
+  faqAnswer: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19, paddingHorizontal: 16, paddingBottom: 14 },
+
+  // ── Burn ──
   burnSection: { padding: 16, gap: 16 },
   burnBody: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19 },
-  burnBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 13, alignItems: 'center' },
-  burnBtnText: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 2, textTransform: 'lowercase' },
+
+  // ── Footer ──
   privacyNote: { borderTopWidth: 1, paddingTop: 16, marginTop: 8, alignItems: 'center' },
   privacyText: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1, textAlign: 'center', lineHeight: 16 },
 });

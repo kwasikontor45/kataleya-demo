@@ -13,18 +13,16 @@ import { suppressReminderForToday } from '@/hooks/useNotifications';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { HoldToConfirm } from '@/components/HoldToConfirm';
 
-const MOOD_STATES = [
-  { score: 2,  label: 'heavy',    rgb: '255,107,107' },
-  { score: 4,  label: 'low',      rgb: '240,144,96'  },
-  { score: 5,  label: 'uneasy',   rgb: '200,160,80'  },
-  { score: 6,  label: 'okay',     rgb: '160,144,96'  },
-  { score: 7,  label: 'steady',   rgb: '127,201,201' },
-  { score: 8,  label: 'light',    rgb: '100,210,160' },
-  { score: 9,  label: 'clear',    rgb: '80,200,140'  },
-  { score: 10, label: 'bright',   rgb: '74,222,128'  },
+// ── Mood grid — matches base44 layout ────────────────────────────────────────
+const MOOD_GRID = [
+  { score: 8,  label: 'Calm',      icon: '☀',  rgb: '127,201,201' },
+  { score: 3,  label: 'Anxious',   icon: '💨',  rgb: '220,160,80'  },
+  { score: 2,  label: 'Stressed',  icon: '🌧',  rgb: '255,107,107' },
+  { score: 6,  label: 'Neutral',   icon: '😐',  rgb: '160,144,96'  },
+  { score: 9,  label: 'Energized', icon: '⚡',  rgb: '74,222,128'  },
+  { score: 1,  label: 'Low',       icon: '😔',  rgb: '240,130,100' },
 ];
 
-// Labels shown in the mood pill row — matches the screenshots
 const MOOD_PILL_LABELS = [
   { score: 1,  label: 'heavy',    rgb: '255,107,107' },
   { score: 2,  label: 'low',      rgb: '240,130,100' },
@@ -38,13 +36,50 @@ const MOOD_PILL_LABELS = [
   { score: 10, label: 'blooming', rgb: '60,220,120'  },
 ];
 
+// ── Circadian-aware journal prompts ──────────────────────────────────────────
+const PROMPTS: Record<string, string[]> = {
+  dawn: [
+    'What intention do I want to carry into today?',
+    'What does a good day look like for me right now?',
+    'What am I grateful for this morning?',
+    'What would I say to myself one year from now?',
+    'What is one small thing I can do for myself today?',
+  ],
+  day: [
+    'Who helped me today, and how can I show appreciation?',
+    'What is testing my patience right now?',
+    'What moment today felt most like me?',
+    'What do I need to let go of before tonight?',
+    'What did I do today that I am proud of?',
+  ],
+  goldenHour: [
+    'How did today compare to what I hoped for?',
+    'What feeling am I carrying into the evening?',
+    'What would I do differently if I had today again?',
+    'What made today worth showing up for?',
+    'Who or what gave me strength today?',
+  ],
+  night: [
+    'What is weighing on me right now that I can release here?',
+    'What does rest mean for me tonight?',
+    'What do I want tomorrow to feel like?',
+    'What is one thing I survived today that I did not think I could?',
+    'If this moment could speak, what would it say?',
+  ],
+};
+
+function getPrompt(phase: string): string {
+  const pool = PROMPTS[phase] ?? PROMPTS.day;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 function formatTs(ts: number): string {
   const d = new Date(ts);
   const now = new Date();
   const diffH = (now.getTime() - ts) / 3600000;
   if (diffH < 1) return `${Math.floor(diffH * 60)}m ago`;
   if (diffH < 24) return `${Math.floor(diffH)}h ago`;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 function moodRgb(score: number): string {
@@ -56,6 +91,8 @@ function moodRgb(score: number): string {
 }
 
 function moodLabel(score: number): string {
+  const grid = MOOD_GRID.find(m => m.score === score);
+  if (grid) return grid.label;
   return MOOD_PILL_LABELS.find(s => s.score === score)?.label ?? String(score);
 }
 
@@ -96,6 +133,11 @@ export default function JournalScreen() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [journalExpanded, setJournalExpanded] = useState(false);
   const [journalFocused, setJournalFocused] = useState(false);
+
+  // ── Prompt card state ─────────────────────────────────────────────────────
+  const [activePrompt, setActivePrompt] = useState<string | null>(null);
+  const [promptVisible, setPromptVisible] = useState(true);
+
   const keyboardVisible = moodNoteFocused || journalFocused;
 
   const loadData = useCallback(async () => {
@@ -109,7 +151,18 @@ export default function JournalScreen() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // ── Mood record — triggered by HoldToConfirm ──────────────────────────────
+  const handleGiveMePrompt = () => {
+    const prompt = getPrompt(phase);
+    setActivePrompt(prompt);
+    setPromptVisible(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Pre-fill journal with prompt context
+    if (!journalBody.trim()) {
+      setJournalBody('');
+    }
+  };
+
+  // ── Mood record ───────────────────────────────────────────────────────────
   const handleSaveMood = async () => {
     if (selectedMood === null) return;
     Keyboard.dismiss();
@@ -126,7 +179,7 @@ export default function JournalScreen() {
     await loadData();
   };
 
-  // ── Journal seal — triggered by HoldToConfirm ─────────────────────────────
+  // ── Journal seal ──────────────────────────────────────────────────────────
   const handleSaveEntry = async () => {
     if (!journalBody.trim()) return;
     Keyboard.dismiss();
@@ -137,11 +190,11 @@ export default function JournalScreen() {
       circadianPhase: phase,
     });
     setJournalBody('');
+    setActivePrompt(null);
     await loadData();
   };
 
   const handleDeleteEntry = (id: string) => {
-    // Single tap × delete — no alert, just a medium haptic for tactile confirmation
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Sanctuary.deleteJournalEntry(id).then(loadData);
   };
@@ -163,33 +216,78 @@ export default function JournalScreen() {
           keyboardShouldPersistTaps="always"
         >
 
-          {/* ── Mood log section ── */}
+          {/* ── Journal header ── */}
+          <View style={styles.journalHeader}>
+            <View>
+              <Text style={[styles.journalTitle, { color: theme.text }]}>Journal</Text>
+              <Text style={[styles.journalSubtitle, { color: `rgba(${NEON_RGB.cyan},0.7)` }]}>
+                🔒 Private &amp; encrypted
+              </Text>
+            </View>
+          </View>
+
+          {/* ── Prompt card ── */}
+          {promptVisible && (
+            <NeonCard theme={theme} accentRgb={NEON_RGB.violet} style={styles.card}>
+              <View style={styles.promptRow}>
+                <View style={styles.promptLeft}>
+                  <Text style={[styles.promptIcon, { color: `rgba(${NEON_RGB.violet},0.8)` }]}>✦</Text>
+                  {activePrompt ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setJournalBody(activePrompt + '\n\n');
+                        setPromptVisible(false);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                      style={{ flex: 1 }}
+                    >
+                      <Text style={[styles.promptText, { color: theme.text }]} numberOfLines={2}>
+                        "{activePrompt}"
+                      </Text>
+                      <Text style={[styles.promptHint, { color: `rgba(${NEON_RGB.violet},0.5)` }]}>
+                        tap to use this prompt
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.promptTitle, { color: theme.text }]}>Need a prompt?</Text>
+                      <Text style={[styles.promptHint, { color: `${theme.textMuted}99` }]}>
+                        Let a reflection question guide your writing
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <TouchableOpacity onPress={handleGiveMePrompt}>
+                  <Text style={[styles.giveMeOne, { color: `rgba(${NEON_RGB.violet},0.9)` }]}>
+                    {activePrompt ? 'New one' : 'Give me one'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </NeonCard>
+          )}
+
+          {/* ── Mood section ── */}
           <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)` }]}>
-            how is the garden?
+            how are you feeling?
           </Text>
 
           <NeonCard theme={theme} accentRgb={accentRgb} style={styles.card}>
             <View style={styles.cardInner}>
-              <Text style={[styles.hint, { color: `${theme.textMuted}70` }]}>
-                recorded locally · never shared · not visible to sponsor
-              </Text>
 
-              {/* Mood pills — 10-state row matching screenshots */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.moodRow}
-              >
-                {MOOD_PILL_LABELS.map(m => {
+              {/* Mood grid — 3 columns × 2 rows like base44 */}
+              <View style={styles.moodGrid}>
+                {MOOD_GRID.map(m => {
                   const sel = selectedMood === m.score;
                   return (
                     <TouchableOpacity
                       key={m.score}
                       style={[
-                        styles.moodBtn,
+                        styles.moodGridBtn,
                         {
-                          borderColor: `rgba(${m.rgb},${sel ? 0.7 : 0.22})`,
-                          backgroundColor: `rgba(${m.rgb},${sel ? 0.14 : 0.04})`,
+                          borderColor: `rgba(${m.rgb},${sel ? 0.8 : 0.2})`,
+                          backgroundColor: sel
+                            ? `rgba(${m.rgb},0.18)`
+                            : `rgba(${m.rgb},0.05)`,
                         },
                       ]}
                       onPress={() => {
@@ -197,19 +295,26 @@ export default function JournalScreen() {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       }}
                     >
-                      <Text style={[styles.moodBtnLabel, { color: `rgba(${m.rgb},${sel ? 0.95 : 0.55})` }]}>
+                      <Text style={styles.moodGridIcon}>{m.icon}</Text>
+                      <Text style={[
+                        styles.moodGridLabel,
+                        { color: `rgba(${m.rgb},${sel ? 1 : 0.6})` },
+                      ]}>
                         {m.label}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
-              </ScrollView>
+              </View>
 
-              {/* Restlessness bar — only visible when moving */}
+              {/* Restlessness bar */}
               {restlessnessScore > 0.15 && (
                 <View style={styles.restlessRow}>
                   <View style={[styles.restlessTrack, { backgroundColor: `rgba(${accentRgb},0.1)` }]}>
-                    <View style={[styles.restlessFill, { width: `${Math.round(restlessnessScore * 100)}%`, backgroundColor: `rgba(${accentRgb},0.5)` }]} />
+                    <View style={[styles.restlessFill, {
+                      width: `${Math.round(restlessnessScore * 100)}%`,
+                      backgroundColor: `rgba(${accentRgb},0.5)`,
+                    }]} />
                   </View>
                   <Text style={[styles.restlessLabel, { color: `rgba(${accentRgb},0.4)` }]}>restless</Text>
                 </View>
@@ -241,7 +346,6 @@ export default function JournalScreen() {
                 </View>
               )}
 
-              {/* ── Hold to record mood ── */}
               <HoldToConfirm
                 label={selectedMood !== null ? `record · ${moodLabel(selectedMood)}` : 'select a mood above'}
                 holdingLabel={selectedMood !== null ? `recording · ${moodLabel(selectedMood)}` : 'select a mood above'}
@@ -254,13 +358,7 @@ export default function JournalScreen() {
           </NeonCard>
 
           {/* Mood log history */}
-          {moodLogs.length === 0 ? (
-            <View style={[styles.emptyCard, { borderColor: `rgba(${accentRgb},0.1)` }]}>
-              <Text style={[styles.emptyText, { color: `${theme.textMuted}55` }]}>
-                no mood has been recorded yet.{'\n'}your first log appears here when you do.
-              </Text>
-            </View>
-          ) : (
+          {moodLogs.length > 0 && (
             <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.1}>
               {visibleLogs.map((log, i) => (
                 <View
@@ -270,19 +368,20 @@ export default function JournalScreen() {
                     i < visibleLogs.length - 1 && { borderBottomWidth: 1, borderBottomColor: `rgba(${accentRgb},0.08)` },
                   ]}
                 >
-                  <View style={[styles.logBar, { backgroundColor: `rgba(${moodRgb(log.moodScore)},0.6)` }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.logLabel, { color: `rgba(${moodRgb(log.moodScore)},0.9)` }]}>
-                      {moodLabel(log.moodScore)}
-                      <Text style={[styles.logPhase, { color: `${theme.textMuted}70` }]}> · {log.circadianPhase}</Text>
+                  <View style={[styles.moodBadge, { backgroundColor: `rgba(${moodRgb(log.moodScore)},0.15)`, borderColor: `rgba(${moodRgb(log.moodScore)},0.4)` }]}>
+                    <Text style={[styles.moodBadgeIcon]}>
+                      {MOOD_GRID.find(m => m.score === log.moodScore)?.icon ?? '·'}
                     </Text>
-                    {log.context ? (
-                      <Text style={[styles.logNote, { color: `${theme.textMuted}70` }]} numberOfLines={2}>
-                        {log.context}
-                      </Text>
-                    ) : null}
+                    <Text style={[styles.moodBadgeLabel, { color: `rgba(${moodRgb(log.moodScore)},0.95)` }]}>
+                      {moodLabel(log.moodScore)}
+                    </Text>
                   </View>
                   <Text style={[styles.logTime, { color: `${theme.textMuted}55` }]}>{formatTs(log.ts)}</Text>
+                  {log.context ? (
+                    <Text style={[styles.logNote, { color: `${theme.textMuted}70` }]} numberOfLines={2}>
+                      {log.context}
+                    </Text>
+                  ) : null}
                 </View>
               ))}
               {moodLogs.length > 5 && (
@@ -305,16 +404,26 @@ export default function JournalScreen() {
 
           <NeonCard theme={theme} glowColor="violet" style={styles.card}>
             <View style={styles.cardInner}>
-              <Text style={[styles.hint, { color: `${theme.textMuted}70` }]}>
-                stored locally · zero network access · no account, no cloud
-              </Text>
+
+              {/* Active prompt banner inside journal */}
+              {activePrompt && promptVisible && (
+                <View style={[styles.activePromptBanner, { backgroundColor: `rgba(${NEON_RGB.violet},0.08)`, borderColor: `rgba(${NEON_RGB.violet},0.2)` }]}>
+                  <Text style={[styles.activePromptIcon, { color: `rgba(${NEON_RGB.violet},0.7)` }]}>✦</Text>
+                  <Text style={[styles.activePromptText, { color: `rgba(${NEON_RGB.violet},0.85)` }]} numberOfLines={2}>
+                    {activePrompt}
+                  </Text>
+                  <TouchableOpacity onPress={() => setActivePrompt(null)} hitSlop={8}>
+                    <Text style={[styles.activePromptClose, { color: `rgba(${NEON_RGB.violet},0.4)` }]}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <TextInput
                 value={journalBody}
                 onChangeText={setJournalBody}
                 onFocus={() => setJournalFocused(true)}
                 onBlur={() => setJournalFocused(false)}
-                placeholder="The garden speaks... (no one else will read this)"
+                placeholder="Write freely. No one can read this but you..."
                 placeholderTextColor={`rgba(${NEON_RGB.violet},0.25)`}
                 multiline
                 maxLength={4000}
@@ -336,10 +445,9 @@ export default function JournalScreen() {
                 {keyboardVisible && <KbDismiss accentRgb={NEON_RGB.violet} />}
               </View>
 
-              {/* ── Hold to seal journal entry ── */}
               <HoldToConfirm
-                label="seal entry"
-                holdingLabel="sealing..."
+                label="Save entry"
+                holdingLabel="saving..."
                 accentRgb={NEON_RGB.violet}
                 duration={1000}
                 disabled={!journalBody.trim()}
@@ -352,7 +460,7 @@ export default function JournalScreen() {
           {entries.length === 0 ? (
             <View style={[styles.emptyCard, { borderColor: `rgba(${NEON_RGB.violet},0.1)` }]}>
               <Text style={[styles.emptyText, { color: `${theme.textMuted}55` }]}>
-                the page is clear.{'\n'}when you seal your first entry, it appears here.
+                Your journal is empty.{'\n'}Start writing your first entry.
               </Text>
             </View>
           ) : (
@@ -365,18 +473,31 @@ export default function JournalScreen() {
                     i < visibleEntries.length - 1 && { borderBottomWidth: 1, borderBottomColor: `rgba(${NEON_RGB.violet},0.08)` },
                   ]}
                 >
+                  {/* Entry header — mood badge + timestamp + delete */}
                   <View style={styles.entryMeta}>
-                    <Text style={[styles.entryTime, { color: `${theme.textMuted}65` }]}>{formatTs(entry.ts)}</Text>
                     {entry.moodScore != null && (
-                      <Text style={[styles.entryMoodBadge, { color: `rgba(${moodRgb(entry.moodScore)},0.85)`, borderColor: `rgba(${moodRgb(entry.moodScore)},0.3)` }]}>
-                        {moodLabel(entry.moodScore)}
-                      </Text>
+                      <View style={[styles.moodBadge, {
+                        backgroundColor: `rgba(${moodRgb(entry.moodScore)},0.15)`,
+                        borderColor: `rgba(${moodRgb(entry.moodScore)},0.4)`,
+                      }]}>
+                        <Text style={styles.moodBadgeIcon}>
+                          {MOOD_GRID.find(m => m.score === entry.moodScore)?.icon ?? '·'}
+                        </Text>
+                        <Text style={[styles.moodBadgeLabel, { color: `rgba(${moodRgb(entry.moodScore)},0.95)` }]}>
+                          {moodLabel(entry.moodScore)}
+                        </Text>
+                      </View>
                     )}
-                    <Text style={[styles.entryPhase, { color: `${theme.textMuted}55` }]}>{entry.circadianPhase}</Text>
-                    <TouchableOpacity onPress={() => handleDeleteEntry(entry.id)} hitSlop={8}>
-                      <Text style={[styles.deleteBtn, { color: `${theme.textMuted}40` }]}>×</Text>
+                    <Text style={[styles.entryTime, { color: `${theme.textMuted}65` }]}>{formatTs(entry.ts)}</Text>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteEntry(entry.id)}
+                      hitSlop={8}
+                      style={styles.deleteTouch}
+                    >
+                      <Text style={[styles.deleteBtn, { color: `rgba(255,100,100,0.5)` }]}>🗑 Delete entry</Text>
                     </TouchableOpacity>
                   </View>
+
                   <Text style={[styles.entryBody, { color: `${theme.text}cc` }]} numberOfLines={journalExpanded ? undefined : 4}>
                     {entry.body}
                   </Text>
@@ -400,6 +521,7 @@ export default function JournalScreen() {
               Sanctuary · stored locally · never leaves this device
             </Text>
           </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -409,23 +531,106 @@ export default function JournalScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingHorizontal: 20, gap: 8 },
+
+  // ── Header ──
+  journalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  journalTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    fontFamily: 'CourierPrime',
+    letterSpacing: -0.5,
+  },
+  journalSubtitle: {
+    fontFamily: 'CourierPrime',
+    fontSize: 12,
+    marginTop: 2,
+  },
+
+  // ── Prompt card ──
+  promptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    gap: 12,
+  },
+  promptLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, flex: 1 },
+  promptIcon: { fontSize: 18, marginTop: 1 },
+  promptTitle: { fontFamily: 'CourierPrime', fontSize: 14, fontWeight: '600' },
+  promptText: { fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 20, fontStyle: 'italic' },
+  promptHint: { fontFamily: 'CourierPrime', fontSize: 11, marginTop: 3 },
+  giveMeOne: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '600' },
+
+  // ── Active prompt banner ──
+  activePromptBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+  },
+  activePromptIcon: { fontSize: 14, marginTop: 1 },
+  activePromptText: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 18, flex: 1, fontStyle: 'italic' },
+  activePromptClose: { fontFamily: 'CourierPrime', fontSize: 20, lineHeight: 22 },
+
+  // ── Section label ──
   sectionLabel: {
     fontFamily: 'CourierPrime',
     fontSize: 10,
     letterSpacing: 3,
     textTransform: 'uppercase',
     marginBottom: 4,
+    marginTop: 8,
   },
+
   card: { width: '100%' },
   cardInner: { padding: 16, gap: 12 },
   hint: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5, lineHeight: 15 },
-  moodRow: { flexDirection: 'row', gap: 6, paddingVertical: 2 },
-  moodBtn: { borderWidth: 1, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center' },
-  moodBtnLabel: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 0.3 },
+
+  // ── Mood grid ──
+  moodGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  moodGridBtn: {
+    width: '30.5%',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    gap: 6,
+  },
+  moodGridIcon: { fontSize: 22 },
+  moodGridLabel: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 0.3 },
+
+  // ── Mood badge (log + entry) ──
+  moodBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  moodBadgeIcon: { fontSize: 14 },
+  moodBadgeLabel: { fontFamily: 'CourierPrime', fontSize: 11, fontWeight: '600' },
+
+  // ── Restlessness ──
   restlessRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   restlessTrack: { flex: 1, height: 2, borderRadius: 1, overflow: 'hidden' },
   restlessFill: { height: '100%', borderRadius: 1 },
   restlessLabel: { fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase' },
+
+  // ── Note input ──
   noteInput: {
     fontFamily: 'CourierPrime',
     fontSize: 12,
@@ -443,16 +648,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   charHint: { fontFamily: 'CourierPrime', fontSize: 10 },
-  emptyCard: { borderWidth: 1, borderRadius: 12 },
-  emptyText: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19, textAlign: 'center', padding: 20 },
-  logRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 11, paddingHorizontal: 14, gap: 10 },
-  logBar: { width: 2, alignSelf: 'stretch', borderRadius: 1, minHeight: 20, flexShrink: 0 },
-  logLabel: { fontFamily: 'CourierPrime', fontSize: 12 },
-  logPhase: { fontSize: 10 },
-  logNote: { fontFamily: 'CourierPrime', fontSize: 10, lineHeight: 15, marginTop: 2 },
-  logTime: { fontFamily: 'CourierPrime', fontSize: 10, flexShrink: 0 },
+
+  // ── Log row ──
+  logRow: { paddingVertical: 11, paddingHorizontal: 14, gap: 6 },
+  logTime: { fontFamily: 'CourierPrime', fontSize: 10 },
+  logNote: { fontFamily: 'CourierPrime', fontSize: 10, lineHeight: 15 },
+
+  // ── Expand ──
   expandBtn: { borderTopWidth: 1, paddingVertical: 11, alignItems: 'center' },
   expandText: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1 },
+
+  // ── Empty ──
+  emptyCard: { borderWidth: 1, borderRadius: 12 },
+  emptyText: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19, textAlign: 'center', padding: 20 },
+
+  // ── Journal input ──
   journalInput: {
     fontFamily: 'CourierPrime',
     fontSize: 13,
@@ -471,21 +681,16 @@ const styles = StyleSheet.create({
   charCount: { fontFamily: 'CourierPrime', fontSize: 10, flex: 1 },
   kbBtn: { borderWidth: 1, borderRadius: 6, paddingVertical: 5, paddingHorizontal: 9 },
   kbText: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1 },
+
+  // ── Entry row ──
   entryRow: { padding: 14, gap: 8 },
   entryMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  entryTime: { fontFamily: 'CourierPrime', fontSize: 10 },
-  entryMoodBadge: {
-    fontFamily: 'CourierPrime',
-    fontSize: 9,
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    letterSpacing: 0.5,
-  },
-  entryPhase: { fontFamily: 'CourierPrime', fontSize: 9, flex: 1 },
-  deleteBtn: { fontFamily: 'CourierPrime', fontSize: 18, lineHeight: 20 },
+  entryTime: { fontFamily: 'CourierPrime', fontSize: 10, flex: 1 },
+  deleteTouch: { marginLeft: 'auto' },
+  deleteBtn: { fontFamily: 'CourierPrime', fontSize: 11 },
   entryBody: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19 },
+
+  // ── Privacy note ──
   privacyNote: { borderTopWidth: 1, paddingTop: 16, marginTop: 8, alignItems: 'center' },
   privacyText: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1, textAlign: 'center', lineHeight: 16 },
 });
