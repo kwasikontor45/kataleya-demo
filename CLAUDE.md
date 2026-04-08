@@ -10,13 +10,36 @@ The soul of kataleya: **presence without monitoring. context-awareness without s
 
 ---
 
+## railway — blind relay server
+
+The Railway server is NOT a database. It does not store user data.
+It runs one job: pass encrypted messages between user and sponsor, then discard them.
+The server never sees message content. It is structurally blind by design.
+This does NOT violate the privacy-first architecture — it was designed to honor it.
+
+### what the relay does
+- receives an encrypted blob from user's phone
+- forwards it to sponsor's phone
+- immediately discards it
+- stores nothing permanently except channels.json (sponsor channel metadata only)
+
+### current status
+- Previous Railway project was DELETED due to persistent deploy failures
+- Needs a fresh Railway project created and redeployed
+- Server code lives in: ~/kataleya/lib/ or ~/kataleya/exports/ (check repo)
+- Required env vars: PORT, DATA_DIR
+- Required: /health endpoint for Railway health checks
+- channels.json must persist via Railway Volume mounted at /data
+
+---
+
 ## accounts & identifiers
 
 - GitHub: github.com/kwasikontor45/kataleya
 - Expo account: bleedin6ed6e
 - EAS project ID: 8c2a466b-748a-4eb5-a42e-4f0bdb9aa856
 - Project root: ~/kataleya/artifacts/kataleya-app
-- Railway: API server (Node.js), blind relay only
+- Railway: DELETED — previous deployment had persistent deploy failures. needs to be redeployed fresh.
 - Base44 prototype: https://kataleya-9011e6eb.base44.app (reference UI only — not production)
 
 ---
@@ -30,8 +53,7 @@ The soul of kataleya: **presence without monitoring. context-awareness without s
 - expo-secure-store
 - AsyncStorage
 - TweetNaCl (X25519 + XSalsa20-Poly1305) — E2E message encryption
-- Railway (Node.js API server)
-- channels.json persists via Railway Volume at /data (DATA_DIR env var)
+- Railway (Node.js blind relay server) — NEEDS FRESH DEPLOY. Previous project deleted due to deploy failures.
 - pnpm workspace
 
 ---
