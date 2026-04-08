@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.kataleya.app"
+      "bundleIdentifier": "com.kataleya.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.kataleya.app",
@@ -40,7 +43,6 @@
       "expo-font",
       "expo-web-browser",
       "expo-sensors",
- 
       "expo-secure-store",
       [
         "expo-notifications",
@@ -50,7 +52,8 @@
           "defaultChannel": "default",
           "sounds": []
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "updates": {
       "enabled": false
@@ -59,6 +62,11 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "bleedin6ed6e"
+    "owner": "bleedin6ed6e",
+    "extra": {
+      "eas": {
+        "projectId": "8c2a466b-748a-4eb5-a42e-4f0bdb9aa856"
+      }
+    }
   }
 }
