@@ -3,7 +3,7 @@
 <br />
 
 ```
-..: kataleya :.
+..: kataleya :..
 ```
 
 <br />
@@ -154,7 +154,7 @@ all contributions must preserve the zero-knowledge guarantee. features that requ
 <br />
 
 ```
-..: built with intention :.
+..: built with intention :..
 ```
 
 <br />
