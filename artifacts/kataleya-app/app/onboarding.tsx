@@ -5,7 +5,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Dimensions, TextInput, Platform,
+  Dimensions, TextInput, Platform, Switch,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
@@ -130,6 +130,10 @@ export default function Onboarding() {
   const [name, setName] = useState('');
   const [substance, setSubstance] = useState('');
   const [sobrietyDate, setSobrietyDate] = useState(new Date());
+  const [morningEnabled, setMorningEnabled] = useState(true);
+  const [eveningEnabled, setEveningEnabled] = useState(true);
+  const [morningTime, setMorningTime] = useState(() => { const d = new Date(); d.setHours(8, 0, 0, 0); return d; });
+  const [eveningTime, setEveningTime] = useState(() => { const d = new Date(); d.setHours(21, 0, 0, 0); return d; });
 
   const accentColor = theme.accent;
   const phaseRgb    = theme.phaseRgb;
@@ -149,6 +153,11 @@ export default function Onboarding() {
     if (name.trim()) await Surface.setName(name.trim());
     if (substance) await Surface.setSubstance(substance);
     await Surface.setSobrietyStart(sobrietyDate.toISOString());
+    // Save reminder preferences
+    await Surface.set('reminder_morning_enabled', morningEnabled ? '1' : '0');
+    await Surface.set('reminder_evening_enabled', eveningEnabled ? '1' : '0');
+    await Surface.set('reminder_morning_time', morningTime.toISOString());
+    await Surface.set('reminder_evening_time', eveningTime.toISOString());
     router.replace('/(tabs)');
   };
 
@@ -280,7 +289,85 @@ export default function Onboarding() {
             </Text>
           </View>
         )}
-      </View>
+
+        {id === 'notifs' && (
+          <View style={styles.notifsWrap}>
+            <Text style={[styles.notifsSubtitle, { color: theme.textMuted }]}>
+              Scheduled locally — no content sent to servers.
+            </Text>
+            {[
+              {
+                key: 'morning',
+                label: 'Morning check-in',
+                hint: 'Start your day with intention',
+                enabled: morningEnabled,
+                toggle: setMorningEnabled,
+                time: morningTime,
+                setTime: setMorningTime,
+              },
+              {
+                key: 'evening',
+                label: 'Evening reflection',
+                hint: 'Close the day with gratitude',
+                enabled: eveningEnabled,
+                toggle: setEveningEnabled,
+                time: eveningTime,
+                setTime: setEveningTime,
+              },
+            ].map(r => (
+              <View key={r.key}>
+                {/* ── Toggle row ── */}
+                <View
+                  style={[
+                    styles.reminderRow,
+                    {
+                      borderColor: r.enabled ? `rgba(${phaseRgb},0.35)` : `rgba(${phaseRgb},0.12)`,
+                      backgroundColor: r.enabled ? `rgba(${phaseRgb},0.07)` : `rgba(${phaseRgb},0.02)`,
+                      borderBottomLeftRadius: r.enabled ? 0 : 12,
+                      borderBottomRightRadius: r.enabled ? 0 : 12,
+                    },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.reminderLabel, { color: r.enabled ? accentColor : theme.textMuted }]}>
+                      {r.label}
+                    </Text>
+                    <Text style={[styles.reminderHint, { color: theme.textMuted }]}>
+                      {r.hint}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={r.enabled}
+                    onValueChange={r.toggle}
+                    trackColor={{ false: `rgba(${phaseRgb},0.15)`, true: `rgba(${phaseRgb},0.5)` }}
+                    thumbColor={r.enabled ? accentColor : theme.textMuted}
+                    ios_backgroundColor={`rgba(${phaseRgb},0.15)`}
+                  />
+                </View>
+
+                {/* ── Time picker — slides in when toggle is on ── */}
+                {r.enabled && (
+                  <View style={[
+                    styles.timePickerWrap,
+                    {
+                      borderColor: `rgba(${phaseRgb},0.35)`,
+                      backgroundColor: `rgba(${phaseRgb},0.04)`,
+                    },
+                  ]}>
+                    <DateTimePicker
+                      value={r.time}
+                      mode="time"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(_e, date) => { if (date) r.setTime(date); }}
+                      themeVariant="dark"
+                      style={styles.timePicker}
+                    />
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
 
       {/* CTA — hidden for substance (auto-advances on tap) */}
       {cta && (
@@ -441,5 +528,49 @@ const styles = StyleSheet.create({
   datePicker: {
     width: '100%',
     height: 160,
+  },
+  notifsWrap: {
+    gap: 12,
+  },
+  notifsSubtitle: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    marginBottom: 4,
+    opacity: 0.7,
+  },
+  reminderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  reminderLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 3,
+  },
+  reminderHint: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    opacity: 0.7,
+  },
+  timePickerWrap: {
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    alignItems: 'center',
+    paddingVertical: 4,
+    overflow: 'hidden',
+  },
+  timePicker: {
+    width: '100%',
+    height: 120,
   },
 });
