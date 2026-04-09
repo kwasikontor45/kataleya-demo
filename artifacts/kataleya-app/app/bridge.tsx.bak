@@ -202,7 +202,7 @@ export default function BridgeScreen() {
   }, []);
 
   const navigate = useCallback(() => {
-    router.replace('/onboarding'); // TEMP: force onboarding for testing — revert after
+    router.replace(onboarded === false ? '/onboarding' : '/(tabs)');
   }, [onboarded, router]);
 
   // Ring sizes — three concentric circles around the heart

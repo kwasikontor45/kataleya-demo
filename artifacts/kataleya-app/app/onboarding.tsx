@@ -369,6 +369,8 @@ export default function Onboarding() {
           </View>
         )}
 
+      </View>
+
       {/* CTA — hidden for substance (auto-advances on tap) */}
       {cta && (
         <TouchableOpacity
