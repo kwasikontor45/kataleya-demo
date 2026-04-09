@@ -2,10 +2,11 @@
 // Fixed: no hyphenated style keys, no hyphenated ThemeTokens references.
 // All theme property access uses camelCase (textMuted, phaseRgb, etc.)
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  Dimensions, TextInput, Platform, Switch,
+  View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback,
+  Dimensions, TextInput, Platform, Switch, KeyboardAvoidingView,
+  Keyboard, ScrollView, Animated,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
@@ -19,15 +20,25 @@ const { width } = Dimensions.get('window');
 
 const IconBridge = ({ color = '#7fc9c9', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
-    <Circle cx={10} cy={32} r={5} fill={color} opacity={0.9} />
-    <Circle cx={18} cy={32} r={3.5} fill={color} opacity={0.55} />
-    <Circle cx={27} cy={24} r={3.5} fill={color} />
-    <Circle cx={27} cy={40} r={3.5} fill={color} />
-    <Circle cx={37} cy={24} r={3.5} fill={color} />
-    <Circle cx={37} cy={40} r={3.5} fill={color} />
-    <Circle cx={46} cy={32} r={3.5} fill={color} opacity={0.55} />
-    <Circle cx={54} cy={32} r={5} fill={color} opacity={0.9} />
-    <Line x1={4} y1={32} x2={60} y2={32} stroke={color} strokeWidth={0.5} opacity={0.15} />
+    {/* Outer ring — barely visible */}
+    <Circle cx={32} cy={32} r={30} fill="none" stroke={color} strokeWidth={0.6} opacity={0.15} />
+    {/* Middle ring */}
+    <Circle cx={32} cy={32} r={22} fill="none" stroke={color} strokeWidth={0.9} opacity={0.25} />
+    {/* Inner ring */}
+    <Circle cx={32} cy={32} r={14} fill="none" stroke={color} strokeWidth={1.2} opacity={0.4} />
+    {/* Core glow */}
+    <Circle cx={32} cy={32} r={7} fill={color} opacity={0.15} />
+    <Circle cx={32} cy={32} r={4} fill={color} opacity={0.5} />
+    {/* Pulse dots at cardinal points */}
+    <Circle cx={32} cy={6}  r={1.5} fill={color} opacity={0.4} />
+    <Circle cx={58} cy={32} r={1.5} fill={color} opacity={0.4} />
+    <Circle cx={32} cy={58} r={1.5} fill={color} opacity={0.4} />
+    <Circle cx={6}  cy={32} r={1.5} fill={color} opacity={0.4} />
+    {/* Diagonal accents */}
+    <Circle cx={52} cy={12} r={1} fill={color} opacity={0.25} />
+    <Circle cx={12} cy={52} r={1} fill={color} opacity={0.25} />
+    <Circle cx={52} cy={52} r={1} fill={color} opacity={0.25} />
+    <Circle cx={12} cy={12} r={1} fill={color} opacity={0.25} />
   </Svg>
 );
 
@@ -164,7 +175,12 @@ export default function Onboarding() {
   const { id, label, Icon, cta } = STEPS[step];
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.bg }]}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={[styles.root, { backgroundColor: theme.bg }]}>
 
       {/* Back button */}
       <TouchableOpacity style={styles.backBtn} onPress={goBack}>
@@ -202,21 +218,38 @@ export default function Onboarding() {
       <View style={styles.content}>
 
         {id === 'name' && (
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="name or nickname"
-            placeholderTextColor={theme.textMuted}
-            style={[
-              styles.input,
-              {
-                color: theme.text,
-                borderColor: accentColor,
-                backgroundColor: theme.surface,
-              },
-            ]}
-            autoFocus
-          />
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                onSubmitEditing={name.trim() ? advance : undefined}
+                placeholder="name or nickname"
+                placeholderTextColor={theme.textMuted}
+                returnKeyType="done"
+                blurOnSubmit
+                style={[
+                  styles.input,
+                  {
+                    color: theme.text,
+                    borderColor: accentColor,
+                    backgroundColor: theme.surface,
+                  },
+                ]}
+                autoFocus
+              />
+              {name.trim().length > 0 && (
+                <TouchableOpacity
+                  onPress={Keyboard.dismiss}
+                  style={[styles.kbDismiss, { borderColor: `rgba(${phaseRgb},0.2)` }]}
+                >
+                  <Text style={[styles.kbDismissText, { color: `rgba(${phaseRgb},0.5)` }]}>
+                    ⌨ done
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </TouchableWithoutFeedback>
         )}
 
         {id === 'substance' && (
@@ -394,7 +427,9 @@ export default function Onboarding() {
         {step + 1} / {STEPS.length}
       </Text>
 
-    </View>
+        </View>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -445,6 +480,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     fontFamily: 'CourierPrime',
+  },
+  kbDismiss: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  kbDismissText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 1,
   },
   options: {
     gap: 10,
