@@ -56,11 +56,12 @@ const LABELS = {
 
 interface Props {
   onDismiss?: () => void;
+  onClose?: () => void;
   visible?: boolean;
   theme?: any;
 }
 
-export function BreathingExercise({ onDismiss }: Props) {
+export function BreathingExercise({ onDismiss, onClose }: Props) {
   const { theme } = useAnimatedTheme();
   const { phase } = useCircadian();
   const { restlessnessScore } = useOrchidSway(); // passive read
@@ -223,7 +224,7 @@ export function BreathingExercise({ onDismiss }: Props) {
       Animated.timing(r2Opacity,   { toValue: 0,   duration: 800,  useNativeDriver: true }),
       Animated.timing(r3Opacity,   { toValue: 0,   duration: 600,  useNativeDriver: true }),
     ]).start(() => {
-      setTimeout(() => { if (onDismiss) onDismiss(); }, 1200);
+      setTimeout(() => { if (onDismiss) onDismiss(); if (onClose) onClose(); }, 1200);
     });
   }, [onDismiss, setLabel]);
 

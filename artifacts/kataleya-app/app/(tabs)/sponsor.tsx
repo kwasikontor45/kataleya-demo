@@ -291,9 +291,9 @@ export default function SponsorScreen() {
     try {
       const msg = `my kataleya invite code: ${code}\n\nopen sponsor tab → i am the sponsor → enter this code. expires in 48 hours.`;
       if (await Sharing.isAvailableAsync()) {
-        const { FileSystem } = await import('expo-file-system');
-        const uri = FileSystem.cacheDirectory + 'kataleya-invite.txt';
-        await FileSystem.writeAsStringAsync(uri, msg);
+        const EFS = await import('expo-file-system');
+        const uri = EFS.default.cacheDirectory + 'kataleya-invite.txt';
+        await EFS.default.writeAsStringAsync(uri, msg);
         await Sharing.shareAsync(uri, { mimeType: 'text/plain', dialogTitle: 'share invite code' });
       }
     } catch (e) { console.error('share failed', e); }
