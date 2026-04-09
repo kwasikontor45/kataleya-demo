@@ -347,6 +347,7 @@ export function BreathingExercise({ onDismiss, onClose }: Props) {
       </Animated.View>
 
     </View>
+    </Modal>
   );
 }
 
