@@ -24,6 +24,7 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Modal,
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useAnimatedTheme } from '@/hooks/useAnimatedTheme';
@@ -238,6 +239,12 @@ export function BreathingExercise({ onDismiss, onClose }: Props) {
   const accentDim   = `rgba(${theme.phaseRgb ?? '127,201,201'}, 0.14)`;
 
   return (
+    <Modal
+      visible={visible ?? false}
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={() => { if (onClose) onClose(); if (onDismiss) onDismiss(); }}
+    >
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
 
       {/* ── Orb ─────────────────────────────────────────────────────────── */}
