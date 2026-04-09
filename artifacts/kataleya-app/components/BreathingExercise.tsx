@@ -62,7 +62,7 @@ interface Props {
   theme?: any;
 }
 
-export function BreathingExercise({ onDismiss, onClose }: Props) {
+export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
   const { theme } = useAnimatedTheme();
   const { phase } = useCircadian();
   const { restlessnessScore } = useOrchidSway(); // passive read
