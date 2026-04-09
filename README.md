@@ -8,7 +8,7 @@
 
 <br />
 
-**privacy-first architecture meets genuine empathy.**
+**privacy-first, containment as architecture meets genuine empathy.**
 
 *a recovery companion designed to treat users with dignity.*
 
