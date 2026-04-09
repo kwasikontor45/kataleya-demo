@@ -164,11 +164,6 @@ export default function Onboarding() {
     if (name.trim()) await Surface.setName(name.trim());
     if (substance) await Surface.setSubstance(substance);
     await Surface.setSobrietyStart(sobrietyDate.toISOString());
-    // Save reminder preferences
-    await Surface.set('reminder_morning_enabled', morningEnabled ? '1' : '0');
-    await Surface.set('reminder_evening_enabled', eveningEnabled ? '1' : '0');
-    await Surface.set('reminder_morning_time', morningTime.toISOString());
-    await Surface.set('reminder_evening_time', eveningTime.toISOString());
     router.replace('/(tabs)');
   };
 
