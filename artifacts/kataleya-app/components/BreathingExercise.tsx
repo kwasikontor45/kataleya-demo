@@ -56,13 +56,15 @@ const LABELS = {
 
 interface Props {
   onDismiss?: () => void;
+  visible?: boolean;
+  theme?: any;
 }
 
 export function BreathingExercise({ onDismiss }: Props) {
   const { theme } = useAnimatedTheme();
   const { phase } = useCircadian();
-  const { restlessnessScore } = useOrchidSway({ active: false }); // passive read
-  const { biometrics } = useResponsiveHeart();
+  const { restlessnessScore } = useOrchidSway(); // passive read
+  const { biometrics } = useResponsiveHeart(phase);
 
   // ── Animated values ──────────────────────────────────────────────────────────
   const coreScale   = useRef(new Animated.Value(0.85)).current;
@@ -232,7 +234,7 @@ export function BreathingExercise({ onDismiss }: Props) {
   });
 
   const accentColor = theme.accent;
-  const accentDim   = `rgba(${theme['phase-rgb'] ?? '127,201,201'}, 0.14)`;
+  const accentDim   = `rgba(${theme.phaseRgb ?? '127,201,201'}, 0.14)`;
 
   return (
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
@@ -322,7 +324,7 @@ export function BreathingExercise({ onDismiss }: Props) {
         <Text style={[styles.mainLabel, { color: theme.text, fontFamily: 'CourierPrime' }]}>
           {mainLabel.current}
         </Text>
-        <Text style={[styles.subLabel, { color: theme['text-muted'], fontFamily: 'CourierPrime' }]}>
+        <Text style={[styles.subLabel, { color: theme.textMuted, fontFamily: 'CourierPrime' }]}>
           {subLabel.current}
         </Text>
       </Animated.View>
@@ -330,7 +332,7 @@ export function BreathingExercise({ onDismiss }: Props) {
       {/* ── Dismiss — only after 2 cycles, no play/pause ────────────────── */}
       <Animated.View style={{ opacity: dismissOpacity }}>
         <TouchableOpacity onPress={handleDismiss} style={styles.dismiss}>
-          <Text style={[styles.dismissText, { color: theme['text-muted'], fontFamily: 'CourierPrime' }]}>
+          <Text style={[styles.dismissText, { color: theme.textMuted, fontFamily: 'CourierPrime' }]}>
             i feel it
           </Text>
         </TouchableOpacity>

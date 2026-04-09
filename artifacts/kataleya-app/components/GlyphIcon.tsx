@@ -106,10 +106,10 @@ export function GlyphIcon({ name, size = 18, color = '#87a878', strokeWidth = 1.
       case 'bloom':
         // Four petals around a center — full bloom
         return <>
-          <Ellipse cx="10" cy="7"  rx="2" ry="3" {...sharedProps} />
-          <Ellipse cx="10" cy="13" rx="2" ry="3" {...sharedProps} />
-          <Ellipse cx="7"  cy="10" rx="3" ry="2" {...sharedProps} />
-          <Ellipse cx="13" cy="10" rx="3" ry="2" {...sharedProps} />
+          <Ellipse cx="10" cy="7"  rx="2" ry="3" fill="none" stroke={c} strokeWidth={s} strokeLinecap="round" strokeLinejoin="round" />
+          <Ellipse cx="10" cy="13" rx="2" ry="3" fill="none" stroke={c} strokeWidth={s} strokeLinecap="round" strokeLinejoin="round" />
+          <Ellipse cx="7"  cy="10" rx="3" ry="2" fill="none" stroke={c} strokeWidth={s} strokeLinecap="round" strokeLinejoin="round" />
+          <Ellipse cx="13" cy="10" rx="3" ry="2" fill="none" stroke={c} strokeWidth={s} strokeLinecap="round" strokeLinejoin="round" />
           <Circle cx="10" cy="10" r="1.5" fill={c} stroke="none" />
         </>;
 
@@ -165,11 +165,8 @@ export function GlyphIcon({ name, size = 18, color = '#87a878', strokeWidth = 1.
       case 'lock':
         // Closed padlock
         return <>
-          <Ellipse cx="10" cy="8" rx="4" ry="4"
-            {...sharedProps}
-            style={{ clipPath: 'inset(50% 0 0 0)' }} />
-          <Path d="M6 8 Q6 5 10 5 Q14 5 14 8" {...sharedProps} />
-          <Path d="M6 10 L6 16 Q6 17 7 17 L13 17 Q14 17 14 16 L14 10 Z" {...sharedProps} />
+          <Path d="M6 9 Q6 5 10 5 Q14 5 14 9" {...sharedProps} />
+          <Path d="M6 9 L6 16 Q6 17 7 17 L13 17 Q14 17 14 16 L14 9 Z" {...sharedProps} />
           <Circle cx="10" cy="13" r="1" fill={c} stroke="none" />
           <Line x1="10" y1="13" x2="10" y2="15" {...sharedProps} strokeWidth={s * 0.8} />
         </>;
