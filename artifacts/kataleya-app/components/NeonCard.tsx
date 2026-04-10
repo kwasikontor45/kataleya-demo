@@ -5,17 +5,18 @@ import { ThemeTokens } from '@/constants/theme';
 
 export type NeonGlowColor = 'cyan' | 'violet' | 'amber' | 'pink' | 'neutral';
 
-// Organic palette — merged from HTML prototype
-// cyan   = sage    #87a878  day / water / breathing / mood
-// violet = terra   #d4a373  golden hour / journal / light signal
-// amber  = safe    #81b29a  Fortress vault / grounding
-// pink   = coral   #e07a5f  dawn / burn / danger-adjacent
+// Scar Palette — Ouroboros Protocol
+// cyan   = Choice Cyan    #00d4aa  clarity / breathing / mood / dawn-day
+// violet = Resolve Violet #9b6dff  depth / journal / night / the self that survives
+// amber  = Craving Amber  #ff6b35  desire / golden hour / urge / threshold
+// pink   = Scar Red       #ff3366  burn / danger / the wound that becomes armor
+// neutral = Scar Silver   #8a8a9e  past iterations, neutralised
 export const NEON_RGB: Record<NeonGlowColor, string> = {
-  cyan:    '135,168,120',
-  violet:  '212,163,115',
-  amber:   '129,178,154',
-  pink:    '224,122,95',
-  neutral: '255,255,255',
+  cyan:    '0,212,170',
+  violet:  '155,109,255',
+  amber:   '255,107,53',
+  pink:    '255,51,102',
+  neutral: '138,138,158',
 };
 
 interface Props {

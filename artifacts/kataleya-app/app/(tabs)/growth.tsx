@@ -87,28 +87,25 @@ export default function GrowthScreen() {
                 </View>
               );
             })}
-          </View>
-        </NeonCard>
 
-        {/* Next milestone */}
-        {sobriety.nextMilestone && (
-          <>
-            <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>next bloom</Text>
-            <NeonCard theme={theme} accentRgb={accentRgb} style={styles.nextCard}>
-              <View style={styles.nextBloom}>
-                <Text style={[styles.nextDays, { color: `rgba(${accentRgb},0.95)` }]}>
-                  {sobriety.nextMilestone.days - sobriety.daysSober}
-                </Text>
-                <Text style={[styles.nextLabel, { color: `rgba(${accentRgb},0.5)` }]}>
-                  days until {sobriety.nextMilestone.label}
-                </Text>
+            {/* Next bloom — inlined as timeline footer */}
+            {sobriety.nextMilestone && (
+              <View style={[styles.nextBloomInline, { borderTopColor: `rgba(${accentRgb},0.1)` }]}>
+                <View style={styles.nextBloomRow}>
+                  <Text style={[styles.nextBloomCount, { color: `rgba(${accentRgb},0.9)` }]}>
+                    {sobriety.nextMilestone.days - sobriety.daysSober}
+                  </Text>
+                  <Text style={[styles.nextBloomLabel, { color: `rgba(${accentRgb},0.45)` }]}>
+                    days to {sobriety.nextMilestone.label}
+                  </Text>
+                </View>
                 <View style={[styles.progressTrack, { backgroundColor: `rgba(${accentRgb},0.1)` }]}>
-                  <View style={[styles.progressFill, { width: `${sobriety.progressToNext * 100}%`, backgroundColor: `rgba(${accentRgb},0.65)` }]} />
+                  <View style={[styles.progressFill, { width: `${sobriety.progressToNext * 100}%`, backgroundColor: `rgba(${accentRgb},0.6)` }]} />
                 </View>
               </View>
-            </NeonCard>
-          </>
-        )}
+            )}
+          </View>
+        </NeonCard>
 
         {/* No date set */}
         {!sobriety.startDate && (
@@ -187,8 +184,8 @@ export default function GrowthScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { paddingHorizontal: 20, gap: 8 },
-  sectionLabel: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 4 },
+  scroll: { paddingHorizontal: 20, gap: 20 },
+  sectionLabel: { fontFamily: 'SpaceMono', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 4 },
   timelineCard: { width: '100%' },
   timelineInner: { padding: 16, gap: 0 },
   milestoneItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, minHeight: 44 },
@@ -198,12 +195,12 @@ const styles = StyleSheet.create({
   milestoneContent: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12 },
   milestoneLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   milestoneLabel: { fontFamily: 'CourierPrime', fontSize: 13 },
-  milestoneDays: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 0.5 },
-  nextCard: { width: '100%' },
-  nextBloom: { padding: 20, alignItems: 'center', gap: 8 },
-  nextDays: { fontFamily: 'CourierPrime', fontSize: 48, fontWeight: '700', lineHeight: 56 },
-  nextLabel: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 1 },
-  progressTrack: { height: 2, width: '100%', borderRadius: 1, marginTop: 8, overflow: 'hidden' },
+  milestoneDays: { fontFamily: 'SpaceMono', fontSize: 11, letterSpacing: 0.5 },
+  nextBloomInline: { borderTopWidth: 1, marginTop: 8, paddingTop: 16, paddingHorizontal: 0, gap: 10 },
+  nextBloomRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  nextBloomCount: { fontFamily: 'SpaceMono', fontSize: 32, fontWeight: '700', lineHeight: 36 },
+  nextBloomLabel: { fontFamily: 'SpaceMono', fontSize: 12, letterSpacing: 0.5 },
+  progressTrack: { height: 2, width: '100%', borderRadius: 1, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 1 },
   emptyCard: { width: '100%' },
   emptyBlock: { padding: 24, alignItems: 'center', gap: 12 },
@@ -213,9 +210,9 @@ const styles = StyleSheet.create({
   insightInner: { padding: 16, gap: 6 },
   insightEmpty: { fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 20, textAlign: 'center', padding: 20 },
   insightText: { fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 20 },
-  insightMeta: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 0.5 },
-  ageNote: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 0.5, textAlign: 'center', lineHeight: 16, marginTop: 4 },
+  insightMeta: { fontFamily: 'SpaceMono', fontSize: 10, letterSpacing: 0.5 },
+  ageNote: { fontFamily: 'SpaceMono', fontSize: 11, letterSpacing: 0.5, textAlign: 'center', lineHeight: 16, marginTop: 4 },
   privacyNote: { borderTopWidth: 1, paddingTop: 16, marginTop: 8, alignItems: 'center', gap: 6 },
-  privacyText: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1, textAlign: 'center' },
-  privacyLink: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1.5 },
+  privacyText: { fontFamily: 'SpaceMono', fontSize: 10, letterSpacing: 1, textAlign: 'center' },
+  privacyLink: { fontFamily: 'SpaceMono', fontSize: 10, letterSpacing: 1.5 },
 });

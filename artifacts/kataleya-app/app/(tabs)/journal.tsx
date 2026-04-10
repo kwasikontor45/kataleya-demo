@@ -14,12 +14,12 @@ import { HoldToConfirm } from '@/components/HoldToConfirm';
 
 // ── Mood grid — matches base44 layout ────────────────────────────────────────
 const MOOD_GRID = [
-  { score: 8,  label: 'Calm',      icon: '☀',  rgb: '127,201,201' },
-  { score: 3,  label: 'Anxious',   icon: '💨',  rgb: '220,160,80'  },
-  { score: 2,  label: 'Stressed',  icon: '🌧',  rgb: '255,107,107' },
-  { score: 6,  label: 'Neutral',   icon: '😐',  rgb: '160,144,96'  },
-  { score: 9,  label: 'Energized', icon: '⚡',  rgb: '74,222,128'  },
-  { score: 1,  label: 'Low',       icon: '😔',  rgb: '240,130,100' },
+  { score: 8,  label: 'Calm',      icon: '◉',  rgb: '127,201,201' },
+  { score: 3,  label: 'Anxious',   icon: '∿',  rgb: '220,160,80'  },
+  { score: 2,  label: 'Stressed',  icon: '⌁',  rgb: '255,107,107' },
+  { score: 6,  label: 'Neutral',   icon: '◌',  rgb: '160,144,96'  },
+  { score: 9,  label: 'Energized', icon: '✦',  rgb: '74,222,128'  },
+  { score: 1,  label: 'Low',       icon: '·',  rgb: '240,130,100' },
 ];
 
 const MOOD_PILL_LABELS = [
@@ -197,9 +197,9 @@ function KbDismiss({ accentRgb }: { accentRgb: string }) {
     <TouchableOpacity
       onPress={() => Keyboard.dismiss()}
       hitSlop={12}
-      style={[styles.kbBtn, { borderColor: `rgba(${accentRgb},0.25)` }]}
+      style={[styles.kbBtn, { borderColor: `rgba(${accentRgb},0.3)`, backgroundColor: `rgba(${accentRgb},0.07)` }]}
     >
-      <Text style={[styles.kbText, { color: `rgba(${accentRgb},0.5)` }]}>⌨ ↓</Text>
+      <Text style={[styles.kbText, { color: `rgba(${accentRgb},0.7)` }]}>done</Text>
     </TouchableOpacity>
   );
 }
@@ -301,7 +301,8 @@ export default function JournalScreen() {
           ref={scrollRef}
           contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: botPad + 16 }]}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="always"
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={() => Keyboard.dismiss()}
         >
 
           {/* ── Journal header ── */}
@@ -309,7 +310,7 @@ export default function JournalScreen() {
             <View>
               <Text style={[styles.journalTitle, { color: theme.text }]}>Journal</Text>
               <Text style={[styles.journalSubtitle, { color: `rgba(${NEON_RGB.cyan},0.7)` }]}>
-                🔒 Private &amp; encrypted
+                ◎ Private &amp; encrypted
               </Text>
             </View>
           </View>
@@ -321,21 +322,11 @@ export default function JournalScreen() {
                 <View style={styles.promptLeft}>
                   <Text style={[styles.promptIcon, { color: `rgba(${NEON_RGB.violet},0.8)` }]}>✦</Text>
                   {activePrompt ? (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setJournalBody(activePrompt + '\n\n');
-                        setPromptVisible(false);
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      }}
-                      style={{ flex: 1 }}
-                    >
-                      <Text style={[styles.promptText, { color: theme.text }]} numberOfLines={2}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.promptText, { color: theme.text }]} numberOfLines={3}>
                         "{activePrompt}"
                       </Text>
-                      <Text style={[styles.promptHint, { color: `rgba(${NEON_RGB.violet},0.5)` }]}>
-                        tap to use this prompt
-                      </Text>
-                    </TouchableOpacity>
+                    </View>
                   ) : (
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.promptTitle, { color: theme.text }]}>Need a prompt?</Text>
@@ -345,11 +336,18 @@ export default function JournalScreen() {
                     </View>
                   )}
                 </View>
-                <TouchableOpacity onPress={handleGiveMePrompt}>
-                  <Text style={[styles.giveMeOne, { color: `rgba(${NEON_RGB.violet},0.9)` }]}>
-                    {activePrompt ? 'New one' : 'Give me one'}
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.promptActions}>
+                  <TouchableOpacity onPress={handleGiveMePrompt}>
+                    <Text style={[styles.giveMeOne, { color: `rgba(${NEON_RGB.violet},0.9)` }]}>
+                      {activePrompt ? 'new one' : 'give me one'}
+                    </Text>
+                  </TouchableOpacity>
+                  {activePrompt && (
+                    <TouchableOpacity onPress={() => setActivePrompt(null)} hitSlop={8}>
+                      <Text style={[styles.promptDismiss, { color: `rgba(${NEON_RGB.violet},0.35)` }]}>✕</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             </NeonCard>
           )}
@@ -493,19 +491,6 @@ export default function JournalScreen() {
           <NeonCard theme={theme} glowColor="violet" style={styles.card}>
             <View style={styles.cardInner}>
 
-              {/* Active prompt banner inside journal */}
-              {activePrompt && promptVisible && (
-                <View style={[styles.activePromptBanner, { backgroundColor: `rgba(${NEON_RGB.violet},0.08)`, borderColor: `rgba(${NEON_RGB.violet},0.2)` }]}>
-                  <Text style={[styles.activePromptIcon, { color: `rgba(${NEON_RGB.violet},0.7)` }]}>✦</Text>
-                  <Text style={[styles.activePromptText, { color: `rgba(${NEON_RGB.violet},0.85)` }]} numberOfLines={2}>
-                    {activePrompt}
-                  </Text>
-                  <TouchableOpacity onPress={() => setActivePrompt(null)} hitSlop={8}>
-                    <Text style={[styles.activePromptClose, { color: `rgba(${NEON_RGB.violet},0.4)` }]}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
               <TextInput
                 value={journalBody}
                 onChangeText={setJournalBody}
@@ -582,7 +567,7 @@ export default function JournalScreen() {
                       hitSlop={8}
                       style={styles.deleteTouch}
                     >
-                      <Text style={[styles.deleteBtn, { color: `rgba(255,100,100,0.5)` }]}>🗑 Delete entry</Text>
+                      <Text style={[styles.deleteBtn, { color: `rgba(255,100,100,0.5)` }]}>✕ Delete entry</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -652,20 +637,9 @@ const styles = StyleSheet.create({
   promptTitle: { fontFamily: 'CourierPrime', fontSize: 14, fontWeight: '600' },
   promptText: { fontFamily: 'CourierPrime', fontSize: 13, lineHeight: 20, fontStyle: 'italic' },
   promptHint: { fontFamily: 'CourierPrime', fontSize: 11, marginTop: 3 },
+  promptActions: { alignItems: 'flex-end', gap: 8 },
   giveMeOne: { fontFamily: 'CourierPrime', fontSize: 13, fontWeight: '600' },
-
-  // ── Active prompt banner ──
-  activePromptBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-  },
-  activePromptIcon: { fontSize: 14, marginTop: 1 },
-  activePromptText: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 18, flex: 1, fontStyle: 'italic' },
-  activePromptClose: { fontFamily: 'CourierPrime', fontSize: 20, lineHeight: 22 },
+  promptDismiss: { fontFamily: 'CourierPrime', fontSize: 16, lineHeight: 18 },
 
   // ── Section label ──
   sectionLabel: {
@@ -767,8 +741,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   charCount: { fontFamily: 'CourierPrime', fontSize: 10, flex: 1 },
-  kbBtn: { borderWidth: 1, borderRadius: 6, paddingVertical: 5, paddingHorizontal: 9 },
-  kbText: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1 },
+  kbBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 14 },
+  kbText: { fontFamily: 'CourierPrime', fontSize: 11, letterSpacing: 1.5 },
 
   // ── Entry row ──
   entryRow: { padding: 14, gap: 8 },

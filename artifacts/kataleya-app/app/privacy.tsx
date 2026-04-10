@@ -16,7 +16,7 @@ import { useCircadian } from '@/hooks/useCircadian';
 // Three vaults: Surface (AsyncStorage) / Sanctuary (SQLite) / Fortress (SecureStore)
 const SECTIONS = [
   {
-    title: '🌱  sanctuary — your inner vault',
+    title: '◈  sanctuary — your inner vault',
     items: [
       'every mood log: score, circadian phase, restlessness reading, optional note — stored in SQLite on this device. no network port. no user_id column.',
       'every journal entry, sealed in the app. 4,000 characters. delete-on-demand. never transmitted.',
@@ -25,7 +25,7 @@ const SECTIONS = [
     ],
   },
   {
-    title: '🔒  fortress — hardware-backed keys',
+    title: '◎  fortress — hardware-backed keys',
     items: [
       'sponsor channel credentials and end-to-end encryption keys live in the OS keychain — iOS Secure Enclave on modern iPhones, Android Keystore.',
       'eight keys total. all eight are deleted atomically on disconnect — no orphaned fragments.',
@@ -33,14 +33,14 @@ const SECTIONS = [
     ],
   },
   {
-    title: '🌿  surface — preferences only',
+    title: '·  surface — preferences only',
     items: [
       'your display name, sobriety date, notification preferences, dark mode setting.',
       'no health data lives here. it can be reset anytime without touching sanctuary or fortress.',
     ],
   },
   {
-    title: '🌿  what your sponsor sees',
+    title: '·  what your sponsor sees',
     items: [
       'daily check-in: yes or no. the timestamp is not transmitted — only the date string.',
       'your recovery stage — a single word derived from days sober.',
@@ -50,7 +50,7 @@ const SECTIONS = [
     ],
   },
   {
-    title: '🔒  messages',
+    title: '◎  messages',
     items: [
       'end-to-end encrypted using TweetNaCl — X25519 Diffie-Hellman key exchange, XSalsa20-Poly1305 authenticated encryption.',
       'the relay server stores only ciphertext and a random nonce. it cannot decrypt anything.',
@@ -59,7 +59,7 @@ const SECTIONS = [
     ],
   },
   {
-    title: '🔥  the burn ritual',
+    title: '⌁  the burn ritual',
     items: [
       'phase 1: a tombstone key is written to surface before any wipe begins. crash-safe.',
       'phase 2: sanctuary (SQLite) and fortress (keychain) are wiped in parallel.',
@@ -69,7 +69,7 @@ const SECTIONS = [
     ],
   },
   {
-    title: '🌧  what we never see',
+    title: '∿  what we never see',
     items: [
       'no analytics SDK. no crash reporter. no advertising network of any kind.',
       'no Firebase, Amplitude, Sentry, Mixpanel, or equivalent.',

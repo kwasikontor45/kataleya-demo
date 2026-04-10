@@ -87,8 +87,8 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
   );
 }
 
-const BG = '#1a1a2e';
-const ACCENT = '#87a878';
+const BG = '#050508';
+const ACCENT = '#00d4aa';
 const MUTED = '#5a5870';
 const TEXT = '#e8e4f0';
 

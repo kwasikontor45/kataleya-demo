@@ -20,7 +20,6 @@ import { useSobriety } from '@/hooks/useSobriety';
 import { useOrchidSway } from '@/hooks/useOrchidSway';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useResponsiveHeart } from '@/hooks/useResponsiveHeart';
-import { DataBridge } from '@/components/DataBridge';
 import { GhostPulseOrb } from '@/components/GhostPulseOrb';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { CircadianBadge } from '@/components/CircadianBadge';
@@ -297,8 +296,9 @@ export default function SanctuaryScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: topPad + 12, paddingBottom: botPad + 20 },
+          { paddingTop: topPad + 12, paddingBottom: botPad + 16 },
         ]}
+        scrollEnabled={settingDate}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -355,21 +355,7 @@ export default function SanctuaryScreen() {
           {/* Centre pill — circadian phase + tap to force override */}
           {overrideHint && (
             <View style={{ position: 'absolute', top: 36, alignSelf: 'center', zIndex: 10 }}>
-              <Text style={{ fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
-                {darkOverride ? 'following circadian rhythm' : 'night mode on'}
-              </Text>
-            </View>
-          )}
-          {overrideHint && (
-            <View style={{ position: 'absolute', top: 36, alignSelf: 'center', zIndex: 10 }}>
-              <Text style={{ fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
-                {darkOverride ? 'following circadian rhythm' : 'night mode on'}
-              </Text>
-            </View>
-          )}
-          {overrideHint && (
-            <View style={{ position: 'absolute', top: 36, alignSelf: 'center', zIndex: 10 }}>
-              <Text style={{ fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
+              <Text style={{ fontFamily: 'SpaceMono', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
                 {darkOverride ? 'following circadian rhythm' : 'night mode on'}
               </Text>
             </View>
@@ -609,47 +595,23 @@ export default function SanctuaryScreen() {
           </View>
         )}
 
-        {/* ── PREDICTIVE SUGGESTION — from base44 PredictiveSuggestion ── */}
+        {/* ── PREDICTIVE SUGGESTION — ambient strip, no card ── */}
         {suggestion && !suggestionDismissed && (
-          <NeonCard
-            theme={theme}
-            accentRgb={accentRgb}
-            borderIntensity={0.22}
-            fillIntensity={0.07}
-            style={styles.suggestionCard}
-          >
-            <View style={styles.suggestionInner}>
-              <View style={styles.suggestionText}>
-                <Text style={[styles.suggestionLabel, { color: `rgba(${accentRgb}, 0.55)` }]}>
-                  pattern
-                </Text>
-                <Text style={[styles.suggestionBody, { color: `${theme.text}cc` }]}>
-                  {suggestion}
-                </Text>
-              </View>
-              <View style={styles.suggestionActions}>
-                <TouchableOpacity
-                  onPress={() => { setShowBreathing(true); setSuggestionDismissed(true); }}
-                >
-                  <Text style={[styles.suggestionAction, { color: `rgba(${accentRgb}, 0.85)` }]}>
-                    breathe
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setSuggestionDismissed(true)}>
-                  <Text style={[styles.suggestionDismiss, { color: `${theme.textMuted}55` }]}>
-                    ×
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </NeonCard>
+          <View style={styles.suggestionStrip}>
+            <Text style={[styles.suggestionBody, { color: `${theme.textMuted}99`, flex: 1 }]} numberOfLines={2}>
+              {suggestion}
+            </Text>
+            <TouchableOpacity onPress={() => { setShowBreathing(true); setSuggestionDismissed(true); }}>
+              <Text style={[styles.suggestionAction, { color: `rgba(${accentRgb}, 0.8)` }]}>breathe</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setSuggestionDismissed(true)} hitSlop={8}>
+              <Text style={[styles.suggestionDismiss, { color: `${theme.textMuted}55` }]}>×</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
-        {/* ── MINDFULNESS TILES — NeonCard grid ── */}
+        {/* ── MINDFULNESS TILES ── */}
         <View style={styles.mindfulSection}>
-          <Text style={[styles.mindfulLabel, { color: `rgba(${accentRgb}, 0.35)` }]}>
-            mindfulness
-          </Text>
           <View style={styles.mindfulRow}>
             <NeonCard
               theme={theme}
@@ -681,14 +643,6 @@ export default function SanctuaryScreen() {
               </Text>
             </NeonCard>
           </View>
-        </View>
-
-        {/* DataBridge + phase description */}
-        <View style={styles.heartSection}>
-          <DataBridge phase={phase} theme={theme} size="large" />
-          <Text style={[styles.phaseDesc, { color: `${theme.textMuted}80` }]}>
-            {phaseConfig.description}
-          </Text>
           <TouchableOpacity onPress={() => setShowPrivacy(true)} hitSlop={16} activeOpacity={0.7}>
             <Animated.Text style={[styles.wordmark, { color: theme.textMuted, opacity: wordmarkPulse }]}>
               kataleya
@@ -723,7 +677,12 @@ export default function SanctuaryScreen() {
             onPress={() => setShowPrivacy(false)}
           />
           <View style={[styles.privacySheet, { backgroundColor: theme.bg, borderColor: `rgba(${accentRgb}, 0.2)` }]}>
-            <View style={[styles.sheetHandle, { backgroundColor: `rgba(${accentRgb}, 0.3)` }]} />
+            <View style={styles.sheetTopRow}>
+              <View style={[styles.sheetHandle, { backgroundColor: `rgba(${accentRgb}, 0.3)` }]} />
+              <TouchableOpacity onPress={() => setShowPrivacy(false)} hitSlop={12} style={styles.sheetCloseBtn}>
+                <Text style={[styles.sheetCloseText, { color: `${theme.textMuted}90` }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetScroll}>
               <Text style={[styles.sheetEyebrow, { color: `rgba(${accentRgb}, 0.5)` }]}>
                 about kataleya
@@ -797,9 +756,9 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, height: 320,
     pointerEvents: 'none',
   },
-  scroll: { paddingHorizontal: 24, alignItems: 'center', gap: 8 },
+  scroll: { paddingHorizontal: 24, alignItems: 'center', flexGrow: 1 },
   greeting: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 11,
     letterSpacing: 2,
     textTransform: 'lowercase',
@@ -822,7 +781,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   circadianPillText: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 10,
     letterSpacing: 1.5,
     textTransform: 'lowercase',
@@ -836,7 +795,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   heartPillGlyph: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 10,
     letterSpacing: 3,
   },
@@ -868,13 +827,29 @@ const styles = StyleSheet.create({
     maxHeight: '85%',
     paddingTop: 12,
   },
+  sheetTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 8,
+    position: 'relative',
+  },
   sheetHandle: {
     width: 36, height: 4, borderRadius: 2,
-    alignSelf: 'center', marginBottom: 20,
+  },
+  sheetCloseBtn: {
+    position: 'absolute',
+    right: 20,
+  },
+  sheetCloseText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 18,
+    lineHeight: 22,
   },
   sheetScroll: { paddingHorizontal: 24, paddingBottom: 40, gap: 0 },
   sheetEyebrow: {
-    fontFamily: 'CourierPrime', fontSize: 9,
+    fontFamily: 'SpaceMono', fontSize: 9,
     letterSpacing: 3, textTransform: 'lowercase', marginBottom: 8,
   },
   sheetTitle: {
@@ -888,7 +863,7 @@ const styles = StyleSheet.create({
   sheetSection: { marginBottom: 20 },
   sheetSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   sheetSectionTitle: {
-    fontFamily: 'CourierPrime', fontSize: 10,
+    fontFamily: 'SpaceMono', fontSize: 10,
     letterSpacing: 2, textTransform: 'lowercase', fontWeight: '700',
   },
   sheetItemRow: { flexDirection: 'row', gap: 8, marginBottom: 5, paddingLeft: 22 },
@@ -896,21 +871,21 @@ const styles = StyleSheet.create({
   sheetItem: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 19, flex: 1 },
   sheetBody: { fontFamily: 'CourierPrime', fontSize: 12, lineHeight: 20, paddingLeft: 24, marginTop: 4 },
   sheetFooter: {
-    fontFamily: 'CourierPrime', fontSize: 9,
+    fontFamily: 'SpaceMono', fontSize: 9,
     letterSpacing: 1.5, textAlign: 'center', marginTop: 16,
   },
   wordmark: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 11,
     letterSpacing: 8,
     textTransform: 'lowercase',
     marginTop: 8,
   },
   orbSection: {
+    flex: 1,
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 12,
   },
   timerSection: { alignItems: 'center', gap: 6, width: '100%' },
   dayCount: {
@@ -921,13 +896,13 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   dayLabel: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 11,
     letterSpacing: 3,
     textTransform: 'uppercase',
   },
   hmsCount: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 20,
     letterSpacing: 2,
     marginTop: 2,
@@ -936,14 +911,14 @@ const styles = StyleSheet.create({
   progressTrack: { height: 2, borderRadius: 1, width: '100%', overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 1 },
   nextLabel: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 11,
     letterSpacing: 1,
     textAlign: 'center',
   },
   adjustBtn: { marginTop: 8 },
   adjustText: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 10,
     letterSpacing: 2,
     textTransform: 'lowercase',
@@ -953,7 +928,7 @@ const styles = StyleSheet.create({
   pickerCard: { borderWidth: 1, borderRadius: 12, paddingVertical: 8 },
   webDateCard: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 },
   webDateLabel: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 10,
     letterSpacing: 2,
     textTransform: 'uppercase',
@@ -1007,20 +982,14 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textTransform: 'lowercase',
   },
-  // Predictive suggestion card
-  suggestionCard: { width: '100%', marginTop: 4 },
-  suggestionInner: {
+  // Predictive suggestion — ambient strip
+  suggestionStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
     gap: 12,
-  },
-  suggestionText: { flex: 1, gap: 3 },
-  suggestionLabel: {
-    fontFamily: 'CourierPrime',
-    fontSize: 9,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
+    width: '100%',
+    paddingHorizontal: 4,
+    marginTop: 4,
   },
   suggestionBody: {
     fontFamily: 'CourierPrime',
@@ -1030,7 +999,7 @@ const styles = StyleSheet.create({
   },
   suggestionActions: { alignItems: 'center', gap: 8 },
   suggestionAction: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 11,
     letterSpacing: 1.5,
     textTransform: 'lowercase',
@@ -1041,51 +1010,28 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   // Mindfulness tiles
-  mindfulSection: { width: '100%', gap: 10, marginTop: 8 },
-  mindfulLabel: {
-    fontFamily: 'CourierPrime',
-    fontSize: 9,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
+  mindfulSection: { width: '100%', gap: 8, marginTop: 12 },
   mindfulRow: { flexDirection: 'row', gap: 10 },
   mindfulCard: {
     flex: 1,
-    paddingVertical: 18,
+    paddingVertical: 14,
     paddingHorizontal: 12,
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   mindfulGlyph: { fontSize: 24, lineHeight: 28 },
   mindfulCardTitle: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 13,
     letterSpacing: 2,
     textTransform: 'lowercase',
     fontWeight: '700',
   },
   mindfulCardSub: {
-    fontFamily: 'CourierPrime',
+    fontFamily: 'SpaceMono',
     fontSize: 9,
     letterSpacing: 1.5,
     textAlign: 'center',
-  },
-  // DataBridge section
-  heartSection: {
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 16,
-    paddingBottom: 8,
-    width: '100%',
-  },
-  phaseDesc: {
-    fontFamily: 'CourierPrime',
-    fontSize: 11,
-    letterSpacing: 1,
-    textAlign: 'center',
-    lineHeight: 18,
-    maxWidth: 280,
   },
   privacyLink: {
     fontFamily: 'CourierPrime',

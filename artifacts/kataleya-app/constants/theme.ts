@@ -1,96 +1,80 @@
 // constants/theme.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Fix: TypeScript interfaces cannot have hyphenated property names.
-// All keys are camelCase. References in components updated to match.
+// Ouroboros Protocol — Scar Palette
+// All phases share Null Black (#050508) as base.
+// Accent shifts per phase. Background never changes — only the signal does.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface ThemeTokens {
   bg: string;
   surface: string;
-  surfaceHighlight: string;   // was surface-highlight
+  surfaceHighlight: string;
   gold: string;
   accent: string;
-  accentSoft: string;         // was accent-soft
+  accentSoft: string;
   text: string;
-  textMuted: string;          // was text-muted
-  textInverse: string;        // was text-inverse
+  textMuted: string;
+  textInverse: string;
   success: string;
   warning: string;
   danger: string;
-  phaseRgb: string;           // was phase-rgb
+  phaseRgb: string;
   border: string;
 }
 
-// ── DAWN (05:00–08:00) ────────────────────────────────────────────────────────
+// ── Shared base across all phases ─────────────────────────────────────────────
+const BASE = {
+  bg:               '#050508',   // Null Black — the void before choice
+  surface:          '#0d0d14',   // barely lifted from void
+  surfaceHighlight: '#14141f',   // active surface
+  text:             '#e8e6f0',   // near-white, cool undertone
+  textMuted:        '#8a8a9e',   // Scar Silver — past iterations, neutralised
+  textInverse:      '#050508',
+  success:          '#00d4aa',   // Choice Cyan — always the mark of clarity
+  warning:          '#ff6b35',   // Craving Amber — acknowledge, don't suppress
+  danger:           '#ff3366',   // scar red
+  border:           '#1c1c28',
+};
+
+// ── DAWN (05:00–08:00) — systems coming online ────────────────────────────────
+// Choice Cyan. The moment of first light. Irreversible.
 export const DawnTheme: ThemeTokens = {
-  bg:               '#0d1117',
-  surface:          '#161c27',
-  surfaceHighlight: '#1e2535',
-  gold:             '#d4876b',
-  accent:           '#8fb3cc',
-  accentSoft:       '#c9a27a',
-  text:             '#dce6f0',
-  textMuted:        '#7a95ae',
-  textInverse:      '#0d1117',
-  success:          '#5ba88a',
-  warning:          '#c9a27a',
-  danger:           '#c06a5a',
-  phaseRgb:         '143,179,204',
-  border:           '#2a3648',
+  ...BASE,
+  gold:        '#00d4aa',
+  accent:      '#00d4aa',   // Choice Cyan
+  accentSoft:  '#007a62',
+  phaseRgb:    '0,212,170',
 };
 
-// ── DAY (08:00–17:00) ─────────────────────────────────────────────────────────
+// ── DAY (08:00–17:00) — full presence, everything nominal ─────────────────────
+// Cyan at peak brightness. The sharpest the signal gets.
 export const DayTheme: ThemeTokens = {
-  bg:               '#0c1a12',
-  surface:          '#132318',
-  surfaceHighlight: '#1c3024',
-  gold:             '#c8a84b',
-  accent:           '#5fbf8a',
-  accentSoft:       '#9ecfb0',
-  text:             '#d4e8d4',
-  textMuted:        '#6a9678',
-  textInverse:      '#0c1a12',
-  success:          '#5fbf8a',
-  warning:          '#c8a84b',
-  danger:           '#c06a5a',
-  phaseRgb:         '95,191,138',
-  border:           '#283d2f',
+  ...BASE,
+  gold:        '#00ecc4',
+  accent:      '#00ecc4',   // brightest cyan — maximum clarity
+  accentSoft:  '#00d4aa',
+  phaseRgb:    '0,236,196',
 };
 
-// ── GOLDEN HOUR (17:00–20:00) ─────────────────────────────────────────────────
+// ── GOLDEN HOUR (17:00–20:00) — the threshold ────────────────────────────────
+// Craving Amber. Desire acknowledged, not suppressed.
+// The heaviest phase. Between one self and the next.
 export const GoldenHourTheme: ThemeTokens = {
-  bg:               '#120e06',
-  surface:          '#1e1608',
-  surfaceHighlight: '#2c200e',
-  gold:             '#e8c56a',
-  accent:           '#d4956a',
-  accentSoft:       '#b87340',
-  text:             '#f5e6c8',
-  textMuted:        '#a88050',
-  textInverse:      '#120e06',
-  success:          '#7fc9c9',
-  warning:          '#e8c56a',
-  danger:           '#ff6b6b',
-  phaseRgb:         '212,149,106',
-  border:           '#3d2e14',
+  ...BASE,
+  gold:        '#ff6b35',
+  accent:      '#ff6b35',   // Craving Amber
+  accentSoft:  '#cc4a1a',
+  phaseRgb:    '255,107,53',
 };
 
-// ── NIGHT (20:00–05:00) ───────────────────────────────────────────────────────
+// ── NIGHT (20:00–05:00) — cloaked, maximum awareness ─────────────────────────
+// Resolve Violet. The self that survives the cycle. Sharpened.
 export const NightTheme: ThemeTokens = {
-  bg:               '#0e0c14',
-  surface:          '#1a1625',
-  surfaceHighlight: '#252236',
-  gold:             '#e8c56a',
-  accent:           '#7fc9c9',
-  accentSoft:       '#9b6dff',
-  text:             '#f0e6ff',
-  textMuted:        '#a89bb8',
-  textInverse:      '#0e0c14',
-  success:          '#7fc9c9',
-  warning:          '#e8c56a',
-  danger:           '#ff6b6b',
-  phaseRgb:         '127,201,201',
-  border:           '#302d44',
+  ...BASE,
+  gold:        '#9b6dff',
+  accent:      '#9b6dff',   // Resolve Violet (readable on Null Black)
+  accentSoft:  '#7b2cbf',
+  phaseRgb:    '155,109,255',
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -106,15 +90,15 @@ export function themeForPhase(phase: CircadianPhase): ThemeTokens {
   }
 }
 
-// Legacy aliases — bridge.tsx and any old imports
+// Legacy alias
 export const MidnightGarden = NightTheme;
 
 export function getPhasePair(phase: CircadianPhase): [ThemeTokens, ThemeTokens] {
   switch (phase) {
-    case 'dawn':       return [NightTheme,     DawnTheme];
-    case 'day':        return [DawnTheme,       DayTheme];
-    case 'goldenHour': return [DayTheme,        GoldenHourTheme];
-    case 'night':      return [GoldenHourTheme, NightTheme];
-    default:           return [NightTheme,      NightTheme];
+    case 'dawn':       return [NightTheme,      DawnTheme];
+    case 'day':        return [DawnTheme,        DayTheme];
+    case 'goldenHour': return [DayTheme,         GoldenHourTheme];
+    case 'night':      return [GoldenHourTheme,  NightTheme];
+    default:           return [NightTheme,       NightTheme];
   }
 }

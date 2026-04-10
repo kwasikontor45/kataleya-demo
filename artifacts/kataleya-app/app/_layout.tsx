@@ -4,6 +4,10 @@ import {
   CourierPrime_400Regular_Italic,
   useFonts,
 } from '@expo-google-fonts/courier-prime';
+import {
+  SpaceMono_400Regular,
+  SpaceMono_700Bold,
+} from '@expo-google-fonts/space-mono';
 import { Feather } from '@expo/vector-icons';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
@@ -30,15 +34,15 @@ function RootLayoutNav() {
       screenOptions={{
         headerShown: false,
         animation: 'fade',
-        contentStyle: { backgroundColor: '#1a1a2e' },
+        contentStyle: { backgroundColor: '#050508' },
       }}
     >
-      <Stack.Screen name="bridge" options={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: '#1a1a2e' } }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false, contentStyle: { backgroundColor: '#1a1a2e' } }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false, contentStyle: { backgroundColor: '#1a1a2e' } }} />
+      <Stack.Screen name="bridge" options={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: '#050508' } }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false, contentStyle: { backgroundColor: '#050508' } }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false, contentStyle: { backgroundColor: '#050508' } }} />
       <Stack.Screen name="burn" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="cover" options={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: '#000000' } }} />
-      <Stack.Screen name="privacy" options={{ headerShown: false, contentStyle: { backgroundColor: '#1a1a2e' } }} />
+      <Stack.Screen name="privacy" options={{ headerShown: false, contentStyle: { backgroundColor: '#050508' } }} />
     </Stack>
   );
 }
@@ -48,6 +52,8 @@ export default function RootLayout() {
     CourierPrime: CourierPrime_400Regular,
     'CourierPrime-Bold': CourierPrime_700Bold,
     'CourierPrime-Italic': CourierPrime_400Regular_Italic,
+    SpaceMono: SpaceMono_400Regular,
+    'SpaceMono-Bold': SpaceMono_700Bold,
     ...Feather.font,
   });
 
@@ -63,7 +69,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#1a1a2e' }}>
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#050508' }}>
             <KeyboardProvider>
               <RootLayoutNav />
             </KeyboardProvider>

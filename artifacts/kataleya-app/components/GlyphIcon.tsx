@@ -44,12 +44,17 @@ export type GlyphName =
   // Mindfulness
   | 'wave'       // single sine wave — breathe
   | 'ground'     // horizontal line + three rising vertical marks — grounding
+  // Tab bar
+  | 'orb'        // sanctuary — three concentric rings, innermost filled
+  | 'cycle'      // cycles/growth — broken ouroboros arc with arrowhead
+  | 'quill'      // journal — angled nib mark
+  | 'signal'     // sponsor — emanating arcs from a point
   // Utility
   | 'dot'        // filled circle
   | 'star'       // four-point star ✦
   | 'check';     // simple checkmark
 
-export function GlyphIcon({ name, size = 18, color = '#87a878', strokeWidth = 1.5 }: Props) {
+export function GlyphIcon({ name, size = 18, color = '#8a8a9e', strokeWidth = 1.5 }: Props) {
   const s = strokeWidth;
   const c = color;
 
@@ -221,6 +226,42 @@ export function GlyphIcon({ name, size = 18, color = '#87a878', strokeWidth = 1.
           <Line x1="7"  y1="14" x2="7"  y2="9"  {...sharedProps} />
           <Line x1="10" y1="14" x2="10" y2="6"  {...sharedProps} />
           <Line x1="13" y1="14" x2="13" y2="10" {...sharedProps} />
+        </>;
+
+      // ── Tab bar ───────────────────────────────────────────────────────
+
+      case 'orb':
+        // Sanctuary — three concentric rings, innermost softly filled
+        // References the GhostPulseOrb — presence without noise
+        return <>
+          <Circle cx="10" cy="10" r="8" {...sharedProps} strokeOpacity={0.2} />
+          <Circle cx="10" cy="10" r="5" {...sharedProps} strokeOpacity={0.5} />
+          <Circle cx="10" cy="10" r="2.5" fill={c} stroke="none" opacity={0.9} />
+        </>;
+
+      case 'cycle':
+        // Cycles/Growth — an arc that almost closes, arrowhead at the gap
+        // The Ouroboros: never complete, always returning
+        return <>
+          <Path d="M10 3 A7 7 0 1 1 4.5 14.5" {...sharedProps} />
+          <Path d="M2 12 L4.5 14.5 L7 12" {...sharedProps} />
+        </>;
+
+      case 'quill':
+        // Journal — a nib pressing into the page, leaving a mark
+        return <>
+          <Path d="M6 16 L10 4 L14 16" {...sharedProps} />
+          <Line x1="7.5" y1="12" x2="12.5" y2="12" {...sharedProps} strokeOpacity={0.5} />
+          <Circle cx="10" cy="17" r="1" fill={c} stroke="none" opacity={0.6} />
+        </>;
+
+      case 'signal':
+        // Sponsor/Signal — three arcs emanating from a center point
+        // The blind relay: signal sent, signal received, nothing stored
+        return <>
+          <Circle cx="10" cy="13" r="1.5" fill={c} stroke="none" />
+          <Path d="M6 10 Q6 6 10 6 Q14 6 14 10" {...sharedProps} strokeOpacity={0.5} />
+          <Path d="M3.5 12.5 Q3.5 4 10 4 Q16.5 4 16.5 12.5" {...sharedProps} strokeOpacity={0.25} />
         </>;
 
       // ── Utility ───────────────────────────────────────────────────────

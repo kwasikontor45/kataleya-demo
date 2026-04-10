@@ -16,7 +16,7 @@ const SENSES = [
     count: 5,
     sense: 'see',
     glyph: '◉',
-    color: '#87a878',
+    color: '#00d4aa',   // Choice Cyan
     instruction: 'look around slowly.\nname five things you can see.',
     examples: ['a door', 'your hands', 'a light', 'a shadow', 'the floor'],
   },
@@ -24,7 +24,7 @@ const SENSES = [
     count: 4,
     sense: 'touch',
     glyph: '◈',
-    color: '#d4a373',
+    color: '#9b6dff',   // Resolve Violet
     instruction: 'notice what is in contact with your body.\nname four things you can feel.',
     examples: ['your breath', 'fabric', 'warmth', 'your weight'],
   },
@@ -32,7 +32,7 @@ const SENSES = [
     count: 3,
     sense: 'hear',
     glyph: '◎',
-    color: '#81b29a',
+    color: '#00ecc4',   // Day cyan — brightest clarity
     instruction: 'go quiet inside.\nname three sounds you can hear.',
     examples: ['distant traffic', 'your breathing', 'silence'],
   },
@@ -40,7 +40,7 @@ const SENSES = [
     count: 2,
     sense: 'smell',
     glyph: '◌',
-    color: '#87a878',
+    color: '#ff6b35',   // Craving Amber — acknowledge what's present
     instruction: 'breathe slowly.\nname two things you can smell.',
     examples: ['air', 'something nearby'],
   },
@@ -48,7 +48,7 @@ const SENSES = [
     count: 1,
     sense: 'taste',
     glyph: '◍',
-    color: '#e07a5f',
+    color: '#ff3366',   // Scar Red — the sharpest sense, closest to the body
     instruction: 'bring your attention inside your mouth.\nname one thing you can taste.',
     examples: ['nothing — and that is fine'],
   },
@@ -179,8 +179,8 @@ export function GroundingExercise({ visible, onClose, theme }: Props) {
             <Text style={styles.completionSub}>
               you are here.{'\n'}you are safe.{'\n'}you made it through.
             </Text>
-            <TouchableOpacity onPress={onClose} style={[styles.completionBtn, { borderColor: '#87a878' }]}>
-              <Text style={[styles.completionBtnText, { color: '#87a878' }]}>return to sanctuary</Text>
+            <TouchableOpacity onPress={onClose} style={[styles.completionBtn, { borderColor: '#00d4aa' }]}>
+              <Text style={[styles.completionBtnText, { color: '#00d4aa' }]}>return to sanctuary</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     gap: 18,
     paddingHorizontal: 32,
   },
-  completionGlyph: { fontSize: 52, color: '#87a878' },
+  completionGlyph: { fontSize: 52, color: '#00d4aa' },
   completionTitle: { fontFamily: 'CourierPrime', fontSize: 32, color: '#ffffff', letterSpacing: 6, fontWeight: '700' },
   completionSub: { fontFamily: 'CourierPrime', fontSize: 15, color: '#ffffff66', letterSpacing: 0.5, textAlign: 'center', lineHeight: 26 },
   completionBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 16, paddingHorizontal: 36, marginTop: 10 },

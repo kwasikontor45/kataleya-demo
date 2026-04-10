@@ -19,11 +19,11 @@ import { NEON_RGB } from './NeonCard';
  * and scales with the responsive heart BPM engine. Ring size scales with
  * milestone stage so growth is visually communicated without botanical metaphor.
  *
- * Color shifts with circadian phase:
- *   day         → cyan   (#7fc9c9)
- *   goldenHour  → amber  (#e8c56a)
- *   night       → violet (#9b6dff)
- *   dawn        → pink   (#d0607a)
+ * Color shifts with circadian phase — Scar Palette:
+ *   dawn        → Choice Cyan    (#00d4aa)  systems online
+ *   day         → Day Cyan       (#00ecc4)  full presence
+ *   goldenHour  → Craving Amber  (#ff6b35)  the threshold
+ *   night       → Resolve Violet (#9b6dff)  deep cloak
  *
  * The restlessnessScore (0–1) from useOrchidSway makes the outer ring
  * ripple faster when the user is physically agitated.
@@ -45,14 +45,14 @@ function orbSizeForDays(daysSober: number): number {
 // Human-readable recovery stage — shown below the orb
 // Tells the user where they are in plain language
 function stageLabel(daysSober: number): string {
-  if (daysSober >= 365) return 'one full year of freedom';
-  if (daysSober >= 180) return 'six months strong';
-  if (daysSober >= 90)  return 'three months in';
-  if (daysSober >= 30)  return 'one month forward';
-  if (daysSober >= 14)  return 'two weeks of courage';
-  if (daysSober >= 7)   return 'one week done';
-  if (daysSober >= 1)   return 'your first day counts';
-  return 'the garden is waiting for you';
+  if (daysSober >= 365) return 'one full cycle complete';
+  if (daysSober >= 180) return 'sharpened through six months';
+  if (daysSober >= 90)  return 'three months — the scar holds';
+  if (daysSober >= 30)  return 'one month rewritten';
+  if (daysSober >= 14)  return 'two weeks of chosen return';
+  if (daysSober >= 7)   return 'one cycle closed';
+  if (daysSober >= 1)   return 'the first mark is made';
+  return 'the signal is waiting for you';
 }
 
 // What the movement sensor shows — plain English

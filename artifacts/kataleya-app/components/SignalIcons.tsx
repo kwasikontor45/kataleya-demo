@@ -68,7 +68,7 @@ function WaveLayer({ color, svgW, height, cy, amplitude, opacity, strokeWidth, p
 }
 
 export function WaterVisual({
-  color = '#87a878',
+  color = '#00d4aa',
   width = 200,
   height = 36,
 }: {
@@ -110,7 +110,7 @@ export function WaterVisual({
 // The outer corona pulses on a slow breath cycle.
 
 export function LightVisual({
-  color = '#d4a373',
+  color = '#9b6dff',
   size = 36,
 }: {
   color?: string;
@@ -195,11 +195,11 @@ export function LightVisual({
 
 // ── Compact banner variants ───────────────────────────────────────────────────
 
-export function WaterBanner({ color = '#87a878' }: { color?: string }) {
+export function WaterBanner({ color = '#00d4aa' }: { color?: string }) {
   return <WaterVisual color={color} width={88} height={28} />;
 }
 
-export function LightBanner({ color = '#d4a373' }: { color?: string }) {
+export function LightBanner({ color = '#9b6dff' }: { color?: string }) {
   return <LightVisual color={color} size={28} />;
 }
 

@@ -207,7 +207,7 @@ export default function VaultScreen() {
           {/* Delete */}
           <View style={styles.rightsRow}>
             <View style={[styles.rightsIcon, { backgroundColor: 'rgba(255,107,107,0.1)', borderColor: 'rgba(255,107,107,0.2)' }]}>
-              <Text style={styles.rightsIconText}>🗑</Text>
+              <Text style={styles.rightsIconText}>✕</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.rightsLabel, { color: theme.text }]}>Delete all data</Text>

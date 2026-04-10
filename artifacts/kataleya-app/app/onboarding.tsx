@@ -18,7 +18,7 @@ const { width } = Dimensions.get('window');
 
 // ── SVG Icons — no emojis, theme-colored ─────────────────────────────────────
 
-const IconBridge = ({ color = '#7fc9c9', size = 64 }) => (
+const IconBridge = ({ color = '#8a8a9e', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     {/* Outer ring — barely visible */}
     <Circle cx={32} cy={32} r={30} fill="none" stroke={color} strokeWidth={0.6} opacity={0.15} />
@@ -42,7 +42,7 @@ const IconBridge = ({ color = '#7fc9c9', size = 64 }) => (
   </Svg>
 );
 
-const IconPerson = ({ color = '#7fc9c9', size = 64 }) => (
+const IconPerson = ({ color = '#8a8a9e', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Circle cx={32} cy={18} r={10} fill="none" stroke={color} strokeWidth={2} />
     <Path d="M12 54 C12 38 20 32 32 32 C44 32 52 38 52 54"
@@ -51,7 +51,7 @@ const IconPerson = ({ color = '#7fc9c9', size = 64 }) => (
   </Svg>
 );
 
-const IconRecovery = ({ color = '#7fc9c9', size = 64 }) => (
+const IconRecovery = ({ color = '#8a8a9e', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Path d="M8 52 L14 38 L20 44 L26 28 L32 32"
       fill="none" stroke={color} strokeWidth={2}
@@ -63,7 +63,7 @@ const IconRecovery = ({ color = '#7fc9c9', size = 64 }) => (
   </Svg>
 );
 
-const IconClock = ({ color = '#7fc9c9', size = 64 }) => (
+const IconClock = ({ color = '#8a8a9e', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Circle cx={32} cy={32} r={24} fill="none" stroke={color} strokeWidth={2} opacity={0.35} />
     <Circle cx={32} cy={32} r={16} fill="none" stroke={color} strokeWidth={1} opacity={0.25} />
@@ -77,7 +77,7 @@ const IconClock = ({ color = '#7fc9c9', size = 64 }) => (
   </Svg>
 );
 
-const IconVault = ({ color = '#7fc9c9', size = 64 }) => (
+const IconVault = ({ color = '#8a8a9e', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Path d="M32 6 L54 16 L54 36 C54 48 44 56 32 60 C20 56 10 48 10 36 L10 16 Z"
       fill="none" stroke={color} strokeWidth={2} opacity={0.45} />
@@ -89,7 +89,7 @@ const IconVault = ({ color = '#7fc9c9', size = 64 }) => (
   </Svg>
 );
 
-const IconBell = ({ color = '#7fc9c9', size = 64 }) => (
+const IconBell = ({ color = '#8a8a9e', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Path d="M20 42 L20 28 Q20 16 32 14 Q44 16 44 28 L44 42 Z"
       fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
@@ -101,7 +101,7 @@ const IconBell = ({ color = '#7fc9c9', size = 64 }) => (
   </Svg>
 );
 
-const IconOrchid = ({ color = '#7fc9c9', size = 64 }) => (
+const IconOrchid = ({ color = '#8a8a9e', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Circle cx={32} cy={32} r={28} fill="none" stroke={color} strokeWidth={0.8} opacity={0.12} />
     <Circle cx={32} cy={32} r={20} fill="none" stroke={color} strokeWidth={1}   opacity={0.2} />
