@@ -583,9 +583,7 @@ export default function Onboarding() {
                 )}
               </View>
             ))}
-            <Text style={[styles.notifsHint, { color: `${theme.textMuted}55` }]}>
-              tap to change · hold to go back
-            </Text>
+
           </View>
         )}
 
@@ -776,13 +774,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     opacity: 0.6,
   },
-  notifsHint: {
-    fontFamily: 'CourierPrime',
-    fontSize: 9,
-    textAlign: 'center',
-    letterSpacing: 1,
-    marginTop: 4,
-  },
+
   reminderBlock: { gap: 0 },
   reminderRow: {
     flexDirection: 'column',
