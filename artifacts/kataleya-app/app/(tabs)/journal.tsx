@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
+import React, { useState, useEffect, useCallback, useRef } from 'react';import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
@@ -36,41 +35,131 @@ const MOOD_PILL_LABELS = [
   { score: 10, label: 'blooming', rgb: '60,220,120'  },
 ];
 
-// ── Circadian-aware journal prompts ──────────────────────────────────────────
-const PROMPTS: Record<string, string[]> = {
-  dawn: [
-    'What intention do I want to carry into today?',
-    'What does a good day look like for me right now?',
-    'What am I grateful for this morning?',
-    'What would I say to myself one year from now?',
-    'What is one small thing I can do for myself today?',
-  ],
-  day: [
-    'Who helped me today, and how can I show appreciation?',
-    'What is testing my patience right now?',
-    'What moment today felt most like me?',
-    'What do I need to let go of before tonight?',
-    'What did I do today that I am proud of?',
-  ],
-  goldenHour: [
-    'How did today compare to what I hoped for?',
-    'What feeling am I carrying into the evening?',
-    'What would I do differently if I had today again?',
-    'What made today worth showing up for?',
-    'Who or what gave me strength today?',
-  ],
-  night: [
-    'What is weighing on me right now that I can release here?',
-    'What does rest mean for me tonight?',
-    'What do I want tomorrow to feel like?',
-    'What is one thing I survived today that I did not think I could?',
-    'If this moment could speak, what would it say?',
-  ],
-};
+// ── Circadian-aware journal prompts — large pool, mood-weighted ───────────────
 
-function getPrompt(phase: string): string {
-  const pool = PROMPTS[phase] ?? PROMPTS.day;
-  return pool[Math.floor(Math.random() * pool.length)];
+// Each prompt has a phase, a mood tier (low/mid/high), and the text.
+// Low = struggling (score ≤ 4), mid = stable (5–7), high = thriving (8+)
+type MoodTier = 'low' | 'mid' | 'high' | 'any';
+interface Prompt { phase: string; tier: MoodTier; text: string; }
+
+const PROMPT_POOL: Prompt[] = [
+  // ── DAWN ──────────────────────────────────────────────────────────────────
+  { phase: 'dawn', tier: 'low',  text: 'What is one small thing I can do to be gentle with myself today?' },
+  { phase: 'dawn', tier: 'low',  text: 'What does rest look like for me this morning, even if just for five minutes?' },
+  { phase: 'dawn', tier: 'low',  text: 'What would I say to a friend who woke up feeling the way I do right now?' },
+  { phase: 'dawn', tier: 'low',  text: 'What do I need most today, and how can I ask for it?' },
+  { phase: 'dawn', tier: 'low',  text: 'What am I carrying from yesterday that I can choose to set down?' },
+  { phase: 'dawn', tier: 'mid',  text: 'What intention do I want to carry into today?' },
+  { phase: 'dawn', tier: 'mid',  text: 'What does a good day look like for me right now?' },
+  { phase: 'dawn', tier: 'mid',  text: 'What am I grateful for this morning?' },
+  { phase: 'dawn', tier: 'mid',  text: 'What is one thing I am looking forward to today?' },
+  { phase: 'dawn', tier: 'mid',  text: 'What would help me feel grounded before the day begins?' },
+  { phase: 'dawn', tier: 'mid',  text: 'Who do I want to be today, and what would that look like in practice?' },
+  { phase: 'dawn', tier: 'high', text: 'What would I say to myself one year from now?' },
+  { phase: 'dawn', tier: 'high', text: 'What is something I am building slowly that deserves acknowledgment?' },
+  { phase: 'dawn', tier: 'high', text: 'What has changed in me over the past month that I am proud of?' },
+  { phase: 'dawn', tier: 'high', text: 'What does thriving feel like in my body right now?' },
+  { phase: 'dawn', tier: 'any',  text: 'If this morning had a color, what would it be and why?' },
+  { phase: 'dawn', tier: 'any',  text: 'What does my body need before anything else today?' },
+  { phase: 'dawn', tier: 'any',  text: 'What is one truth I know about myself that I want to remember today?' },
+
+  // ── DAY ───────────────────────────────────────────────────────────────────
+  { phase: 'day',  tier: 'low',  text: 'What is making today feel heavy, and what is one thing I can release?' },
+  { phase: 'day',  tier: 'low',  text: 'What do I need right now that I have not asked for?' },
+  { phase: 'day',  tier: 'low',  text: 'What would I tell someone I love if they were having a day like mine?' },
+  { phase: 'day',  tier: 'low',  text: 'What is one moment today, however small, where I showed up for myself?' },
+  { phase: 'day',  tier: 'low',  text: 'What feeling am I avoiding right now, and what would happen if I let it exist?' },
+  { phase: 'day',  tier: 'mid',  text: 'Who helped me today, and how can I show appreciation?' },
+  { phase: 'day',  tier: 'mid',  text: 'What is testing my patience right now?' },
+  { phase: 'day',  tier: 'mid',  text: 'What moment today felt most like me?' },
+  { phase: 'day',  tier: 'mid',  text: 'What do I need to let go of before tonight?' },
+  { phase: 'day',  tier: 'mid',  text: 'What did I do today that I am proud of?' },
+  { phase: 'day',  tier: 'mid',  text: 'What surprised me today?' },
+  { phase: 'day',  tier: 'mid',  text: 'What boundary did I hold today, or wish I had?' },
+  { phase: 'day',  tier: 'high', text: 'What is something I am building that I have not told anyone about yet?' },
+  { phase: 'day',  tier: 'high', text: 'What does momentum feel like for me right now?' },
+  { phase: 'day',  tier: 'high', text: 'What am I most curious about in my own growth?' },
+  { phase: 'day',  tier: 'any',  text: 'What is one conversation I keep having with myself that deserves to be written down?' },
+  { phase: 'day',  tier: 'any',  text: 'If my recovery had a season right now, what would it be?' },
+  { phase: 'day',  tier: 'any',  text: 'What does courage look like for me today?' },
+
+  // ── GOLDEN HOUR ───────────────────────────────────────────────────────────
+  { phase: 'goldenHour', tier: 'low',  text: 'What got me through today, even if it was just one breath at a time?' },
+  { phase: 'goldenHour', tier: 'low',  text: 'What do I need to feel safe this evening?' },
+  { phase: 'goldenHour', tier: 'low',  text: 'What is one kind thing I can do for myself before the night comes?' },
+  { phase: 'goldenHour', tier: 'low',  text: 'What would I forgive myself for today if I let myself?' },
+  { phase: 'goldenHour', tier: 'low',  text: 'What does my body need to exhale right now?' },
+  { phase: 'goldenHour', tier: 'mid',  text: 'How did today compare to what I hoped for?' },
+  { phase: 'goldenHour', tier: 'mid',  text: 'What feeling am I carrying into the evening?' },
+  { phase: 'goldenHour', tier: 'mid',  text: 'What would I do differently if I had today again?' },
+  { phase: 'goldenHour', tier: 'mid',  text: 'What made today worth showing up for?' },
+  { phase: 'goldenHour', tier: 'mid',  text: 'Who or what gave me strength today?' },
+  { phase: 'goldenHour', tier: 'mid',  text: 'What conversation from today is still sitting with me?' },
+  { phase: 'goldenHour', tier: 'high', text: 'What is something good that happened today that I almost let slip by unnoticed?' },
+  { phase: 'goldenHour', tier: 'high', text: 'What does this evening feel like compared to one month ago?' },
+  { phase: 'goldenHour', tier: 'high', text: 'What am I most looking forward to tomorrow?' },
+  { phase: 'goldenHour', tier: 'any',  text: 'If today had a title like a chapter in a book, what would it be?' },
+  { phase: 'goldenHour', tier: 'any',  text: 'What is something small I noticed today that felt meaningful?' },
+  { phase: 'goldenHour', tier: 'any',  text: 'What do I want to remember about today?' },
+
+  // ── NIGHT ─────────────────────────────────────────────────────────────────
+  { phase: 'night', tier: 'low',  text: 'What is weighing on me right now that I can release here?' },
+  { phase: 'night', tier: 'low',  text: 'What kept me going today when everything felt like too much?' },
+  { phase: 'night', tier: 'low',  text: 'What do I wish someone would say to me right now?' },
+  { phase: 'night', tier: 'low',  text: 'What is one thing I survived today that I did not think I could?' },
+  { phase: 'night', tier: 'low',  text: 'What does my body need most before sleep?' },
+  { phase: 'night', tier: 'low',  text: 'What am I afraid of right now, and what would help me feel less alone with it?' },
+  { phase: 'night', tier: 'mid',  text: 'What does rest mean for me tonight?' },
+  { phase: 'night', tier: 'mid',  text: 'What do I want tomorrow to feel like?' },
+  { phase: 'night', tier: 'mid',  text: 'If this moment could speak, what would it say?' },
+  { phase: 'night', tier: 'mid',  text: 'What thought keeps returning tonight, and what does it need?' },
+  { phase: 'night', tier: 'mid',  text: 'What am I holding onto that I could put down before sleep?' },
+  { phase: 'night', tier: 'high', text: 'What does peace feel like in my life right now compared to before?' },
+  { phase: 'night', tier: 'high', text: 'What is something I used to fear that no longer has the same power?' },
+  { phase: 'night', tier: 'high', text: 'What does my future self look like, and how close does it feel?' },
+  { phase: 'night', tier: 'any',  text: 'What is one thing I want to remember when tomorrow feels hard?' },
+  { phase: 'night', tier: 'any',  text: 'What would I write to the version of me from one year ago?' },
+  { phase: 'night', tier: 'any',  text: 'What is something true about me that no one else can take away?' },
+];
+
+// Mood-weighted prompt picker — reads recent Sanctuary logs
+// Low mood → prefers 'low' tier prompts. High mood → prefers 'high'.
+// Never repeats the last shown prompt in a session.
+async function getWeightedPrompt(
+  phase: string,
+  lastPrompt: string | null,
+): Promise<string> {
+  let tier: MoodTier = 'mid';
+  try {
+    const logs = await Sanctuary.getMoodLogs(10);
+    if (logs.length >= 3) {
+      const avg = logs.slice(0, 5).reduce((s, l) => s + l.moodScore, 0) / Math.min(logs.length, 5);
+      if (avg <= 4) tier = 'low';
+      else if (avg >= 7.5) tier = 'high';
+      else tier = 'mid';
+    }
+  } catch { tier = 'mid'; }
+
+  // Filter by phase — prefer exact phase, fall back to 'any'
+  const phasePool = PROMPT_POOL.filter(p => p.phase === phase);
+  const anyPool   = PROMPT_POOL.filter(p => p.phase === phase && p.tier === 'any');
+
+  // Weighted selection — primary tier gets 3x weight, 'any' always included
+  const weighted = [
+    ...phasePool.filter(p => p.tier === tier),
+    ...phasePool.filter(p => p.tier === tier),
+    ...phasePool.filter(p => p.tier === tier),
+    ...anyPool,
+    ...phasePool.filter(p => p.tier !== tier && p.tier !== 'any'),
+  ].filter(p => p.text !== lastPrompt); // never repeat last shown
+
+  if (weighted.length === 0) {
+    // Fallback — just pick anything from the phase
+    const fallback = phasePool.filter(p => p.text !== lastPrompt);
+    return fallback[Math.floor(Math.random() * fallback.length)]?.text ?? phasePool[0].text;
+  }
+
+  return weighted[Math.floor(Math.random() * weighted.length)].text;
 }
 
 function formatTs(ts: number): string {
@@ -137,6 +226,7 @@ export default function JournalScreen() {
   // ── Prompt card state ─────────────────────────────────────────────────────
   const [activePrompt, setActivePrompt] = useState<string | null>(null);
   const [promptVisible, setPromptVisible] = useState(true);
+  const lastPromptRef = useRef<string | null>(null);
 
   const keyboardVisible = moodNoteFocused || journalFocused;
 
@@ -151,15 +241,13 @@ export default function JournalScreen() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleGiveMePrompt = () => {
-    const prompt = getPrompt(phase);
+  const handleGiveMePrompt = async () => {
+    const prompt = await getWeightedPrompt(phase, lastPromptRef.current);
+    lastPromptRef.current = prompt;
     setActivePrompt(prompt);
     setPromptVisible(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Pre-fill journal with prompt context
-    if (!journalBody.trim()) {
-      setJournalBody('');
-    }
+    if (!journalBody.trim()) setJournalBody('');
   };
 
   // ── Mood record ───────────────────────────────────────────────────────────
