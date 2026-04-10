@@ -326,8 +326,7 @@ export default function Onboarding() {
             {[
               {
                 key: 'morning',
-                label: 'Morning check-in',
-                hint: 'Start your day with intention',
+                label: 'morning check-in',
                 enabled: morningEnabled,
                 toggle: setMorningEnabled,
                 time: morningTime,
@@ -335,62 +334,104 @@ export default function Onboarding() {
               },
               {
                 key: 'evening',
-                label: 'Evening reflection',
-                hint: 'Close the day with gratitude',
+                label: 'evening reflection',
                 enabled: eveningEnabled,
                 toggle: setEveningEnabled,
                 time: eveningTime,
                 setTime: setEveningTime,
               },
             ].map(r => (
-              <View key={r.key} style={styles.reminderBlock}>
-                {/* Toggle row */}
-                <View style={[
+              <View
+                key={r.key}
+                style={[
                   styles.reminderRow,
                   {
-                    borderColor: r.enabled ? `rgba(${phaseRgb},0.35)` : `rgba(${phaseRgb},0.12)`,
-                    backgroundColor: r.enabled ? `rgba(${phaseRgb},0.07)` : `rgba(${phaseRgb},0.02)`,
-                    borderBottomLeftRadius: r.enabled ? 0 : 10,
-                    borderBottomRightRadius: r.enabled ? 0 : 10,
+                    borderColor: r.enabled ? `rgba(${phaseRgb},0.3)` : `rgba(${phaseRgb},0.1)`,
+                    backgroundColor: r.enabled ? `rgba(${phaseRgb},0.06)` : `rgba(${phaseRgb},0.02)`,
+                    opacity: r.enabled ? 1 : 0.5,
                   },
-                ]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.reminderLabel, { color: r.enabled ? accentColor : theme.textMuted }]}>
-                      {r.label}
-                    </Text>
-                    <Text style={[styles.reminderHint, { color: theme.textMuted }]}>
-                      {r.hint}
-                    </Text>
-                  </View>
+                ]}
+              >
+                {/* Label + toggle */}
+                <View style={styles.reminderLeft}>
+                  <Text style={[styles.reminderLabel, { color: r.enabled ? accentColor : theme.textMuted }]}>
+                    {r.label}
+                  </Text>
                   <Switch
                     value={r.enabled}
                     onValueChange={r.toggle}
-                    trackColor={{ false: `rgba(${phaseRgb},0.15)`, true: `rgba(${phaseRgb},0.5)` }}
+                    trackColor={{ false: `rgba(${phaseRgb},0.15)`, true: `rgba(${phaseRgb},0.45)` }}
                     thumbColor={r.enabled ? accentColor : theme.textMuted}
                     ios_backgroundColor={`rgba(${phaseRgb},0.15)`}
+                    style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
                   />
                 </View>
-                {/* Compact time picker */}
+
+                {/* Time display — tap hour or minute to increment */}
                 {r.enabled && (
-                  <View style={[
-                    styles.timePickerWrap,
-                    {
-                      borderColor: `rgba(${phaseRgb},0.2)`,
-                      backgroundColor: `rgba(${phaseRgb},0.03)`,
-                    },
-                  ]}>
-                    <DateTimePicker
-                      value={r.time}
-                      mode="time"
-                      display="spinner"
-                      onChange={(_e, date) => { if (date) r.setTime(date); }}
-                      themeVariant="dark"
-                      style={styles.timePicker}
-                    />
+                  <View style={styles.timeWheel}>
+                    {/* Hour */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        const d = new Date(r.time);
+                        d.setHours((d.getHours() + 1) % 24);
+                        r.setTime(d);
+                      }}
+                      onLongPress={() => {
+                        const d = new Date(r.time);
+                        d.setHours((d.getHours() - 1 + 24) % 24);
+                        r.setTime(d);
+                      }}
+                      style={styles.timeUnit}
+                    >
+                      <Text style={[styles.timeValue, { color: accentColor }]}>
+                        {String(r.time.getHours() % 12 || 12).padStart(2, '0')}
+                      </Text>
+                      <Text style={[styles.timeArrow, { color: `rgba(${phaseRgb},0.4)` }]}>↕</Text>
+                    </TouchableOpacity>
+
+                    <Text style={[styles.timeSep, { color: `rgba(${phaseRgb},0.4)` }]}>:</Text>
+
+                    {/* Minute */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        const d = new Date(r.time);
+                        d.setMinutes((d.getMinutes() + 15) % 60);
+                        r.setTime(d);
+                      }}
+                      onLongPress={() => {
+                        const d = new Date(r.time);
+                        d.setMinutes((d.getMinutes() - 15 + 60) % 60);
+                        r.setTime(d);
+                      }}
+                      style={styles.timeUnit}
+                    >
+                      <Text style={[styles.timeValue, { color: accentColor }]}>
+                        {String(r.time.getMinutes()).padStart(2, '0')}
+                      </Text>
+                      <Text style={[styles.timeArrow, { color: `rgba(${phaseRgb},0.4)` }]}>↕</Text>
+                    </TouchableOpacity>
+
+                    {/* AM/PM */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        const d = new Date(r.time);
+                        d.setHours((d.getHours() + 12) % 24);
+                        r.setTime(d);
+                      }}
+                      style={styles.timeAmPm}
+                    >
+                      <Text style={[styles.timeAmPmText, { color: `rgba(${phaseRgb},0.7)` }]}>
+                        {r.time.getHours() >= 12 ? 'pm' : 'am'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
             ))}
+            <Text style={[styles.notifsHint, { color: `${theme.textMuted}55` }]}>
+              tap to change · hold to go back
+            </Text>
           </View>
         )}
 
@@ -578,32 +619,78 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 2,
     opacity: 0.6,
   },
-  reminderBlock: {
-    gap: 0,
+  notifsHint: {
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    textAlign: 'center',
+    letterSpacing: 1,
+    marginTop: 4,
   },
+  reminderBlock: { gap: 0 },
   reminderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    gap: 10,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  reminderLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   reminderLabel: {
     fontFamily: 'CourierPrime',
     fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 2,
+    letterSpacing: 0.3,
   },
   reminderHint: {
     fontFamily: 'CourierPrime',
     fontSize: 10,
     opacity: 0.6,
+  },
+  timeWheel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  timeUnit: {
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  timeValue: {
+    fontFamily: 'CourierPrime',
+    fontSize: 22,
+    fontWeight: '300',
+    letterSpacing: 1,
+  },
+  timeArrow: {
+    fontFamily: 'CourierPrime',
+    fontSize: 8,
+    marginTop: 2,
+  },
+  timeSep: {
+    fontFamily: 'CourierPrime',
+    fontSize: 20,
+    fontWeight: '300',
+    paddingBottom: 4,
+  },
+  timeAmPm: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    marginLeft: 2,
+  },
+  timeAmPmText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 12,
+    letterSpacing: 1,
   },
   timePickerWrap: {
     borderWidth: 1,
