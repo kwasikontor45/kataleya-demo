@@ -228,12 +228,41 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
     });
   }, [phase, restlessnessScore, setLabel, startCountdown]);
 
-  // ── Autostart on mount ───────────────────────────────────────────────────────
+  // ── Reset + autostart when modal opens ──────────────────────────────────────
   useEffect(() => {
-    isMounted.current = true;
+    if (!visible) {
+      // Clean up when closing
+      isMounted.current = false;
+      if (cycleTimer.current) clearTimeout(cycleTimer.current);
+      if (countTimer.current) clearTimeout(countTimer.current);
+      allAnims.current.forEach(a => a.stop());
+      allAnims.current = [];
+      return;
+    }
 
-    // Brief 1.5s arrival moment before breath begins
-    // The user lands on screen and the orb just... starts.
+    // Reset all state for fresh open
+    isMounted.current = true;
+    cycleCount.current = 0;
+    countLabel.current = '';
+    mainLabel.current = 'breathe with me';
+    subLabel.current = '';
+
+    // Reset all animated values
+    coreScale.setValue(0.7);
+    coreOpacity.setValue(0.3);
+    coreGlow.setValue(0);
+    r1Scale.setValue(0.9);
+    r1Opacity.setValue(0.15);
+    r2Scale.setValue(0.88);
+    r2Opacity.setValue(0.08);
+    r3Scale.setValue(0.86);
+    r3Opacity.setValue(0.04);
+    arcProgress.setValue(0);
+    bgBrightness.setValue(0);
+    labelOpacity.setValue(0);
+    countOpacity.setValue(0);
+    dismissOpacity.setValue(0);
+
     Animated.timing(labelOpacity, { toValue: 1, duration: 600, useNativeDriver: true }).start();
 
     const startTimer = setTimeout(runCycle, 1500);
@@ -244,8 +273,9 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
       if (cycleTimer.current) clearTimeout(cycleTimer.current);
       if (countTimer.current) clearTimeout(countTimer.current);
       allAnims.current.forEach(a => a.stop());
+      allAnims.current = [];
     };
-  }, []); // run once — cycle manages its own loop
+  }, [visible]);
 
   // ── Dismiss ──────────────────────────────────────────────────────────────────
   const handleDismiss = useCallback(() => {
@@ -303,6 +333,15 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
 
       {/* ── Breathing background glow ─────────────────────────────────── */}
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: bgColor }]} pointerEvents="none" />
+
+      {/* ── Close button — always visible ────────────────────────────────── */}
+      <TouchableOpacity
+        onPress={() => { if (onClose) onClose(); if (onDismiss) onDismiss(); }}
+        style={styles.closeBtn}
+        hitSlop={16}
+      >
+        <Text style={[styles.closeBtnText, { color: `rgba(${phaseRgb},0.35)` }]}>✕</Text>
+      </TouchableOpacity>
 
       {/* ── 4 · 7 · 8 label ─────────────────────────────────────────────── */}
       <Text style={[styles.techniqueLabel, { color: `rgba(${phaseRgb}, 0.25)` }]}>
@@ -487,6 +526,18 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
     textAlign: 'center',
     opacity: 0.7,
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 56,
+    right: 24,
+    zIndex: 10,
+    padding: 8,
+  },
+  closeBtnText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 16,
+    letterSpacing: 1,
   },
   dismiss: {
     paddingVertical: 12,
