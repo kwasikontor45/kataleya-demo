@@ -254,17 +254,21 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
     if (countTimer.current) clearTimeout(countTimer.current);
     countLabel.current = '';
     setLabel('done');
-    Animated.parallel([
-      Animated.timing(coreOpacity,  { toValue: 0,   duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(coreGlow,     { toValue: 0,   duration: 800,  useNativeDriver: true }),
-      Animated.timing(r1Opacity,    { toValue: 0,   duration: 1000, useNativeDriver: true }),
-      Animated.timing(r2Opacity,    { toValue: 0,   duration: 800,  useNativeDriver: true }),
-      Animated.timing(r3Opacity,    { toValue: 0,   duration: 600,  useNativeDriver: true }),
-      Animated.timing(countOpacity, { toValue: 0,   duration: 400,  useNativeDriver: true }),
-    ]).start(() => {
-      setTimeout(() => { if (onDismiss) onDismiss(); if (onClose) onClose(); }, 800);
-    });
-  }, [onDismiss, onClose, setLabel, countOpacity]);
+    // Let "you did well" breathe for 2 seconds before fading
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(coreOpacity,  { toValue: 0,   duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(coreGlow,     { toValue: 0,   duration: 1400, useNativeDriver: true }),
+        Animated.timing(r1Opacity,    { toValue: 0,   duration: 1400, useNativeDriver: true }),
+        Animated.timing(r2Opacity,    { toValue: 0,   duration: 1200, useNativeDriver: true }),
+        Animated.timing(r3Opacity,    { toValue: 0,   duration: 1000, useNativeDriver: true }),
+        Animated.timing(countOpacity, { toValue: 0,   duration: 400,  useNativeDriver: true }),
+        Animated.timing(labelOpacity, { toValue: 0,   duration: 1800, useNativeDriver: true }),
+      ]).start(() => {
+        setTimeout(() => { if (onDismiss) onDismiss(); if (onClose) onClose(); }, 400);
+      });
+    }, 2000);
+  }, [onDismiss, onClose, setLabel, countOpacity, labelOpacity]);
 
   // ── Arc interpolation (native driver can't drive strokeDashoffset, so JS) ────
   const arcDashOffset = arcProgress.interpolate({
