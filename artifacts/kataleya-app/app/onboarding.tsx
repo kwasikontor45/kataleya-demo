@@ -129,11 +129,11 @@ function TimePicker({
   textMuted: string;
 }) {
   const hours12 = Array.from({ length: 12 }, (_, i) => i + 1); // 1-12
-  const minutes = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+  const minutes = Array.from({ length: 60 }, (_, i) => i); // 0-59, every minute
   const ampm = ['am', 'pm'];
 
   const currentHour12 = value.getHours() % 12 || 12;
-  const currentMinute = Math.round(value.getMinutes() / 5) * 5 % 60;
+  const currentMinute = value.getMinutes();
   const currentAmPm = value.getHours() >= 12 ? 'pm' : 'am';
 
   const hourRef = useRef<FlatList>(null);
@@ -288,7 +288,7 @@ const pickerStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   col: {
-    width: 52,
+    width: 56,
     height: PICKER_H,
   },
   sep: {
