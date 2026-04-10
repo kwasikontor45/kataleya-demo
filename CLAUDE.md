@@ -246,3 +246,40 @@ git add -A && git commit -m "fix: description" && git push origin main
 ```
 
 - kebab-case. always. no exceptions unless forced by platform.
+
+---
+
+## handoff note — april 2026
+
+### current state
+All TypeScript errors resolved. Core screens ported and functional. App loads, onboarding works, breathe button works, journal prompts work.
+
+### what was just completed
+- journal.tsx — mood grid, prompt card, 72-prompt Sanctuary-aware weighted system, entry cards
+- vault.tsx — privacy header, your rights (export + delete), FAQ accordion (analytics, data storage, backup, HIPAA)
+- sponsor.tsx — sponsor privacy context + 3-question FAQ added at bottom
+- onboarding.tsx — keyboard control, orb welcome icon, scrollable snap time picker (1-min steps), reminders redesigned
+- BreathingExercise.tsx — true 4-7-8 timing, countdown in orb, glow layer, resets on reopen, ✕ close button
+- GlyphIcon.tsx — SVG prop fixes (Ellipse style, clipPath removed)
+- index.tsx — circadian override pill shows transient hint on tap
+- CLAUDE.md — fully updated
+
+### what still needs doing
+1. **emoji audit** — remove all generic emojis throughout the app, replace with GlyphIcon SVG or CourierPrime glyphs (◎ · ✦ etc). No 🔒 🗑 ⬇ etc.
+2. **crowded tabs** — home and growth screens scroll too long, need breathing room and section consolidation
+3. **Railway** — previous project deleted. needs fresh deploy. server code is in ~/kataleya/lib/ or ~/kataleya/exports/. required: PORT env var, DATA_DIR env var, /health endpoint, Volume at /data for channels.json persistence
+4. **EAS build** — first Android build, then iOS
+5. **store listings** — Google Play + App Store
+
+### known quirks
+- expo-sqlite JSI features inactive in Expo Go — expected, not a bug
+- AES-256 backup and Android push notifications require EAS build
+- butterfly-dna.gif inside GhostPulseOrb — do NOT replace or remove
+- PAYWALL_ACTIVE=false — subscription deferred to v3.0, do not enable
+
+### working rules
+- one file at a time, test → commit → next
+- kebab-case file names always
+- never use generic emojis in UI
+- never transmit user health data to any server
+- blind relay only — server sees ciphertext, nothing else
