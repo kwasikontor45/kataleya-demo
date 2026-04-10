@@ -352,7 +352,7 @@ export default function Onboarding() {
                   },
                 ]}
               >
-                {/* Label + toggle */}
+                {/* Label + toggle row */}
                 <View style={styles.reminderLeft}>
                   <Text style={[styles.reminderLabel, { color: r.enabled ? accentColor : theme.textMuted }]}>
                     {r.label}
@@ -367,21 +367,12 @@ export default function Onboarding() {
                   />
                 </View>
 
-                {/* Time display — tap hour or minute to increment */}
+                {/* Time wheel — below the toggle when enabled */}
                 {r.enabled && (
                   <View style={styles.timeWheel}>
-                    {/* Hour */}
                     <TouchableOpacity
-                      onPress={() => {
-                        const d = new Date(r.time);
-                        d.setHours((d.getHours() + 1) % 24);
-                        r.setTime(d);
-                      }}
-                      onLongPress={() => {
-                        const d = new Date(r.time);
-                        d.setHours((d.getHours() - 1 + 24) % 24);
-                        r.setTime(d);
-                      }}
+                      onPress={() => { const d = new Date(r.time); d.setHours((d.getHours() + 1) % 24); r.setTime(d); }}
+                      onLongPress={() => { const d = new Date(r.time); d.setHours((d.getHours() - 1 + 24) % 24); r.setTime(d); }}
                       style={styles.timeUnit}
                     >
                       <Text style={[styles.timeValue, { color: accentColor }]}>
@@ -389,21 +380,10 @@ export default function Onboarding() {
                       </Text>
                       <Text style={[styles.timeArrow, { color: `rgba(${phaseRgb},0.4)` }]}>↕</Text>
                     </TouchableOpacity>
-
                     <Text style={[styles.timeSep, { color: `rgba(${phaseRgb},0.4)` }]}>:</Text>
-
-                    {/* Minute */}
                     <TouchableOpacity
-                      onPress={() => {
-                        const d = new Date(r.time);
-                        d.setMinutes((d.getMinutes() + 15) % 60);
-                        r.setTime(d);
-                      }}
-                      onLongPress={() => {
-                        const d = new Date(r.time);
-                        d.setMinutes((d.getMinutes() - 15 + 60) % 60);
-                        r.setTime(d);
-                      }}
+                      onPress={() => { const d = new Date(r.time); d.setMinutes((d.getMinutes() + 15) % 60); r.setTime(d); }}
+                      onLongPress={() => { const d = new Date(r.time); d.setMinutes((d.getMinutes() - 15 + 60) % 60); r.setTime(d); }}
                       style={styles.timeUnit}
                     >
                       <Text style={[styles.timeValue, { color: accentColor }]}>
@@ -411,14 +391,8 @@ export default function Onboarding() {
                       </Text>
                       <Text style={[styles.timeArrow, { color: `rgba(${phaseRgb},0.4)` }]}>↕</Text>
                     </TouchableOpacity>
-
-                    {/* AM/PM */}
                     <TouchableOpacity
-                      onPress={() => {
-                        const d = new Date(r.time);
-                        d.setHours((d.getHours() + 12) % 24);
-                        r.setTime(d);
-                      }}
+                      onPress={() => { const d = new Date(r.time); d.setHours((d.getHours() + 12) % 24); r.setTime(d); }}
                       style={styles.timeAmPm}
                     >
                       <Text style={[styles.timeAmPmText, { color: `rgba(${phaseRgb},0.7)` }]}>
@@ -631,16 +605,14 @@ const styles = StyleSheet.create({
   },
   reminderBlock: { gap: 0 },
   reminderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
     borderWidth: 1,
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 10,
   },
   reminderLeft: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

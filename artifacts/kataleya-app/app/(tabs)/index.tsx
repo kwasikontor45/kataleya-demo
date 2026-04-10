@@ -93,10 +93,6 @@ export default function SanctuaryScreen() {
   const [showGrounding, setShowGrounding] = useState(false);
   const [overrideHint, setOverrideHint] = useState(false);
   const overrideHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [overrideHint, setOverrideHint] = useState(false);
-  const overrideHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [overrideHint, setOverrideHint] = useState(false);
-  const overrideHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
 
