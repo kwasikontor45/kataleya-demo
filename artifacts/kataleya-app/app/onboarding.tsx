@@ -6,7 +6,7 @@ import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback,
   Dimensions, TextInput, Platform, Switch, KeyboardAvoidingView,
-  Keyboard, ScrollView, Animated,
+  Keyboard, ScrollView, Animated, FlatList,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
@@ -112,6 +112,210 @@ const IconOrchid = ({ color = '#7fc9c9', size = 64 }) => (
     <Line x1={32} y1={44} x2={32} y2={56} stroke={color} strokeWidth={1.5} strokeLinecap="round" opacity={0.45} />
   </Svg>
 );
+
+
+// ── Minimal scroll time picker ────────────────────────────────────────────────
+const ITEM_H = 36;
+const VISIBLE = 3;
+const PICKER_H = ITEM_H * VISIBLE;
+
+function TimePicker({
+  value, onChange, accentColor, phaseRgb, textMuted,
+}: {
+  value: Date;
+  onChange: (d: Date) => void;
+  accentColor: string;
+  phaseRgb: string;
+  textMuted: string;
+}) {
+  const hours12 = Array.from({ length: 12 }, (_, i) => i + 1); // 1-12
+  const minutes = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+  const ampm = ['am', 'pm'];
+
+  const currentHour12 = value.getHours() % 12 || 12;
+  const currentMinute = Math.round(value.getMinutes() / 5) * 5 % 60;
+  const currentAmPm = value.getHours() >= 12 ? 'pm' : 'am';
+
+  const hourRef = useRef<FlatList>(null);
+  const minRef = useRef<FlatList>(null);
+  const ampmRef = useRef<FlatList>(null);
+
+  const scrollTo = (ref: React.RefObject<FlatList>, index: number) => {
+    ref.current?.scrollToIndex({ index: Math.max(0, index), animated: true, viewPosition: 0.5 });
+  };
+
+  const handleHour = (h: number) => {
+    const d = new Date(value);
+    const isPm = d.getHours() >= 12;
+    d.setHours(isPm ? (h % 12) + 12 : h % 12);
+    onChange(d);
+  };
+
+  const handleMinute = (m: number) => {
+    const d = new Date(value);
+    d.setMinutes(m);
+    onChange(d);
+  };
+
+  const handleAmPm = (ap: string) => {
+    const d = new Date(value);
+    const h = d.getHours();
+    if (ap === 'am' && h >= 12) d.setHours(h - 12);
+    if (ap === 'pm' && h < 12) d.setHours(h + 12);
+    onChange(d);
+  };
+
+  const renderItem = (
+    item: string | number,
+    isSelected: boolean,
+    onSelect: () => void,
+  ) => (
+    <TouchableOpacity
+      onPress={onSelect}
+      style={[pickerStyles.item, { height: ITEM_H }]}
+      activeOpacity={0.7}
+    >
+      <Text style={[
+        pickerStyles.itemText,
+        {
+          color: isSelected ? accentColor : `${textMuted}55`,
+          fontSize: isSelected ? 20 : 15,
+          fontWeight: isSelected ? '300' : '300',
+        },
+      ]}>
+        {typeof item === 'number' ? String(item).padStart(2, '0') : item}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={pickerStyles.root}>
+      {/* Selection highlight */}
+      <View style={[pickerStyles.highlight, {
+        borderColor: `rgba(${phaseRgb},0.2)`,
+        backgroundColor: `rgba(${phaseRgb},0.06)`,
+      }]} pointerEvents="none" />
+
+      {/* Hours */}
+      <FlatList
+        ref={hourRef}
+        data={hours12}
+        keyExtractor={i => String(i)}
+        style={pickerStyles.col}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingVertical: ITEM_H }}
+        getItemLayout={(_, index) => ({ length: ITEM_H, offset: ITEM_H * index, index })}
+        onLayout={() => {
+          const idx = hours12.indexOf(currentHour12);
+          if (idx >= 0) scrollTo(hourRef, idx);
+        }}
+        onMomentumScrollEnd={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          if (hours12[idx] !== undefined) handleHour(hours12[idx]);
+        }}
+        renderItem={({ item }) => renderItem(
+          item,
+          item === currentHour12,
+          () => { handleHour(item); scrollTo(hourRef, hours12.indexOf(item)); }
+        )}
+      />
+
+      <Text style={[pickerStyles.sep, { color: `rgba(${phaseRgb},0.35)` }]}>:</Text>
+
+      {/* Minutes */}
+      <FlatList
+        ref={minRef}
+        data={minutes}
+        keyExtractor={i => String(i)}
+        style={pickerStyles.col}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingVertical: ITEM_H }}
+        getItemLayout={(_, index) => ({ length: ITEM_H, offset: ITEM_H * index, index })}
+        onLayout={() => {
+          const idx = minutes.indexOf(currentMinute);
+          if (idx >= 0) scrollTo(minRef, idx);
+        }}
+        onMomentumScrollEnd={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          if (minutes[idx] !== undefined) handleMinute(minutes[idx]);
+        }}
+        renderItem={({ item }) => renderItem(
+          item,
+          item === currentMinute,
+          () => { handleMinute(item); scrollTo(minRef, minutes.indexOf(item)); }
+        )}
+      />
+
+      {/* AM/PM */}
+      <FlatList
+        ref={ampmRef}
+        data={ampm}
+        keyExtractor={i => i}
+        style={[pickerStyles.col, { width: 44 }]}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingVertical: ITEM_H }}
+        getItemLayout={(_, index) => ({ length: ITEM_H, offset: ITEM_H * index, index })}
+        onLayout={() => {
+          const idx = ampm.indexOf(currentAmPm);
+          if (idx >= 0) scrollTo(ampmRef, idx);
+        }}
+        onMomentumScrollEnd={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          if (ampm[idx]) handleAmPm(ampm[idx]);
+        }}
+        renderItem={({ item }) => renderItem(
+          item,
+          item === currentAmPm,
+          () => { handleAmPm(item); scrollTo(ampmRef, ampm.indexOf(item)); }
+        )}
+      />
+    </View>
+  );
+}
+
+const pickerStyles = StyleSheet.create({
+  root: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: PICKER_H,
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  col: {
+    width: 52,
+    height: PICKER_H,
+  },
+  sep: {
+    fontFamily: 'CourierPrime',
+    fontSize: 20,
+    fontWeight: '300',
+    marginHorizontal: 2,
+    marginBottom: 4,
+  },
+  highlight: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    height: ITEM_H,
+    borderRadius: 8,
+    borderWidth: 1,
+    top: ITEM_H,
+  },
+  item: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemText: {
+    fontFamily: 'CourierPrime',
+    letterSpacing: 1,
+  },
+});
 
 // ── Steps ─────────────────────────────────────────────────────────────────────
 
@@ -367,39 +571,15 @@ export default function Onboarding() {
                   />
                 </View>
 
-                {/* Time wheel — below the toggle when enabled */}
+                {/* Scroll time picker */}
                 {r.enabled && (
-                  <View style={styles.timeWheel}>
-                    <TouchableOpacity
-                      onPress={() => { const d = new Date(r.time); d.setHours((d.getHours() + 1) % 24); r.setTime(d); }}
-                      onLongPress={() => { const d = new Date(r.time); d.setHours((d.getHours() - 1 + 24) % 24); r.setTime(d); }}
-                      style={styles.timeUnit}
-                    >
-                      <Text style={[styles.timeValue, { color: accentColor }]}>
-                        {String(r.time.getHours() % 12 || 12).padStart(2, '0')}
-                      </Text>
-                      <Text style={[styles.timeArrow, { color: `rgba(${phaseRgb},0.4)` }]}>↕</Text>
-                    </TouchableOpacity>
-                    <Text style={[styles.timeSep, { color: `rgba(${phaseRgb},0.4)` }]}>:</Text>
-                    <TouchableOpacity
-                      onPress={() => { const d = new Date(r.time); d.setMinutes((d.getMinutes() + 15) % 60); r.setTime(d); }}
-                      onLongPress={() => { const d = new Date(r.time); d.setMinutes((d.getMinutes() - 15 + 60) % 60); r.setTime(d); }}
-                      style={styles.timeUnit}
-                    >
-                      <Text style={[styles.timeValue, { color: accentColor }]}>
-                        {String(r.time.getMinutes()).padStart(2, '0')}
-                      </Text>
-                      <Text style={[styles.timeArrow, { color: `rgba(${phaseRgb},0.4)` }]}>↕</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => { const d = new Date(r.time); d.setHours((d.getHours() + 12) % 24); r.setTime(d); }}
-                      style={styles.timeAmPm}
-                    >
-                      <Text style={[styles.timeAmPmText, { color: `rgba(${phaseRgb},0.7)` }]}>
-                        {r.time.getHours() >= 12 ? 'pm' : 'am'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TimePicker
+                    value={r.time}
+                    onChange={r.setTime}
+                    accentColor={accentColor}
+                    phaseRgb={phaseRgb}
+                    textMuted={theme.textMuted}
+                  />
                 )}
               </View>
             ))}
@@ -626,54 +806,5 @@ const styles = StyleSheet.create({
     fontFamily: 'CourierPrime',
     fontSize: 10,
     opacity: 0.6,
-  },
-  timeWheel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  timeUnit: {
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  timeValue: {
-    fontFamily: 'CourierPrime',
-    fontSize: 22,
-    fontWeight: '300',
-    letterSpacing: 1,
-  },
-  timeArrow: {
-    fontFamily: 'CourierPrime',
-    fontSize: 8,
-    marginTop: 2,
-  },
-  timeSep: {
-    fontFamily: 'CourierPrime',
-    fontSize: 20,
-    fontWeight: '300',
-    paddingBottom: 4,
-  },
-  timeAmPm: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    marginLeft: 2,
-  },
-  timeAmPmText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 12,
-    letterSpacing: 1,
-  },
-  timePickerWrap: {
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  timePicker: {
-    width: '100%',
-    height: 80,
   },
 });
