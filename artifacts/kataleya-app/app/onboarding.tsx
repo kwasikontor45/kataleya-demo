@@ -321,7 +321,7 @@ export default function Onboarding() {
         {id === 'notifs' && (
           <View style={styles.notifsWrap}>
             <Text style={[styles.notifsSubtitle, { color: theme.textMuted }]}>
-              Scheduled locally — no content sent to servers.
+              scheduled locally — no content sent to servers
             </Text>
             {[
               {
@@ -343,19 +343,17 @@ export default function Onboarding() {
                 setTime: setEveningTime,
               },
             ].map(r => (
-              <View key={r.key}>
-                {/* ── Toggle row ── */}
-                <View
-                  style={[
-                    styles.reminderRow,
-                    {
-                      borderColor: r.enabled ? `rgba(${phaseRgb},0.35)` : `rgba(${phaseRgb},0.12)`,
-                      backgroundColor: r.enabled ? `rgba(${phaseRgb},0.07)` : `rgba(${phaseRgb},0.02)`,
-                      borderBottomLeftRadius: r.enabled ? 0 : 12,
-                      borderBottomRightRadius: r.enabled ? 0 : 12,
-                    },
-                  ]}
-                >
+              <View key={r.key} style={styles.reminderBlock}>
+                {/* Toggle row */}
+                <View style={[
+                  styles.reminderRow,
+                  {
+                    borderColor: r.enabled ? `rgba(${phaseRgb},0.35)` : `rgba(${phaseRgb},0.12)`,
+                    backgroundColor: r.enabled ? `rgba(${phaseRgb},0.07)` : `rgba(${phaseRgb},0.02)`,
+                    borderBottomLeftRadius: r.enabled ? 0 : 10,
+                    borderBottomRightRadius: r.enabled ? 0 : 10,
+                  },
+                ]}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.reminderLabel, { color: r.enabled ? accentColor : theme.textMuted }]}>
                       {r.label}
@@ -372,20 +370,19 @@ export default function Onboarding() {
                     ios_backgroundColor={`rgba(${phaseRgb},0.15)`}
                   />
                 </View>
-
-                {/* ── Time picker — slides in when toggle is on ── */}
+                {/* Compact time picker */}
                 {r.enabled && (
                   <View style={[
                     styles.timePickerWrap,
                     {
-                      borderColor: `rgba(${phaseRgb},0.35)`,
-                      backgroundColor: `rgba(${phaseRgb},0.04)`,
+                      borderColor: `rgba(${phaseRgb},0.2)`,
+                      backgroundColor: `rgba(${phaseRgb},0.03)`,
                     },
                   ]}>
                     <DateTimePicker
                       value={r.time}
                       mode="time"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      display="spinner"
                       onChange={(_e, date) => { if (date) r.setTime(date); }}
                       themeVariant="dark"
                       style={styles.timePicker}
@@ -574,47 +571,50 @@ const styles = StyleSheet.create({
     height: 160,
   },
   notifsWrap: {
-    gap: 12,
+    gap: 10,
   },
   notifsSubtitle: {
     fontFamily: 'CourierPrime',
-    fontSize: 11,
+    fontSize: 10,
     textAlign: 'center',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
     marginBottom: 4,
-    opacity: 0.7,
+    opacity: 0.6,
+  },
+  reminderBlock: {
+    gap: 0,
   },
   reminderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 12,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 10,
   },
   reminderLabel: {
     fontFamily: 'CourierPrime',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   reminderHint: {
     fontFamily: 'CourierPrime',
-    fontSize: 11,
-    opacity: 0.7,
+    fontSize: 10,
+    opacity: 0.6,
   },
   timePickerWrap: {
     borderWidth: 1,
     borderTopWidth: 0,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
     alignItems: 'center',
-    paddingVertical: 4,
     overflow: 'hidden',
   },
   timePicker: {
     width: '100%',
-    height: 120,
+    height: 80,
   },
 });

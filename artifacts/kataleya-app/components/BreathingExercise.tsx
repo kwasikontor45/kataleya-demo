@@ -37,13 +37,27 @@ const ORB_SIZE = Math.min(width * 0.6, 240);
 const ARC_R = ORB_SIZE / 2 - 2;
 const ARC_CIRC = 2 * Math.PI * ARC_R;
 
-// ── Phase-aware breath timing ──────────────────────────────────────────────────
-const PHASE_TIMING = {
-  dawn:      { inhale: 4000, holdIn: 2000, exhale: 5000, holdOut: 1500 },
-  day:       { inhale: 4000, holdIn: 1500, exhale: 5000, holdOut: 1000 },
-  goldenHour:{ inhale: 4500, holdIn: 3000, exhale: 6000, holdOut: 2000 },
-  night:     { inhale: 5000, holdIn: 2000, exhale: 7000, holdOut: 2500 },
+// ── 4-7-8 breath timing — true to the technique ──────────────────────────────
+// Inhale 4 counts, hold 7 counts, exhale 8 counts.
+// One "count" = 1000ms base. Night slows slightly for deeper calm.
+const COUNT_MS = {
+  dawn:       1000,
+  day:        1000,
+  goldenHour: 1100,
+  night:      1200,
 } as const;
+
+function getPhaseTiming(phase: string) {
+  const ms = COUNT_MS[phase as keyof typeof COUNT_MS] ?? 1000;
+  return {
+    inhale:  4 * ms,   // 4 counts
+    holdIn:  7 * ms,   // 7 counts
+    exhale:  8 * ms,   // 8 counts
+    holdOut: 0,        // no hold out — 4-7-8 goes straight back to inhale
+    counts:  { inhale: 4, holdIn: 7, exhale: 8 },
+    ms,
+  };
+}
 
 // ── Breath phase labels ────────────────────────────────────────────────────────
 const LABELS = {
@@ -69,38 +83,34 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
   const { biometrics } = useResponsiveHeart(phase);
 
   // ── Animated values ──────────────────────────────────────────────────────────
-  const coreScale   = useRef(new Animated.Value(0.85)).current;
-  const coreOpacity = useRef(new Animated.Value(0.4)).current;
-  const r1Scale     = useRef(new Animated.Value(0.9)).current;
-  const r1Opacity   = useRef(new Animated.Value(0.22)).current;
-  const r2Scale     = useRef(new Animated.Value(0.88)).current;
-  const r2Opacity   = useRef(new Animated.Value(0.13)).current;
-  const r3Scale     = useRef(new Animated.Value(0.86)).current;
-  const r3Opacity   = useRef(new Animated.Value(0.07)).current;
-  const arcProgress = useRef(new Animated.Value(0)).current; // 0=empty 1=full
-  const labelOpacity= useRef(new Animated.Value(0)).current;
+  const coreScale      = useRef(new Animated.Value(0.7)).current;
+  const coreOpacity    = useRef(new Animated.Value(0.3)).current;
+  const coreGlow       = useRef(new Animated.Value(0)).current;
+  const r1Scale        = useRef(new Animated.Value(0.9)).current;
+  const r1Opacity      = useRef(new Animated.Value(0.15)).current;
+  const r2Scale        = useRef(new Animated.Value(0.88)).current;
+  const r2Opacity      = useRef(new Animated.Value(0.08)).current;
+  const r3Scale        = useRef(new Animated.Value(0.86)).current;
+  const r3Opacity      = useRef(new Animated.Value(0.04)).current;
+  const arcProgress    = useRef(new Animated.Value(0)).current;
+  const bgBrightness   = useRef(new Animated.Value(0)).current; // 0=dark 1=lighter
+  const labelOpacity   = useRef(new Animated.Value(0)).current;
+  const countOpacity   = useRef(new Animated.Value(0)).current;
   const dismissOpacity = useRef(new Animated.Value(0)).current;
 
   // ── State refs (no re-render triggers) ──────────────────────────────────────
   const mainLabel   = useRef('breathe with me');
   const subLabel    = useRef('');
+  const countLabel  = useRef('');
   const cycleCount  = useRef(0);
   const isMounted   = useRef(true);
   const cycleTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const allAnims    = useRef<Animated.CompositeAnimation[]>([]);
 
-  // ── Derive timing (BPM from responsive heart adjusts cycle slightly) ─────────
+  // ── Derive timing — pure 4-7-8 ───────────────────────────────────────────────
   function getTiming() {
-    const base = PHASE_TIMING[phase] ?? PHASE_TIMING.day;
-    // BPM from 45-80 — lower BPM = slower breath, scale by ±15%
-    const bpmFactor = (biometrics.bpm - 60) / 60; // -0.25 to +0.33
-    const scale = 1 - bpmFactor * 0.15;
-    return {
-      inhale:  Math.round(base.inhale  * scale),
-      holdIn:  base.holdIn,
-      exhale:  Math.round(base.exhale  * scale),
-      holdOut: base.holdOut,
-    };
+    return getPhaseTiming(phase);
   }
 
   // ── Ring amplitude scales with restlessness (calmer = fuller expansion) ──────
@@ -128,7 +138,29 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
     ]).start();
   }, [labelOpacity]);
 
-  // ── One complete breath cycle ────────────────────────────────────────────────
+  // ── Countdown ticker ─────────────────────────────────────────────────────────
+  const startCountdown = useCallback((from: number, ms: number) => {
+    if (countTimer.current) clearTimeout(countTimer.current);
+    countLabel.current = String(from);
+    Animated.sequence([
+      Animated.timing(countOpacity, { toValue: 0, duration: 80, useNativeDriver: true }),
+      Animated.timing(countOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+    ]).start();
+    let remaining = from - 1;
+    const tick = () => {
+      if (!isMounted.current || remaining <= 0) return;
+      countLabel.current = String(remaining);
+      Animated.sequence([
+        Animated.timing(countOpacity, { toValue: 0, duration: 80, useNativeDriver: true }),
+        Animated.timing(countOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+      ]).start();
+      remaining--;
+      countTimer.current = setTimeout(tick, ms);
+    };
+    countTimer.current = setTimeout(tick, ms);
+  }, [countOpacity]);
+
+  // ── One complete 4-7-8 breath cycle ──────────────────────────────────────────
   const runCycle = useCallback(() => {
     if (!isMounted.current) return;
 
@@ -137,64 +169,64 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
 
     cycleCount.current += 1;
 
-    // Show dismiss after 2 cycles
     if (cycleCount.current === 2) {
-      Animated.timing(dismissOpacity, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }).start();
+      Animated.timing(dismissOpacity, { toValue: 1, duration: 800, useNativeDriver: true }).start();
     }
 
-    // ── INHALE ─────────────────────────────────────────────────────────────
+    // ── INHALE — 4 counts, orb blooms, bg lightens ─────────────────────────
     setLabel('inhale');
+    startCountdown(t.counts.inhale, t.ms);
 
     const inhaleAnim = Animated.parallel([
-      Animated.timing(coreScale,   { toValue: amp.core, duration: t.inhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(coreOpacity, { toValue: 1.0,      duration: t.inhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r1Scale,     { toValue: amp.r1,   duration: t.inhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r1Opacity,   { toValue: 0.55,     duration: t.inhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r2Scale,     { toValue: amp.r2,   duration: t.inhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r2Opacity,   { toValue: 0.35,     duration: t.inhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r3Scale,     { toValue: amp.r3,   duration: t.inhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r3Opacity,   { toValue: 0.18,     duration: t.inhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(arcProgress, { toValue: 1,        duration: t.inhale, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+      Animated.timing(coreScale,    { toValue: amp.core, duration: t.inhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(coreOpacity,  { toValue: 0.85,     duration: t.inhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(coreGlow,     { toValue: 1,        duration: t.inhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r1Scale,      { toValue: amp.r1,   duration: t.inhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r1Opacity,    { toValue: 0.6,      duration: t.inhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r2Scale,      { toValue: amp.r2,   duration: t.inhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r2Opacity,    { toValue: 0.38,     duration: t.inhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r3Scale,      { toValue: amp.r3,   duration: t.inhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r3Opacity,    { toValue: 0.2,      duration: t.inhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(arcProgress,  { toValue: 1,        duration: t.inhale, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+      Animated.timing(bgBrightness, { toValue: 1,        duration: t.inhale, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
     ]);
 
-    // ── HOLD IN ────────────────────────────────────────────────────────────
-    const holdInAnim = Animated.delay(t.holdIn); // rings stay expanded — no animation
+    // ── HOLD IN — 7 counts, orb stays full ────────────────────────────────
+    const holdInAnim = Animated.delay(t.holdIn);
 
-    // ── EXHALE ─────────────────────────────────────────────────────────────
+    // ── EXHALE — 8 counts, orb dims, bg darkens ───────────────────────────
     const exhaleAnim = Animated.parallel([
-      Animated.timing(coreScale,   { toValue: 0.85,  duration: t.exhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(coreOpacity, { toValue: 0.4,   duration: t.exhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r1Scale,     { toValue: 0.9,   duration: t.exhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r1Opacity,   { toValue: 0.22,  duration: t.exhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r2Scale,     { toValue: 0.88,  duration: t.exhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r2Opacity,   { toValue: 0.13,  duration: t.exhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r3Scale,     { toValue: 0.86,  duration: t.exhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r3Opacity,   { toValue: 0.07,  duration: t.exhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(arcProgress, { toValue: 0,     duration: t.exhale, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+      Animated.timing(coreScale,    { toValue: 0.7,   duration: t.exhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(coreOpacity,  { toValue: 0.3,   duration: t.exhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(coreGlow,     { toValue: 0,     duration: t.exhale, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r1Scale,      { toValue: 0.9,   duration: t.exhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r1Opacity,    { toValue: 0.15,  duration: t.exhale * 1.05, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r2Scale,      { toValue: 0.88,  duration: t.exhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r2Opacity,    { toValue: 0.08,  duration: t.exhale * 1.10, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r3Scale,      { toValue: 0.86,  duration: t.exhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(r3Opacity,    { toValue: 0.04,  duration: t.exhale * 1.15, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(arcProgress,  { toValue: 0,     duration: t.exhale, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+      Animated.timing(bgBrightness, { toValue: 0,     duration: t.exhale, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
     ]);
 
-    // ── HOLD OUT ───────────────────────────────────────────────────────────
-    const holdOutAnim = Animated.delay(t.holdOut);
-
-    // ── Sequence with label callbacks ──────────────────────────────────────
-    const sequence = Animated.sequence([inhaleAnim, holdInAnim, exhaleAnim, holdOutAnim]);
+    const sequence = Animated.sequence([inhaleAnim, holdInAnim, exhaleAnim]);
     allAnims.current.push(sequence);
 
-    // Label changes mid-sequence
-    cycleTimer.current = setTimeout(() => setLabel('holdIn'),  t.inhale);
-    cycleTimer.current = setTimeout(() => setLabel('exhale'),  t.inhale + t.holdIn);
-    cycleTimer.current = setTimeout(() => setLabel('holdOut'), t.inhale + t.holdIn + t.exhale);
+    // Label + countdown changes mid-sequence
+    cycleTimer.current = setTimeout(() => {
+      setLabel('holdIn');
+      startCountdown(t.counts.holdIn, t.ms);
+    }, t.inhale);
+
+    cycleTimer.current = setTimeout(() => {
+      setLabel('exhale');
+      startCountdown(t.counts.exhale, t.ms);
+    }, t.inhale + t.holdIn);
 
     sequence.start(({ finished }) => {
-      if (finished && isMounted.current) {
-        runCycle(); // loop — no user action required
-      }
+      if (finished && isMounted.current) runCycle();
     });
-  }, [phase, biometrics.bpm, restlessnessScore, setLabel]);
+  }, [phase, restlessnessScore, setLabel, startCountdown]);
 
   // ── Autostart on mount ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -210,6 +242,7 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
       isMounted.current = false;
       clearTimeout(startTimer);
       if (cycleTimer.current) clearTimeout(cycleTimer.current);
+      if (countTimer.current) clearTimeout(countTimer.current);
       allAnims.current.forEach(a => a.stop());
     };
   }, []); // run once — cycle manages its own loop
@@ -218,16 +251,20 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
   const handleDismiss = useCallback(() => {
     isMounted.current = false;
     allAnims.current.forEach(a => a.stop());
+    if (countTimer.current) clearTimeout(countTimer.current);
+    countLabel.current = '';
     setLabel('done');
     Animated.parallel([
-      Animated.timing(coreOpacity, { toValue: 0.2, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(r1Opacity,   { toValue: 0,   duration: 1000, useNativeDriver: true }),
-      Animated.timing(r2Opacity,   { toValue: 0,   duration: 800,  useNativeDriver: true }),
-      Animated.timing(r3Opacity,   { toValue: 0,   duration: 600,  useNativeDriver: true }),
+      Animated.timing(coreOpacity,  { toValue: 0,   duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(coreGlow,     { toValue: 0,   duration: 800,  useNativeDriver: true }),
+      Animated.timing(r1Opacity,    { toValue: 0,   duration: 1000, useNativeDriver: true }),
+      Animated.timing(r2Opacity,    { toValue: 0,   duration: 800,  useNativeDriver: true }),
+      Animated.timing(r3Opacity,    { toValue: 0,   duration: 600,  useNativeDriver: true }),
+      Animated.timing(countOpacity, { toValue: 0,   duration: 400,  useNativeDriver: true }),
     ]).start(() => {
-      setTimeout(() => { if (onDismiss) onDismiss(); if (onClose) onClose(); }, 1200);
+      setTimeout(() => { if (onDismiss) onDismiss(); if (onClose) onClose(); }, 800);
     });
-  }, [onDismiss, setLabel]);
+  }, [onDismiss, onClose, setLabel, countOpacity]);
 
   // ── Arc interpolation (native driver can't drive strokeDashoffset, so JS) ────
   const arcDashOffset = arcProgress.interpolate({
@@ -236,7 +273,20 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
   });
 
   const accentColor = theme.accent;
-  const accentDim   = `rgba(${theme.phaseRgb ?? '127,201,201'}, 0.14)`;
+  const phaseRgb    = theme.phaseRgb ?? '127,201,201';
+  const accentDim   = `rgba(${phaseRgb}, 0.14)`;
+
+  // Background breathes subtly with the inhale
+  const bgColor = bgBrightness.interpolate({
+    inputRange:  [0, 1],
+    outputRange: [`rgba(${phaseRgb}, 0.00)`, `rgba(${phaseRgb}, 0.06)`],
+  });
+
+  // Core glow color interpolation
+  const glowColor = coreGlow.interpolate({
+    inputRange:  [0, 1],
+    outputRange: [`rgba(${phaseRgb}, 0.1)`, `rgba(${phaseRgb}, 0.55)`],
+  });
 
   return (
     <Modal
@@ -246,6 +296,14 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
       onRequestClose={() => { if (onClose) onClose(); if (onDismiss) onDismiss(); }}
     >
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
+
+      {/* ── Breathing background glow ─────────────────────────────────── */}
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: bgColor }]} pointerEvents="none" />
+
+      {/* ── 4 · 7 · 8 label ─────────────────────────────────────────────── */}
+      <Text style={[styles.techniqueLabel, { color: `rgba(${phaseRgb}, 0.25)` }]}>
+        4 · 7 · 8
+      </Text>
 
       {/* ── Orb ─────────────────────────────────────────────────────────── */}
       <View style={[styles.orbWrap, { width: ORB_SIZE, height: ORB_SIZE }]}>
@@ -311,6 +369,18 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
           }
         ]} />
 
+        {/* Core glow layer — blooms on inhale */}
+        <Animated.View style={[
+          styles.coreGlow,
+          {
+            width: ORB_SIZE * 0.55,
+            height: ORB_SIZE * 0.55,
+            borderRadius: (ORB_SIZE * 0.55) / 2,
+            backgroundColor: glowColor,
+            transform: [{ scale: coreScale }],
+          }
+        ]} />
+
         {/* Core — the breath itself */}
         <Animated.View style={[
           styles.core,
@@ -323,7 +393,12 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
             transform: [{ scale: coreScale }],
             opacity: coreOpacity,
           }
-        ]} />
+        ]}>
+          {/* Countdown number inside the core */}
+          <Animated.Text style={[styles.countdownText, { color: accentColor, opacity: countOpacity }]}>
+            {countLabel.current}
+          </Animated.Text>
+        </Animated.View>
 
       </View>
 
@@ -357,19 +432,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 64,
+    paddingTop: 48,
+  },
+  techniqueLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 4,
+    textTransform: 'lowercase',
+    marginBottom: 48,
   },
   orbWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 40,
+    marginBottom: 48,
     position: 'relative',
   },
   ring: {
     position: 'absolute',
     borderWidth: 1,
   },
+  coreGlow: {
+    position: 'absolute',
+  },
   core: {
     borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countdownText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 28,
+    fontWeight: '300',
+    letterSpacing: 2,
+    textAlign: 'center',
   },
   labelWrap: {
     alignItems: 'center',
