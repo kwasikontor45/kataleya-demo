@@ -30,16 +30,8 @@ const FAQ_ITEMS = [
     a: 'The encrypted backup file leaves this device and goes to whatever destination you choose (iCloud, Google Drive, etc.). The file is AES-256 encrypted with your passphrase — we never see the contents. The key never leaves your phone. Once the file reaches a cloud provider, it is under their terms.',
   },
   {
-    q: 'Can push notifications be intercepted?',
-    a: 'No. Notifications are scheduled entirely on-device using local OS notifications. No notification content is sent to or stored by Kataleya.',
-  },
-  {
     q: 'Is Kataleya HIPAA compliant?',
     a: 'Kataleya is designed with privacy-first architecture that exceeds typical app standards. Because no health data is transmitted to our servers, HIPAA obligations are minimized to the connection layer.',
-  },
-  {
-    q: 'What does my sponsor see?',
-    a: 'Only what you choose to send: daily check-in (yes or no), your recovery stage (a single word), number of milestones reached (a number), and presence signals you explicitly trigger (water, light). They cannot see mood logs, journal entries, sobriety date, or any health data.',
   },
 ];
 
@@ -158,60 +150,8 @@ export default function VaultScreen() {
         keyboardShouldPersistTaps="handled"
       >
 
-        {/* ── PRIVACY POLICY HEADER ── */}
-        <View style={styles.policyHeader}>
-          <View style={[styles.policyIcon, { borderColor: `rgba(${NEON_RGB.cyan},0.3)`, backgroundColor: `rgba(${NEON_RGB.cyan},0.08)` }]}>
-            <Text style={styles.policyIconText}>🛡</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.policyTitle, { color: theme.text }]}>Privacy Policy</Text>
-            <Text style={[styles.policySubtitle, { color: `rgba(${NEON_RGB.cyan},0.8)` }]}>
-              Your data. Your control. Always.
-            </Text>
-          </View>
-        </View>
-
-        <NeonCard theme={theme} accentRgb={NEON_RGB.cyan} fillIntensity={0.04} borderIntensity={0.15}>
-          <View style={styles.cardInner}>
-            <Text style={[styles.policyBody, { color: theme.text }]}>
-              Kataleya is built on a single principle:{' '}
-              <Text style={{ fontWeight: '700' }}>your recovery data belongs to you and only you.</Text>
-              {' '}It lives on your device, encrypted, and never touches our servers unless you explicitly choose to back it up.
-            </Text>
-            <Text style={[styles.policyBody, { color: `${theme.textMuted}bb` }]}>
-              We do not collect analytics. We do not run ads. We do not sell data.{' '}
-              <Text style={{ fontWeight: '700', color: theme.text }}>Ever.</Text>
-            </Text>
-          </View>
-        </NeonCard>
-
-        {/* ── WHAT STAYS ON YOUR DEVICE ── */}
-        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>
-          what stays on your device
-        </Text>
-        <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.12}>
-          {[
-            'Journal entries',
-            'Mood logs',
-            'Sobriety start date and day count',
-            'Breathing and grounding exercise history',
-            'Your name and recovery focus',
-          ].map((item, i, arr) => (
-            <View
-              key={item}
-              style={[
-                styles.deviceRow,
-                i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: `rgba(${accentRgb},0.08)` },
-              ]}
-            >
-              <Text style={[styles.deviceIcon, { color: `rgba(${NEON_RGB.cyan},0.8)` }]}>🔒</Text>
-              <Text style={[styles.deviceItem, { color: theme.text }]}>{item}</Text>
-            </View>
-          ))}
-        </NeonCard>
-
         {/* ── PRIVACY ARCHITECTURE ── */}
-        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>
+        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 8 }]}>
           privacy architecture
         </Text>
         <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.03} borderIntensity={0.12}>

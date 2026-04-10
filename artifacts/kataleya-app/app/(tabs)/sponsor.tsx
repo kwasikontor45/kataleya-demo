@@ -800,6 +800,79 @@ export default function SponsorScreen() {
           </>
         )}
 
+        {/* ── SPONSOR PRIVACY ── */}
+        {(() => {
+          const [openFaq, setOpenFaq] = React.useState<number | null>(null);
+          const SPONSOR_FAQ = [
+            {
+              q: 'What does my sponsor actually see?',
+              a: 'Only what you choose to send: your daily check-in (yes or no), your recovery stage (a single word), number of milestones reached, and presence signals you explicitly trigger — water and light. They cannot see mood logs, journal entries, sobriety date, or any health data.',
+            },
+            {
+              q: 'Can messages be intercepted?',
+              a: 'No. Every message is encrypted on your device before it leaves. The relay server passes only ciphertext and immediately discards it. Keys are generated on your device and never transmitted — the server is structurally incapable of reading what it carries.',
+            },
+            {
+              q: 'Can push notifications be intercepted?',
+              a: 'No. Notifications are scheduled entirely on-device using local OS notifications. No notification content is sent to or stored by Kataleya.',
+            },
+          ];
+          return (
+            <>
+              <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>
+                privacy in this connection
+              </Text>
+              <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.02} borderIntensity={0.1}>
+                <View style={[styles.cardInner, { gap: 8 }]}>
+                  {[
+                    'Daily check-in — yes or no, nothing else',
+                    'Recovery stage — a single word',
+                    'Milestones reached — a number',
+                    'Presence signals you choose to send',
+                  ].map((item, i) => (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: `rgba(${accentRgb},0.5)` }} />
+                      <Text style={[styles.cardBody, { color: `${theme.textMuted}cc`, flex: 1 }]}>{item}</Text>
+                    </View>
+                  ))}
+                  <Text style={[styles.hint, { color: `${theme.textMuted}55`, marginTop: 4 }]}>
+                    mood logs, journal entries, and health data are never shared.
+                  </Text>
+                </View>
+              </NeonCard>
+
+              <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.02} borderIntensity={0.08} style={{ marginTop: 4 }}>
+                {SPONSOR_FAQ.map((item, i) => {
+                  const open = openFaq === i;
+                  return (
+                    <View
+                      key={i}
+                      style={[
+                        { },
+                        i < SPONSOR_FAQ.length - 1 && { borderBottomWidth: 1, borderBottomColor: `rgba(${accentRgb},0.08)` },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, gap: 12 }}
+                        onPress={() => { setOpenFaq(open ? null : i); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.cardBody, { color: theme.text, flex: 1 }]}>{item.q}</Text>
+                        <Text style={[styles.hint, { color: `rgba(${accentRgb},0.5)` }]}>{open ? '∧' : '∨'}</Text>
+                      </TouchableOpacity>
+                      {open && (
+                        <Text style={[styles.cardBody, { color: `${theme.textMuted}cc`, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 19 }]}>
+                          {item.a}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </NeonCard>
+            </>
+          );
+        })()}
+
         <View style={[styles.footerNote, { borderColor: `rgba(${accentRgb},0.1)` }]}>
           <Text style={[styles.footerText, { color: `${theme.textMuted}55` }]}>
             signals are relayed and discarded — not stored permanently.{'\n'}
