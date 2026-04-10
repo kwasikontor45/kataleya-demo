@@ -95,6 +95,8 @@ export default function SanctuaryScreen() {
   const overrideHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [overrideHint, setOverrideHint] = useState(false);
   const overrideHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [overrideHint, setOverrideHint] = useState(false);
+  const overrideHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
 
@@ -355,6 +357,13 @@ export default function SanctuaryScreen() {
           </TouchableOpacity>
 
           {/* Centre pill — circadian phase + tap to force override */}
+          {overrideHint && (
+            <View style={{ position: 'absolute', top: 36, alignSelf: 'center', zIndex: 10 }}>
+              <Text style={{ fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
+                {darkOverride ? 'following circadian rhythm' : 'night mode on'}
+              </Text>
+            </View>
+          )}
           {overrideHint && (
             <View style={{ position: 'absolute', top: 36, alignSelf: 'center', zIndex: 10 }}>
               <Text style={{ fontFamily: 'CourierPrime', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
