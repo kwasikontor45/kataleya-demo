@@ -109,6 +109,8 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
   const allAnims    = useRef<Animated.CompositeAnimation[]>([]);
   const hasStarted  = useRef(false);
   const isDone      = useRef(false);
+  const hasStarted  = useRef(false);
+  const isDone      = useRef(false);
 
   // ── Derive timing — pure 4-7-8 ───────────────────────────────────────────────
   function getTiming() {
@@ -385,6 +387,15 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
         </TouchableOpacity>
       )}
 
+      {/* ── Tap to begin — only before start ── */}
+      {!hasStarted.current && !isDone.current && (
+        <TouchableOpacity onPress={handleBegin} hitSlop={24} style={styles.beginHint}>
+          <Text style={[styles.beginHintText, { color: `rgba(${phaseRgb}, 0.35)` }]}>
+            tap the orb to begin
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* ── Orb ─────────────────────────────────────────────────────────── */}
       <View style={[styles.orbWrap, { width: ORB_SIZE, height: ORB_SIZE }]}>
 
@@ -563,6 +574,17 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
     textAlign: 'center',
     opacity: 0.7,
+  },
+  beginHint: {
+    position: 'absolute',
+    bottom: '22%',
+    alignSelf: 'center',
+  },
+  beginHintText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
   },
   beginHint: {
     position: 'absolute',
