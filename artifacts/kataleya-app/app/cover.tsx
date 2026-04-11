@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { useCircadian } from '@/hooks/useCircadian';
 import { getCurrentPhase, getCurrentMinutes } from '@/constants/circadian';
 
@@ -30,13 +31,13 @@ const { width, height } = Dimensions.get('window');
 const PHRASES = {
   void: [
     '2am always ends.',
-    'The cycle continues.\nYou are still in it.',
-    'You opened this instead.\nThat is the choice.',
+    'The garden doesn't judge the winter.',
+    'You opened this instead.\nThat is enough.',
     'Nothing is required of you\nright now.',
-    'The signal is faint.\nYou are still transmitting.',
     'This is the hard hour.\nYou are not alone in it.',
     'Rest is not surrender.\nIt is preparation.',
-    'The void is not permanent.\nIt only feels that way at this hour.',
+    'Even in winter,\nthe roots hold.',
+    'The night always ends\nat the same place — morning.',
   ],
   desire: [
     'Acknowledge it.\nDo not feed it.',
@@ -47,18 +48,18 @@ const PHRASES = {
     'You know what this is.\nYou also know what comes after.',
   ],
   renewal: [
-    'The signal returns.\nYou chose to come back.',
-    'Another cycle begins.\nYou are in it.',
+    'The garden wakes.\nSo do you.',
+    'You made it to morning.\nThat counts.',
     'This is what continuation looks like.',
     'Something held last night.\nThat was you.',
-    'You made it to morning.\nThat counts.',
+    'Another day begins.\nYou are in it.',
   ],
   choice: [
-    'Maximum clarity is available\nright now.',
+    'The garden is awake.\nSo are you.',
     'This is the window.\nUse it.',
-    'Everything nominal.\nYou are present.',
+    'Everything is growing,\neven when you can't see it.',
     'The work continues.\nSo do you.',
-    'Nothing is required except\nto remain.',
+    'You are here.\nThat is enough.',
   ],
 };
 
@@ -87,6 +88,10 @@ const ORB = Math.min(width * 0.52, 220);
 export default function CoverScreen() {
   const router = useRouter();
   const { theme, phase } = useCircadian();
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
+  const audioHintOpacity = useRef(new Animated.Value(0)).current;
 
   // Phrase state
   const [phrase, setPhrase] = useState<string | null>(null);
@@ -149,8 +154,32 @@ export default function CoverScreen() {
       }).start();
     }, 8000);
 
-      return () => {
+    // Load cover narration
+    const loadAudio = async () => {
+      try {
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+        const { sound } = await Audio.Sound.createAsync(
+          require('../assets/audio/kataleya-narration-cover.mp3'),
+          { shouldPlay: false, volume: 0.9 }
+        );
+        soundRef.current = sound;
+        setAudioReady(true);
+        // Fade in audio hint after 12s (when return button appears)
+        setTimeout(() => {
+          Animated.timing(audioHintOpacity, {
+            toValue: 1,
+            duration: 1200,
+            useNativeDriver: true,
+            easing: Easing.inOut(Easing.sin),
+          }).start();
+        }, 12000);
+      } catch { /* optional */ }
+    };
+    loadAudio();
+
+    return () => {
       clearTimeout(returnTimer);
+      soundRef.current?.unloadAsync().catch(() => {});
       [orbScale, orbOpacity, ring1Scale, ring1Opacity,
        ring2Scale, ring2Opacity, bgGlow].forEach(v => v.stopAnimation());
     };
@@ -197,6 +226,23 @@ export default function CoverScreen() {
     inputRange:  [0, 1],
     outputRange: [`rgba(${accentRgb}, 0.00)`, `rgba(${accentRgb}, 0.04)`],
   });
+
+  // ── Audio toggle ─────────────────────────────────────────────────────────
+  const handleAudioToggle = async () => {
+    if (!soundRef.current || !audioReady) return;
+    if (audioPlaying) {
+      await soundRef.current.stopAsync().catch(() => {});
+      await soundRef.current.setPositionAsync(0).catch(() => {});
+      setAudioPlaying(false);
+    } else {
+      await soundRef.current.playAsync().catch(() => {});
+      setAudioPlaying(true);
+      // Auto-reset after playback
+      soundRef.current.setOnPlaybackStatusUpdate(status => {
+        if (status.isLoaded && status.didJustFinish) setAudioPlaying(false);
+      });
+    }
+  };
 
   // ── Return handler ────────────────────────────────────────────────────────
   const handleReturn = () => {
@@ -289,6 +335,17 @@ export default function CoverScreen() {
         </TouchableOpacity>
       </Animated.View>
 
+      {/* Audio hint — appears with return button */}
+      {audioReady && (
+        <Animated.View style={[styles.audioWrap, { opacity: audioHintOpacity }]}>
+          <TouchableOpacity onPress={handleAudioToggle} hitSlop={16}>
+            <Text style={[styles.audioText, { color: `rgba(${accentRgb},0.22)` }]}>
+              {audioPlaying ? '◎ playing' : '◎ amor fati'}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
       {/* Kataleya — barely there */}
       <Text style={[styles.wordmark, { color: `rgba(${accentRgb},0.07)` }]}>
         kataleya
@@ -351,6 +408,17 @@ const styles = StyleSheet.create({
   returnText: {
     fontFamily: 'CourierPrime',
     fontSize: 11,
+    letterSpacing: 2.5,
+    textTransform: 'lowercase',
+  },
+  audioWrap: {
+    position: 'absolute',
+    bottom: 88,
+    alignItems: 'center',
+  },
+  audioText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
     letterSpacing: 2.5,
     textTransform: 'lowercase',
   },

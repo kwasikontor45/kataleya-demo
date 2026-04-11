@@ -21,6 +21,7 @@ import { useOrchidSway } from '@/hooks/useOrchidSway';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useResponsiveHeart } from '@/hooks/useResponsiveHeart';
 import { GhostPulseOrb } from '@/components/GhostPulseOrb';
+import { OuroborosRing } from '@/components/OuroborosRing';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { CircadianBadge } from '@/components/CircadianBadge';
 import { GlyphIcon } from '@/components/GlyphIcon';
@@ -37,10 +38,10 @@ function formatDate(d: Date): string {
 }
 
 function greetPhrase(phase: string): string {
-  if (phase === 'dawn')        return 'the signal returns';
-  if (phase === 'day')         return 'full presence';
-  if (phase === 'goldenHour')  return 'the threshold';
-  return 'deep cloak';
+  if (phase === 'dawn')        return 'good morning';
+  if (phase === 'day')         return 'good afternoon';
+  if (phase === 'goldenHour')  return 'good evening';
+  return 'good night';
 }
 
 // Circadian accent RGB — matches GhostPulseOrb color logic
@@ -421,23 +422,38 @@ export default function SanctuaryScreen() {
               backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.08)` : 'transparent',
             }]}>
               <Text style={[styles.circadianPillText, { color: darkOverride ? `rgba(${accentRgb}, 0.9)` : theme.accent }]}>
-                {darkOverride ? '◗ ' : ''}{phaseConfig.ouroborosPhase ?? phaseConfig.displayName}
+                {darkOverride ? '◗ ' : ''}{phaseConfig.displayName}
               </Text>
             </View>
           </TouchableOpacity>
 
         </View>
 
-        {/* ── GHOST PULSE ORB — replaces OrchidProgress ── */}
+        {/* ── GHOST PULSE ORB + OUROBOROS RING — snake encircles butterfly ── */}
         <View style={styles.orbSection}>
-          <GhostPulseOrb
-            theme={theme}
-            phase={phase}
-            daysSober={sobriety.daysSober}
-            restlessnessScore={restlessnessScore}
-            systemState={systemState}
-            bpm={biometrics.bpm}
-          />
+          <View style={styles.orbComposite}>
+            {/* OuroborosRing — outer, slow, scarred by time */}
+            <View style={styles.ouroborosWrap} pointerEvents="none">
+              <OuroborosRing
+                size={320}
+                color={theme.accent}
+                cycleCount={sobriety.daysSober}
+                phase={phase as any}
+                breathing={true}
+              />
+            </View>
+            {/* GhostPulseOrb — inner, the butterfly */}
+            <View style={styles.orbInner}>
+              <GhostPulseOrb
+                theme={theme}
+                phase={phase}
+                daysSober={sobriety.daysSober}
+                restlessnessScore={restlessnessScore}
+                systemState={systemState}
+                bpm={biometrics.bpm}
+              />
+            </View>
+          </View>
         </View>
 
         {/* Timer */}
@@ -937,6 +953,25 @@ const styles = StyleSheet.create({
   orbSection: {
     flex: 1,
     width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orbComposite: {
+    width: 320,
+    height: 320,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ouroborosWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orbInner: {
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -171,9 +171,9 @@ export const STATE_CONFIG = {
     orbOpacity:     0.55,   // dimmer
     bgIntensity:    0.02,   // barely there
     greeting: [
-      'you are still here.',
-      'the signal is faint.\nyou are still transmitting.',
-      'this hour will pass.',
+      'the garden rests.',
+      'even winter has a purpose.',
+      'this too is part of it.',
       'nothing is required of you\nright now.',
     ],
   },
@@ -182,10 +182,10 @@ export const STATE_CONFIG = {
     orbOpacity:     0.75,
     bgIntensity:    0.04,
     greeting: [
-      'the signal returns.',
-      'full presence.',
-      'the threshold.',
-      'deep cloak.',
+      'good morning.',
+      'good afternoon.',
+      'good evening.',
+      'good night.',
     ],
   },
   thriving: {
@@ -193,10 +193,10 @@ export const STATE_CONFIG = {
     orbOpacity:     0.95,
     bgIntensity:    0.07,   // warmer, fuller
     greeting: [
-      'the cycle continues.\nyou are in it.',
-      'maximum clarity.',
-      'something held.\nthat was you.',
-      'the signal is strong.',
+      'the garden grows.',
+      'something is blooming.',
+      'look how far the roots go.',
+      'this is what becoming looks like.',
     ],
   },
   rest: {
@@ -204,9 +204,9 @@ export const STATE_CONFIG = {
     orbOpacity:     0.35,   // very dim
     bgIntensity:    0.01,   // almost nothing
     greeting: [
-      'minimal signature.',
+      'the garden sleeps.',
       'rest is not surrender.',
-      'deep cloak.',
+      'the garden doesn't judge the winter.',
       '2am always ends.',
     ],
   },
