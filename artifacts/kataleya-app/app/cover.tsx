@@ -30,7 +30,7 @@ import { useSobriety } from '@/hooks/useSobriety';
 
 const { width: W, height: H } = Dimensions.get('window');
 const ORB = Math.min(W * 0.48, 200);
-const RING_SIZE = ORB * 2.6;
+const RING_SIZE = ORB * 1.72;
 
 // ── Phrases — garden language, honest, never performative ────────────────────
 const PHRASES: Record<string, string[]> = {
@@ -287,7 +287,17 @@ export default function CoverScreen() {
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#050508" />
 
-      {/* Ambient glow */}
+      {/* Deep space atmosphere — radial, centered */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.atmosphere,
+          {
+            backgroundColor: bgColor,
+          },
+        ]}
+      />
+      {/* Full screen ambient */}
       <Animated.View pointerEvents="none"
         style={[StyleSheet.absoluteFill, { backgroundColor: bgColor }]} />
 
@@ -317,6 +327,7 @@ export default function CoverScreen() {
             cycleCount={sobriety.daysSober}
             phase={phase as any}
             breathing={false}
+            showDots={false}
           />
         </View>
 
@@ -348,12 +359,14 @@ export default function CoverScreen() {
             transform: [{ scale: orbScale }],
             opacity: orbOpacity,
           }]}>
-            {/* Butterfly — perfectly centered, own colors */}
-            <Image
-              source={require('../assets/images/butterfly-dna.gif')}
-              style={{ width: ORB * 0.62, height: ORB * 0.62 }}
-              resizeMode="contain"
-            />
+            {/* Butterfly — centered, embedded in glow */}
+            <View style={styles.butterflyGlow}>
+              <Image
+                source={require('../assets/images/butterfly-dna.gif')}
+                style={{ width: ORB * 0.58, height: ORB * 0.58 }}
+                resizeMode="contain"
+              />
+            </View>
           </Animated.View>
         </TouchableOpacity>
 
@@ -444,6 +457,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 2.5,
     textTransform: 'lowercase',
+  },
+  butterflyGlow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  atmosphere: {
+    position: 'absolute',
+    width: ORB * 3.5,
+    height: ORB * 3.5,
+    borderRadius: ORB * 1.75,
+    alignSelf: 'center',
+    top: '50%',
+    marginTop: -(ORB * 1.75),
   },
   wordmark: {
     position: 'absolute',
