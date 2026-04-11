@@ -1,176 +1,365 @@
-import React, { useEffect, useState, useRef } from 'react';
+// app/cover.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// The 2am screen. The panic screen. The cover.
+//
+// One breathing object. Tap it and it gives you one phrase.
+// No input required. No log. No output. Just presence.
+// The phrase fades in 6 seconds. Then silence.
+// One quiet option to return when ready.
+//
+// Phrase set is Ouroboros-toned — honest, sparse, not performative.
+// It knows what time it is. It doesn't pretend otherwise.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Platform, Animated, Easing,
+  View, Text, StyleSheet, TouchableOpacity, Animated,
+  Easing, Dimensions, Platform, StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { useCircadian } from '@/hooks/useCircadian';
+import { getCurrentPhase, getCurrentMinutes } from '@/constants/circadian';
 
-function useClock() {
-  const [time, setTime] = useState(new Date());
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return time;
+const { width, height } = Dimensions.get('window');
+
+// ── Phrase set ────────────────────────────────────────────────────────────────
+// Honest. Sparse. No performance required.
+// Sorted by phase — the app picks based on what time it actually is.
+
+const PHRASES = {
+  void: [
+    '2am always ends.',
+    'The cycle continues.\nYou are still in it.',
+    'You opened this instead.\nThat is the choice.',
+    'Nothing is required of you\nright now.',
+    'The signal is faint.\nYou are still transmitting.',
+    'This is the hard hour.\nYou are not alone in it.',
+    'Rest is not surrender.\nIt is preparation.',
+    'The void is not permanent.\nIt only feels that way at this hour.',
+  ],
+  desire: [
+    'Acknowledge it.\nDo not feed it.',
+    'The craving is information.\nNot instruction.',
+    'You have been here before.\nYou have left before.',
+    'Between one self and the next.\nHold.',
+    'This feeling has a lifespan.\nOutlast it.',
+    'You know what this is.\nYou also know what comes after.',
+  ],
+  renewal: [
+    'The signal returns.\nYou chose to come back.',
+    'Another cycle begins.\nYou are in it.',
+    'This is what continuation looks like.',
+    'Something held last night.\nThat was you.',
+    'You made it to morning.\nThat counts.',
+  ],
+  choice: [
+    'Maximum clarity is available\nright now.',
+    'This is the window.\nUse it.',
+    'Everything nominal.\nYou are present.',
+    'The work continues.\nSo do you.',
+    'Nothing is required except\nto remain.',
+  ],
+};
+
+// Map circadian phase to Ouroboros phase
+function getOuroborosPhase(phase: string): keyof typeof PHRASES {
+  if (phase === 'night')       return 'void';
+  if (phase === 'goldenHour')  return 'desire';
+  if (phase === 'dawn')        return 'renewal';
+  return 'choice';
 }
 
-const pad = (n: number) => String(n).padStart(2, '0');
-
-// Breathe — slow 5.5s inhale/exhale, calming for crisis moments
-function useBreathCycle() {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const cycle = () => {
-      Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ]).start(({ finished }) => { if (finished) cycle(); });
-    };
-    cycle();
-    return () => anim.stopAnimation();
-  }, []);
-  return anim;
+function getPhrase(phase: string, lastIndex: number): { text: string; index: number } {
+  const oPhase = getOuroborosPhase(phase);
+  const pool = PHRASES[oPhase];
+  let idx = Math.floor(Math.random() * pool.length);
+  // Never repeat the last phrase
+  if (pool.length > 1 && idx === lastIndex) {
+    idx = (idx + 1) % pool.length;
+  }
+  return { text: pool[idx], index: idx };
 }
+
+// ── Orb sizes ─────────────────────────────────────────────────────────────────
+const ORB = Math.min(width * 0.52, 220);
 
 export default function CoverScreen() {
-  const router    = useRouter();
-  const time      = useClock();
-  const breathe   = useBreathCycle();
-  const tapCount  = useRef(0);
-  const tapTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const router = useRouter();
+  const { theme, phase } = useCircadian();
 
-  const hours   = time.getHours();
-  const minutes = time.getMinutes();
-  const seconds = time.getSeconds();
-  const isAM    = hours < 12;
-  const h12     = hours % 12 || 12;
-  const day     = time.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  // Phrase state
+  const [phrase, setPhrase] = useState<string | null>(null);
+  const [phraseVisible, setPhraseVisible] = useState(false);
+  const lastPhraseIdx = useRef(-1);
+  const phraseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleTap = () => {
-    tapCount.current += 1;
-    if (tapTimer.current) clearTimeout(tapTimer.current);
-    if (tapCount.current >= 3) {
-      tapCount.current = 0;
-      router.back();
-      return;
-    }
-    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 800);
+  // Animated values
+  const orbScale    = useRef(new Animated.Value(1)).current;
+  const orbOpacity  = useRef(new Animated.Value(0.18)).current;
+  const ring1Scale  = useRef(new Animated.Value(1)).current;
+  const ring1Opacity = useRef(new Animated.Value(0.06)).current;
+  const ring2Scale  = useRef(new Animated.Value(1)).current;
+  const ring2Opacity = useRef(new Animated.Value(0.04)).current;
+  const phraseOpacity = useRef(new Animated.Value(0)).current;
+  const returnOpacity = useRef(new Animated.Value(0)).current;
+  const bgGlow      = useRef(new Animated.Value(0)).current;
+
+  const accentRgb = phase === 'night'       ? '155,109,255'
+                  : phase === 'goldenHour'  ? '255,107,53'
+                  : phase === 'dawn'        ? '255,100,180'
+                  : '0,212,170';
+
+  // ── Ambient breath loop ────────────────────────────────────────────────────
+  useEffect(() => {
+    const breath = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(orbScale,    { toValue: 1.06, duration: 4200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(orbOpacity,  { toValue: 0.26, duration: 4200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(ring1Scale,  { toValue: 1.10, duration: 4800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(ring1Opacity,{ toValue: 0.12, duration: 4800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(ring2Scale,  { toValue: 1.14, duration: 5400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(ring2Opacity,{ toValue: 0.07, duration: 5400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(bgGlow,      { toValue: 1,    duration: 4200, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          ]),
+          Animated.parallel([
+            Animated.timing(orbScale,    { toValue: 1,    duration: 4800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(orbOpacity,  { toValue: 0.18, duration: 4800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(ring1Scale,  { toValue: 1,    duration: 5200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(ring1Opacity,{ toValue: 0.06, duration: 5200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(ring2Scale,  { toValue: 1,    duration: 5800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(ring2Opacity,{ toValue: 0.04, duration: 5800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(bgGlow,      { toValue: 0,    duration: 4800, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          ]),
+        ])
+      ).start();
+    };
+
+    breath();
+
+    // Fade in return option after 8 seconds
+    const returnTimer = setTimeout(() => {
+      Animated.timing(returnOpacity, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+        easing: Easing.inOut(Easing.sin),
+      }).start();
+    }, 8000);
+
+    return () => {
+      clearTimeout(returnTimer);
+      [orbScale, orbOpacity, ring1Scale, ring1Opacity,
+       ring2Scale, ring2Opacity, bgGlow].forEach(v => v.stopAnimation());
+    };
+  }, []);
+
+  // ── Tap the orb ───────────────────────────────────────────────────────────
+  const handleTap = useCallback(() => {
+    if (phraseVisible) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const { text, index } = getPhrase(phase, lastPhraseIdx.current);
+    lastPhraseIdx.current = index;
+    setPhrase(text);
+
+    // Fade in
+    phraseOpacity.setValue(0);
+    Animated.timing(phraseOpacity, {
+      toValue: 1,
+      duration: 900,
+      useNativeDriver: true,
+      easing: Easing.inOut(Easing.sin),
+    }).start();
+
+    setPhraseVisible(true);
+
+    // Hold 5s then fade out
+    if (phraseTimer.current) clearTimeout(phraseTimer.current);
+    phraseTimer.current = setTimeout(() => {
+      Animated.timing(phraseOpacity, {
+        toValue: 0,
+        duration: 1400,
+        useNativeDriver: true,
+        easing: Easing.inOut(Easing.sin),
+      }).start(() => {
+        setPhraseVisible(false);
+        setPhrase(null);
+      });
+    }, 5000);
+  }, [phase, phraseVisible]);
+
+  // ── Background glow interpolation ─────────────────────────────────────────
+  const bgColor = bgGlow.interpolate({
+    inputRange:  [0, 1],
+    outputRange: [`rgba(${accentRgb}, 0.00)`, `rgba(${accentRgb}, 0.04)`],
+  });
+
+  // ── Return handler ────────────────────────────────────────────────────────
+  const handleReturn = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
   };
 
-  // Breathing ring opacity
-  const ringOpacity = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.04, 0.14] });
-  const ringScale   = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1.04] });
-
   return (
-    <View style={styles.container}>
-      {/* Ambient breathing ring — barely visible, calming presence */}
+    <View style={[styles.root, { backgroundColor: '#050508' }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#050508" />
+
+      {/* Ambient background glow — breathes with orb */}
       <Animated.View
+        style={[StyleSheet.absoluteFill, { backgroundColor: bgColor }]}
         pointerEvents="none"
-        style={[styles.breathRing, { opacity: ringOpacity, transform: [{ scale: ringScale }] }]}
       />
 
-      <TouchableOpacity
-        style={styles.clockArea}
-        onPress={handleTap}
-        activeOpacity={1}
-        accessible={false}
-      >
-        <Text style={styles.dayText}>{day}</Text>
+      {/* Phase whisper — barely visible, top center */}
+      <Text style={[styles.phaseWhisper, { color: `rgba(${accentRgb},0.18)` }]}>
+        {phase === 'night' ? 'void' : phase === 'goldenHour' ? 'desire' : phase === 'dawn' ? 'renewal' : 'choice'}
+      </Text>
 
-        <View style={styles.timeRow}>
-          <Text style={styles.timeText}>
-            {pad(h12)}:{pad(minutes)}
+      {/* Orb — the breathing object */}
+      <View style={styles.orbArea}>
+
+        {/* Ring 2 — outermost, slowest */}
+        <Animated.View style={[
+          styles.ring,
+          {
+            width: ORB * 1.6,
+            height: ORB * 1.6,
+            borderRadius: ORB * 0.8,
+            borderColor: `rgba(${accentRgb}, 1)`,
+            transform: [{ scale: ring2Scale }],
+            opacity: ring2Opacity,
+          },
+        ]} />
+
+        {/* Ring 1 — inner */}
+        <Animated.View style={[
+          styles.ring,
+          {
+            width: ORB * 1.22,
+            height: ORB * 1.22,
+            borderRadius: ORB * 0.61,
+            borderColor: `rgba(${accentRgb}, 1)`,
+            transform: [{ scale: ring1Scale }],
+            opacity: ring1Opacity,
+          },
+        ]} />
+
+        {/* Core orb — tap target */}
+        <TouchableOpacity
+          onPress={handleTap}
+          activeOpacity={1}
+          hitSlop={24}
+          style={styles.orbTouch}
+        >
+          <Animated.View style={[
+            styles.orb,
+            {
+              width: ORB,
+              height: ORB,
+              borderRadius: ORB / 2,
+              borderColor: `rgba(${accentRgb}, 1)`,
+              backgroundColor: `rgba(${accentRgb}, 0.04)`,
+              transform: [{ scale: orbScale }],
+              opacity: orbOpacity,
+            },
+          ]} />
+        </TouchableOpacity>
+
+      </View>
+
+      {/* Phrase — appears on tap, fades */}
+      <Animated.View style={[styles.phraseWrap, { opacity: phraseOpacity }]}>
+        {phrase && (
+          <Text style={[styles.phraseText, { color: `rgba(${accentRgb},0.85)` }]}>
+            {phrase}
           </Text>
-          <View style={styles.ampmCol}>
-            <Text style={[styles.ampm, { opacity: isAM ? 0.7 : 0.15 }]}>AM</Text>
-            <Text style={[styles.ampm, { opacity: !isAM ? 0.7 : 0.15 }]}>PM</Text>
-          </View>
-        </View>
+        )}
+      </Animated.View>
 
-        <Text style={styles.seconds}>{pad(seconds)}</Text>
+      {/* Return — fades in after 8s */}
+      <Animated.View style={[styles.returnWrap, { opacity: returnOpacity }]}>
+        <TouchableOpacity onPress={handleReturn} hitSlop={16}>
+          <Text style={[styles.returnText, { color: `rgba(${accentRgb},0.28)` }]}>
+            return when ready
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
 
-        <View style={styles.divider} />
+      {/* Kataleya — barely there */}
+      <Text style={[styles.wordmark, { color: `rgba(${accentRgb},0.07)` }]}>
+        kataleya
+      </Text>
 
-        {/* Breathing instruction — gentle, not clinical */}
-        <Text style={styles.label}>breathe</Text>
-        <Text style={styles.sublabel}>tap three times to return to the garden</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#0e0c0a',   // near-black warm brown — not pure #000
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  breathRing: {
+  phaseWhisper: {
     position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    borderWidth: 1,
-    borderColor: '#87a878',       // sage — sanctuary colour
-  },
-  clockArea: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  dayText: {
-    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
-    fontSize: 11,
-    color: '#3a3028',
-    letterSpacing: 2,
+    top: Platform.OS === 'ios' ? 64 : 48,
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    letterSpacing: 4,
     textTransform: 'uppercase',
   },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
+  orbArea: {
+    width: ORB * 1.8,
+    height: ORB * 1.8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  timeText: {
-    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
-    fontSize: 72,
-    color: '#4a4038',             // very dark warm brown — readable, not glaring
-    fontWeight: '100',
-    letterSpacing: -2,
-    lineHeight: 80,
+  ring: {
+    position: 'absolute',
+    borderWidth: 1,
   },
-  ampmCol: { paddingTop: 14, gap: 2 },
-  ampm: {
-    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
+  orbTouch: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orb: {
+    borderWidth: 1,
+  },
+  phraseWrap: {
+    position: 'absolute',
+    bottom: height * 0.28,
+    left: 40,
+    right: 40,
+    alignItems: 'center',
+  },
+  phraseText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 17,
+    lineHeight: 28,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  returnWrap: {
+    position: 'absolute',
+    bottom: height * 0.1,
+    alignItems: 'center',
+  },
+  returnText: {
+    fontFamily: 'CourierPrime',
     fontSize: 11,
-    color: '#3a3028',
-    letterSpacing: 1,
-  },
-  seconds: {
-    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
-    fontSize: 18,
-    color: '#2a2018',
-    letterSpacing: 3,
-  },
-  divider: {
-    width: 32,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#2a2018',
-    marginVertical: 8,
-  },
-  label: {
-    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
-    fontSize: 11,
-    color: '#3a3028',
-    letterSpacing: 4,
+    letterSpacing: 2.5,
     textTransform: 'lowercase',
   },
-  sublabel: {
-    fontFamily: Platform.OS === 'web' ? 'monospace' : 'CourierPrime',
-    fontSize: 9,
-    color: '#2a2018',
-    letterSpacing: 1,
-    marginTop: 4,
+  wordmark: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 52 : 36,
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 6,
+    textTransform: 'lowercase',
   },
 });
