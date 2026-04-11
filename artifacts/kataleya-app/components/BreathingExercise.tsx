@@ -462,32 +462,39 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
         <Animated.View style={[
           styles.coreGlow,
           {
-            width: ORB_SIZE * 0.55,
-            height: ORB_SIZE * 0.55,
-            borderRadius: (ORB_SIZE * 0.55) / 2,
+            width: ORB_SIZE * 0.70,
+            height: ORB_SIZE * 0.70,
+            borderRadius: (ORB_SIZE * 0.70) / 2,
             backgroundColor: glowColor,
             transform: [{ scale: coreScale }],
           }
         ]} />
 
-        {/* Core — the breath itself */}
-        <Animated.View style={[
-          styles.core,
-          {
-            width: ORB_SIZE * 0.36,
-            height: ORB_SIZE * 0.36,
-            borderRadius: (ORB_SIZE * 0.36) / 2,
-            backgroundColor: accentDim,
-            borderColor: accentColor,
-            transform: [{ scale: coreScale }],
-            opacity: coreOpacity,
-          }
-        ]}>
-          {/* Countdown number inside the core */}
-          <Animated.Text style={[styles.countdownText, { color: accentColor, opacity: countOpacity }]}>
-            {countLabel.current}
-          </Animated.Text>
-        </Animated.View>
+        {/* Core — the breath itself, tap to begin */}
+        <TouchableOpacity
+          onPress={handleBegin}
+          activeOpacity={0.85}
+          style={styles.coreTouch}
+        >
+          <Animated.View style={[
+            styles.core,
+            {
+              width: ORB_SIZE * 0.52,
+              height: ORB_SIZE * 0.52,
+              borderRadius: (ORB_SIZE * 0.52) / 2,
+              backgroundColor: accentDim,
+              borderColor: accentColor,
+              borderWidth: 1.5,
+              transform: [{ scale: coreScale }],
+              opacity: coreOpacity,
+            }
+          ]}>
+            {/* Countdown number inside the core */}
+            <Animated.Text style={[styles.countdownText, { color: accentColor, opacity: countOpacity }]}>
+              {countLabel.current}
+            </Animated.Text>
+          </Animated.View>
+        </TouchableOpacity>
 
       </View>
 
@@ -573,6 +580,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.7,
   },
+  coreTouch: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: ORB_SIZE * 0.52,
+    height: ORB_SIZE * 0.52,
+    borderRadius: (ORB_SIZE * 0.52) / 2,
+  },
   beginHint: {
     position: 'absolute',
     bottom: '22%',
@@ -583,6 +598,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 2,
     textTransform: 'lowercase',
+  },
+  coreTouch: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: ORB_SIZE * 0.52,
+    height: ORB_SIZE * 0.52,
+    borderRadius: (ORB_SIZE * 0.52) / 2,
   },
   beginHint: {
     position: 'absolute',
