@@ -1,10 +1,24 @@
+// hooks/useResponsiveHeart.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// Ghost heartbeat. Derives BPM and breathing rhythm from three signals:
+//   1. Circadian phase
+//   2. Accelerometer restlessness (from useOrchidSway, via mood log)
+//   3. Most recent mood score
+//
+// BPM range: 45–78.
+// Dormant (no mood data): fixed slow ambient rate — present, not urgent.
+// Active: mirrors and regulates the user's internal state.
+//
+// Loop closed: mood logged → moodEvents.emit() → recalculate immediately.
+// 5-minute interval is background fallback only.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useEffect, useState, useRef } from 'react';
-import { useSharedValue, withTiming, Easing } from 'react-native-reanimated';
 import { CircadianPhase } from '@/constants/circadian';
 import { Sanctuary } from '@/utils/storage';
 import { moodEvents } from '@/utils/mood-event';
 
-interface HeartBiometrics {
+export interface HeartBiometrics {
   bpm: number;
   inhaleMs: number;
   holdMs: number;
@@ -26,9 +40,6 @@ function defaultBiometrics(): HeartBiometrics {
 
 export function useResponsiveHeart(phase: CircadianPhase) {
   const [biometrics, setBiometrics] = useState<HeartBiometrics>(defaultBiometrics);
-  const opacity = useSharedValue(0.45);
-  const scale = useSharedValue(0.97);
-  const letterSpacingVal = useSharedValue(4);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -38,35 +49,61 @@ export function useResponsiveHeart(phase: CircadianPhase) {
 
   useEffect(() => {
     const calculate = async () => {
-      const mood = await Sanctuary.getRecentMoodState();
+      const logs = await Sanctuary.getMoodLogs(5);
+
+      // ── Dormant — no mood data yet ─────────────────────────────────────────
+      // Fixed slow ambient pulse. Present, not urgent.
+      // Does not apply silence-concern modifiers — user hasn't started yet.
+      if (!logs.length) {
+        const dormantBpm = phase === 'night' ? 50 : 56;
+        const cycleMs = 60000 / dormantBpm;
+        if (!mountedRef.current) return;
+        setBiometrics({
+          bpm: dormantBpm,
+          inhaleMs: cycleMs * 0.4,
+          holdMs: cycleMs * 0.1,
+          exhaleMs: cycleMs * 0.5,
+          amplitude: 0.06,
+          opacityRange: [0.45, 0.85],
+        });
+        return;
+      }
+
+      // ── Active — derive from signals ───────────────────────────────────────
+      const last = logs[0];
+      const hoursSince = (Date.now() - last.ts) / 3_600_000;
+      const avgRestlessness = logs.slice(0, 3)
+        .reduce((s, l) => s + l.restlessness, 0) / Math.min(logs.length, 3);
+      const lastScore = last.moodScore;
 
       // Base BPM: 50 (crisis) → 75 (grounded), scaled across score 1–10
-      let bpm = 50 + (mood.lastScore - 1) * 2.8;
+      let bpm = 50 + (lastScore - 1) * 2.8;
 
       // Phase modifiers
-      if (mood.avgRestlessness > 0.6) bpm += 5;   // anxious → more frequent, smaller
-      if (phase === 'night')          bpm -= 10;   // sleep support → deep and slow
-      if (phase === 'goldenHour')     bpm += 5;    // protective presence → slightly elevated
-      if (mood.hoursSince > 6)        bpm += 8;    // gentle concern → more insistent
-      if (mood.hoursSince > 24)       bpm += 5;    // 24h silence → warm urgency
+      if (avgRestlessness > 0.6) bpm += 5;   // anxious → more frequent, smaller
+      if (phase === 'night')      bpm -= 10;  // sleep support → deep and slow
+      if (phase === 'goldenHour') bpm += 5;   // protective presence → slightly elevated
+
+      // Thriving floor — high score + recent check-in → settle the orb, not celebrate
+      if (lastScore >= 8 && hoursSince < 6)   bpm -= 8;
+
+      // Silence concern — gentle urgency when the user goes quiet
+      if (hoursSince > 6)  bpm += 8;
+      if (hoursSince > 24) bpm += 5;
 
       bpm = Math.max(45, Math.min(78, bpm));
 
       const cycleMs = 60000 / bpm;
       let ratios: [number, number, number];
-      if (mood.lastScore <= 3) {
-        ratios = [0.3, 0.2, 0.5];
-      } else if (mood.lastScore >= 8) {
-        ratios = [0.4, 0.1, 0.5];
-      } else {
-        ratios = [0.35, 0.15, 0.5];
-      }
+      if (lastScore <= 3)       ratios = [0.3, 0.2, 0.5];
+      else if (lastScore >= 8)  ratios = [0.4, 0.1, 0.5];
+      else                      ratios = [0.35, 0.15, 0.5];
 
       const inhaleMs = cycleMs * ratios[0];
-      const holdMs = cycleMs * ratios[1];
+      const holdMs   = cycleMs * ratios[1];
       const exhaleMs = cycleMs * ratios[2];
-      const amplitude = mood.avgRestlessness > 0.7 ? 0.05 : mood.hoursSince > 12 ? 0.12 : 0.08;
-      const opacityRange: [number, number] = mood.lastScore <= 3 ? [0.3, 0.8] : [0.5, 1.0];
+      const amplitude = avgRestlessness > 0.7 ? 0.05 : hoursSince > 12 ? 0.12 : 0.08;
+      const opacityRange: [number, number] = lastScore <= 3 ? [0.3, 0.8] : [0.5, 1.0];
 
       if (!mountedRef.current) return;
       setBiometrics({ bpm, inhaleMs, holdMs, exhaleMs, amplitude, opacityRange });
@@ -78,50 +115,12 @@ export function useResponsiveHeart(phase: CircadianPhase) {
     return () => { clearInterval(interval); unsub(); };
   }, [phase]);
 
-  useEffect(() => {
-    const { inhaleMs, holdMs, exhaleMs, amplitude, opacityRange } = biometrics;
-
-    const animate = () => {
-      opacity.value = withTiming(opacityRange[1], {
-        duration: inhaleMs,
-        easing: Easing.out(Easing.sin),
-      });
-      scale.value = withTiming(1 + amplitude / 2, {
-        duration: inhaleMs,
-        easing: Easing.out(Easing.sin),
-      });
-      letterSpacingVal.value = withTiming(6, {
-        duration: inhaleMs,
-        easing: Easing.out(Easing.sin),
-      });
-
-      setTimeout(() => {
-        opacity.value = withTiming(opacityRange[0], {
-          duration: exhaleMs,
-          easing: Easing.inOut(Easing.sin),
-        });
-        scale.value = withTiming(1 - amplitude / 2, {
-          duration: exhaleMs,
-          easing: Easing.inOut(Easing.sin),
-        });
-        letterSpacingVal.value = withTiming(4, {
-          duration: exhaleMs,
-          easing: Easing.inOut(Easing.sin),
-        });
-      }, inhaleMs + holdMs);
-    };
-
-    animate();
-    const loop = setInterval(animate, inhaleMs + holdMs + exhaleMs);
-    return () => clearInterval(loop);
-  }, [biometrics, opacity, scale, letterSpacingVal]);
-
-  // Derive a human-readable system state for ambient display
+  // Human-readable system state for ambient display
   const systemState: string =
-    biometrics.bpm < 52 ? 'holding' :
-    biometrics.bpm < 62 ? 'present' :
-    biometrics.bpm < 72 ? 'attuned' :
+    biometrics.bpm < 52 ? 'holding'     :
+    biometrics.bpm < 62 ? 'present'     :
+    biometrics.bpm < 72 ? 'attuned'     :
     'celebrating';
 
-  return { opacity, scale, letterSpacing: letterSpacingVal, biometrics, systemState };
+  return { biometrics, systemState };
 }

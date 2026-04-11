@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { ThemeTokens } from '@/constants/theme';
 import { CircadianPhase } from '@/constants/circadian';
-import { NEON_RGB } from './NeonCard';
 
 /**
  * GhostPulseOrb — replaces OrchidProgress as the central visual on the
@@ -62,14 +61,6 @@ function restlessnessLabel(score: number): string {
   return '';
 }
 
-function phaseAccentRgb(phase: CircadianPhase): string {
-  switch (phase) {
-    case 'goldenHour': return NEON_RGB.amber;
-    case 'night':      return NEON_RGB.violet;
-    case 'dawn':       return NEON_RGB.cyan;
-    default:           return NEON_RGB.cyan;
-  }
-}
 
 interface Props {
   theme: ThemeTokens;
@@ -88,7 +79,7 @@ export function GhostPulseOrb({
   systemState = 'present',
   bpm = 60,
 }: Props) {
-  const rgb = phaseAccentRgb(phase);
+  const rgb = theme.phaseRgb;
   const coreSize = orbSizeForDays(daysSober);
 
   // Ring animation — three rings at different speeds and scales
