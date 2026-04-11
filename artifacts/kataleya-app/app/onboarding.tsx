@@ -853,7 +853,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 160,
   },
-  notifsWrap: {
+  notifsWrap: {},
   notifsSubtitle: {
     fontFamily: 'CourierPrime',
     fontSize: 10,

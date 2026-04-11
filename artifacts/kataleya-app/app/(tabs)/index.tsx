@@ -99,7 +99,7 @@ function DateScrollPicker({
 }) {
   const now = new Date();
   const currentYear = now.getFullYear();
-  const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
+  const years = Array.from({ length: currentYear - 1989 }, (_, i) => currentYear - i);
   const months = Array.from({ length: 12 }, (_, i) => i);
   const getDays = (m: number, y: number) => new Date(y, m + 1, 0).getDate();
   const days = Array.from({ length: getDays(value.getMonth(), value.getFullYear()) }, (_, i) => i + 1);
