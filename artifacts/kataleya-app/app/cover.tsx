@@ -31,7 +31,7 @@ import { useSobriety } from '@/hooks/useSobriety';
 
 const { width: W, height: H } = Dimensions.get('window');
 const ORB = Math.min(W * 0.48, 200);
-const RING_SIZE = ORB * 2.6;
+const RING_SIZE = ORB * 1.5;
 
 // ── Phrases — garden language, honest, never performative ────────────────────
 const PHRASES: Record<string, string[]> = {
