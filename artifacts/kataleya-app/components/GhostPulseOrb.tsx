@@ -207,15 +207,13 @@ export function GhostPulseOrb({
             },
           ]}
         >
-          <Animated.Image
+          <Image
             source={require('../assets/images/butterfly-dna.gif')}
             style={[
               styles.butterfly,
               {
-                width: coreSize * 0.72,
-                height: coreSize * 0.72,
-                opacity: coreOpacity,
-                tintColor: `rgba(${rgb}, 0.85)`,
+                width: coreSize * 0.68,
+                height: coreSize * 0.68,
               },
             ]}
             resizeMode="contain"
@@ -257,7 +255,8 @@ const styles = StyleSheet.create({
     borderStyle: 'solid',
   },
   butterfly: {
-    borderRadius: 999,
+    position: 'absolute',
+    alignSelf: 'center',
   },
   stageText: {
     fontFamily: 'CourierPrime',
