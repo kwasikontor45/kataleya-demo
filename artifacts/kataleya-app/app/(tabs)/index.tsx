@@ -51,6 +51,19 @@ function greetPhrase(phase: string): string {
   return 'good night';
 }
 
+// Human-readable duration — nil under 30 days (raw count is the meaning)
+function humanDuration(days: number): string | null {
+  if (days < 30) return null;
+  const years  = Math.floor(days / 365);
+  const months = Math.floor((days % 365) / 30);
+  const rem    = days % 30;
+  const parts: string[] = [];
+  if (years  > 0) parts.push(`${years} yr`);
+  if (months > 0) parts.push(`${months} mo`);
+  if (rem    > 0 || parts.length === 0) parts.push(`${rem} day${rem !== 1 ? 's' : ''}`);
+  return parts.join(' · ');
+}
+
 // Circadian accent RGB — matches GhostPulseOrb color logic
 function phaseAccentRgb(phase: string): string {
   if (phase === 'goldenHour') return NEON_RGB.amber;
@@ -266,6 +279,9 @@ export default function SanctuaryScreen() {
   const overrideHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const [clockTime, setClockTime] = useState(() => {
+    const n = new Date(); return `${pad(n.getHours())}:${pad(n.getMinutes())}`;
+  });
 
   // Day count pulse — gentle breath at BPM rate
   const dayPulse  = useRef(new Animated.Value(1)).current;
@@ -414,6 +430,10 @@ export default function SanctuaryScreen() {
   useEffect(() => {
     Surface.getName().then(n => setUserName(n ?? null));
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const clockTick = setInterval(() => {
+      const n = new Date(); setClockTime(`${pad(n.getHours())}:${pad(n.getMinutes())}`);
+    }, 15000);
+    return () => clearInterval(clockTick);
   }, []);
 
   // Load predictive suggestion once per mount
@@ -636,13 +656,21 @@ export default function SanctuaryScreen() {
         {/* Timer */}
         {sobriety.startDate ? (
           <View style={styles.timerSection}>
+            <Text style={[styles.clockTime, { color: `rgba(${accentRgb}, 0.28)` }]}>
+              {clockTime}
+            </Text>
             <Animated.Text style={[styles.dayCount, { color: `rgba(${accentRgb}, 0.95)`, transform: [{ scale: dayPulse }] }]}>
               {sobriety.daysSober}
             </Animated.Text>
             <Text style={[styles.dayLabel, { color: `rgba(${accentRgb}, 0.45)` }]}>
               {sobriety.daysSober === 1 ? 'day in sanctuary' : 'days in sanctuary'}
             </Text>
-            <Text style={[styles.hmsCount, { color: `${theme.text}60` }]}>
+            {humanDuration(sobriety.daysSober) && (
+              <Text style={[styles.humanDuration, { color: `rgba(${accentRgb}, 0.35)` }]}>
+                {humanDuration(sobriety.daysSober)}
+              </Text>
+            )}
+            <Text style={[styles.hmsCount, { color: `${theme.text}40` }]}>
               {pad(sobriety.hoursSober)}:{pad(sobriety.minutesSober)}:{pad(sobriety.secondsSober)}
             </Text>
 
@@ -1133,6 +1161,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timerSection: { alignItems: 'center', gap: 6, width: '100%' },
+  clockTime: {
+    fontFamily: 'SpaceMono',
+    fontSize: 11,
+    letterSpacing: 3,
+    marginBottom: 2,
+  },
   dayCount: {
     fontFamily: 'CourierPrime',
     fontSize: 64,
@@ -1145,6 +1179,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 3,
     textTransform: 'uppercase',
+  },
+  humanDuration: {
+    fontFamily: 'SpaceMono',
+    fontSize: 11,
+    letterSpacing: 1.5,
+    marginTop: 2,
   },
   hmsCount: {
     fontFamily: 'SpaceMono',
