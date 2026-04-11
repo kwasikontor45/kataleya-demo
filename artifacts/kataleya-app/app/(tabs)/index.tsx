@@ -468,7 +468,7 @@ export default function SanctuaryScreen() {
     setSettingDate(false);
   };
 
-  const accentRgb = theme.phaseRgb ?? phaseAccentRgb(phase);
+  const accentRgb = darkOverride ? '138,95,224' : (theme.phaseRgb ?? phaseAccentRgb(phase));
   const hour = new Date().getHours();
   const is2am = phase === 'night' && hour >= 0 && hour < 5;
   const isStruggling = userState === 'struggling' || userState === 'rest';
@@ -508,7 +508,7 @@ export default function SanctuaryScreen() {
           styles.scroll,
           { paddingTop: topPad + 12, paddingBottom: botPad + 16 },
         ]}
-        scrollEnabled={true}
+        scrollEnabled={!settingDate}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
