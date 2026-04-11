@@ -191,15 +191,15 @@ export default function BridgeScreen() {
       {/* Central composition */}
       <View style={styles.center}>
 
-        {/* Orbital arc fragments — atmosphere of the ring, not a targeting system */}
+        {/* Orbital arc fragments — tight corona around the ring */}
         {(() => {
-          const S = RING_SIZE * 1.7;
+          const S = RING_SIZE * 1.15;
           const cx = S / 2;
           const cy = S / 2;
           const arcs = [
-            { r: RING_SIZE * 0.76, startDeg: 18,  sweepDeg: 44, opacity: 0.055 },
-            { r: RING_SIZE * 0.62, startDeg: 200, sweepDeg: 38, opacity: 0.07  },
-            { r: RING_SIZE * 0.88, startDeg: 118, sweepDeg: 28, opacity: 0.04  },
+            { r: RING_SIZE * 0.54, startDeg: 20,  sweepDeg: 38, opacity: 0.07  },
+            { r: RING_SIZE * 0.51, startDeg: 195, sweepDeg: 32, opacity: 0.09  },
+            { r: RING_SIZE * 0.57, startDeg: 122, sweepDeg: 24, opacity: 0.055 },
           ];
           const toRad = (d: number) => (d * Math.PI) / 180;
           return (
@@ -229,7 +229,7 @@ export default function BridgeScreen() {
         {/* OuroborosRing — turning, scarred, never closing */}
         <Animated.View style={[styles.ringWrap, {
           opacity: orbOpacity,
-          transform: [{ perspective: 700 }, { rotateX: '-10deg' }],
+          transform: [{ perspective: 600 }, { rotateX: '-12deg' }],
         }]} pointerEvents="none">
           <OuroborosRing
             size={RING_SIZE}
@@ -241,10 +241,21 @@ export default function BridgeScreen() {
           />
         </Animated.View>
 
-        {/* Butterfly at center — same plane as the ring */}
+        {/* Hollow — dark recess, butterfly sits within */}
+        <Animated.View style={[styles.hollowWrap, {
+          opacity: orbOpacity,
+          transform: [{ perspective: 600 }, { rotateX: '-12deg' }],
+        }]} pointerEvents="none">
+          <View style={[styles.hollow, {
+            backgroundColor: 'rgba(5,5,8,0.62)',
+            borderColor: `rgba(${accentRgb},0.1)`,
+          }]} />
+        </Animated.View>
+
+        {/* Butterfly at center — coplanar with ring and hollow */}
         <Animated.View style={[styles.butterflyWrap, {
           opacity: orbOpacity,
-          transform: [{ perspective: 700 }, { rotateX: '-10deg' }],
+          transform: [{ perspective: 600 }, { rotateX: '-12deg' }],
         }]}>
           <Image
             source={require('../assets/images/butterfly-dna-t.gif')}
@@ -334,6 +345,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  hollowWrap: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hollow: {
+    width: RING_SIZE * 0.42,
+    height: RING_SIZE * 0.42,
+    borderRadius: RING_SIZE * 0.21,
+    borderWidth: 1,
+  },
   butterflyWrap: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -353,8 +375,8 @@ const styles = StyleSheet.create({
   },
   arcWrap: {
     position: 'absolute',
-    width: RING_SIZE * 1.7,
-    height: RING_SIZE * 1.7,
+    width: RING_SIZE * 1.15,
+    height: RING_SIZE * 1.15,
     alignItems: 'center',
     justifyContent: 'center',
   },
