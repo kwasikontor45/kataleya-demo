@@ -282,9 +282,9 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
   }, [visible]);
 
   // ── Dismiss ──────────────────────────────────────────────────────────────────
-  // Called when user taps "i feel it" mid-session
+  // Called after 2 cycles — show "you did well", keep orb breathing gently
   const handleDismiss = useCallback(() => {
-    if (isDone.current) return; // already done — tap closes
+    if (isDone.current) return;
     isMounted.current = false;
     allAnims.current.forEach(a => a.stop());
     if (countTimer.current) clearTimeout(countTimer.current);
@@ -292,17 +292,32 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
     countLabel.current = '';
     isDone.current = true;
     setLabel('done');
-    // Stop rings, show "take it with you" — wait for tap to close
+
+    // Fade countdown and rings — keep core breathing slowly
     Animated.parallel([
-      Animated.timing(coreOpacity,  { toValue: 0.2, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(coreGlow,     { toValue: 0,   duration: 1000, useNativeDriver: true }),
-      Animated.timing(r1Opacity,    { toValue: 0,   duration: 1000, useNativeDriver: true }),
-      Animated.timing(r2Opacity,    { toValue: 0,   duration: 800,  useNativeDriver: true }),
-      Animated.timing(r3Opacity,    { toValue: 0,   duration: 600,  useNativeDriver: true }),
-      Animated.timing(countOpacity, { toValue: 0,   duration: 300,  useNativeDriver: true }),
-    ]).start();
-    Animated.timing(dismissOpacity, { toValue: 1, duration: 600, useNativeDriver: true }).start();
-  }, [setLabel, countOpacity]);
+      Animated.timing(countOpacity, { toValue: 0,    duration: 300,  useNativeDriver: true }),
+      Animated.timing(r1Opacity,    { toValue: 0,    duration: 1000, useNativeDriver: true }),
+      Animated.timing(r2Opacity,    { toValue: 0,    duration: 800,  useNativeDriver: true }),
+      Animated.timing(r3Opacity,    { toValue: 0,    duration: 600,  useNativeDriver: true }),
+      Animated.timing(coreGlow,     { toValue: 0,    duration: 1000, useNativeDriver: true }),
+    ]).start(() => {
+      // Start slow ambient breath — orb keeps moving until x is tapped
+      Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(coreScale,   { toValue: 1.08, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(coreOpacity, { toValue: 0.55, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(coreScale,   { toValue: 0.92, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(coreOpacity, { toValue: 0.25, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          ]),
+        ])
+      ).start();
+    });
+
+    Animated.timing(dismissOpacity, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+  }, [setLabel, countOpacity, coreScale, coreOpacity]);
 
   // Called when user taps anywhere after done state
   const handleFinalClose = useCallback(() => {
