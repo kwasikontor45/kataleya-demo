@@ -24,7 +24,6 @@ import { useResponsiveHeart } from '@/hooks/useResponsiveHeart';
 import { GhostPulseOrb } from '@/components/GhostPulseOrb';
 import { OuroborosRing } from '@/components/OuroborosRing';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
-import { CircadianBadge } from '@/components/CircadianBadge';
 import { GlyphIcon } from '@/components/GlyphIcon';
 import { BreathingExercise } from '@/components/BreathingExercise';
 import { GroundingExercise } from '@/components/GroundingExercise';
