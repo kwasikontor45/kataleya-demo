@@ -4,27 +4,32 @@ export interface PhaseConfig {
   name: CircadianPhase;
   displayName: string;
   description: string;
+  ouroborosPhase: string; // the raw name
 }
 
 export const CIRCADIAN_PHASES: Record<CircadianPhase, PhaseConfig> = {
   dawn: {
     name: 'dawn',
     displayName: 'systems online',
+    ouroborosPhase: 'renewal',
     description: 'The signal returns. You chose to come back.',
   },
   day: {
     name: 'day',
     displayName: 'full presence',
+    ouroborosPhase: 'choice',
     description: 'Maximum clarity. Everything nominal.',
   },
   goldenHour: {
     name: 'goldenHour',
     displayName: 'the threshold',
+    ouroborosPhase: 'desire',
     description: 'Between one self and the next. Hold.',
   },
   night: {
     name: 'night',
     displayName: 'deep cloak',
+    ouroborosPhase: 'void',
     description: 'Minimal signature. Maximum awareness. Rest.',
   },
 };
@@ -48,63 +53,42 @@ export function msUntilNextMinute(): number {
 }
 
 export function calculateBlendRatio(minutes: number): number {
-  const DAWN_START = timeToMinutes('05:00');
-  const DAY_START = timeToMinutes('08:00');
+  const DAWN_START  = timeToMinutes('05:00');
+  const DAY_START   = timeToMinutes('08:00');
   const GOLDEN_START = timeToMinutes('17:00');
   const NIGHT_START = timeToMinutes('20:00');
-  const NIGHT_END = timeToMinutes('24:00');
-  const DAWN_PRE = timeToMinutes('04:30');
-
+  const DAWN_PRE    = timeToMinutes('04:30');
   const ease = (t: number) => t * t * (3 - 2 * t);
 
   if (minutes >= DAWN_PRE && minutes < DAWN_START) {
     const t = (minutes - DAWN_PRE) / TRANSITION_WINDOW;
     return ease(1 - Math.min(1, t));
   }
-
-  if (minutes >= DAWN_START && minutes < DAY_START) {
-    return 0;
-  }
-
-  if (minutes >= DAY_START && minutes < GOLDEN_START) {
-    return 0;
-  }
-
+  if (minutes >= DAWN_START && minutes < GOLDEN_START) return 0;
   if (minutes >= GOLDEN_START && minutes < NIGHT_START) {
     const t = (minutes - GOLDEN_START) / (NIGHT_START - GOLDEN_START);
     return ease(Math.min(1, t));
   }
-
-  if (minutes >= NIGHT_START) {
-    return 1;
-  }
-
-  if (minutes < DAWN_PRE) {
-    return 1;
-  }
-
   return 1;
 }
 
 export function getCurrentPhase(minutes: number): CircadianPhase {
-  const DAWN_START = timeToMinutes('05:00');
-  const DAY_START = timeToMinutes('08:00');
+  const DAWN_START   = timeToMinutes('05:00');
+  const DAY_START    = timeToMinutes('08:00');
   const GOLDEN_START = timeToMinutes('17:00');
-  const NIGHT_START = timeToMinutes('20:00');
-
-  if (minutes >= DAWN_START && minutes < DAY_START) return 'dawn';
-  if (minutes >= DAY_START && minutes < GOLDEN_START) return 'day';
+  const NIGHT_START  = timeToMinutes('20:00');
+  if (minutes >= DAWN_START  && minutes < DAY_START)    return 'dawn';
+  if (minutes >= DAY_START   && minutes < GOLDEN_START) return 'day';
   if (minutes >= GOLDEN_START && minutes < NIGHT_START) return 'goldenHour';
   return 'night';
 }
 
 export function isInTransition(minutes: number): boolean {
-  const DAWN_PRE = timeToMinutes('04:30');
-  const DAWN_START = timeToMinutes('05:00');
+  const DAWN_PRE     = timeToMinutes('04:30');
+  const DAWN_START   = timeToMinutes('05:00');
   const GOLDEN_START = timeToMinutes('17:00');
-  const NIGHT_START = timeToMinutes('20:00');
-
-  if (minutes >= DAWN_PRE && minutes < DAWN_START) return true;
+  const NIGHT_START  = timeToMinutes('20:00');
+  if (minutes >= DAWN_PRE    && minutes < DAWN_START)   return true;
   if (minutes >= GOLDEN_START && minutes < NIGHT_START) return true;
   return false;
 }
