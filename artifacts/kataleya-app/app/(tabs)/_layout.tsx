@@ -84,7 +84,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'sanctuary',
+            title: 'garden',
             tabBarIcon: ({ color, size, focused }) => (
               <TabIcon name="orb" color={color} size={size} focused={focused} phaseRgb={theme.phaseRgb ?? '0,212,170'} />
             ),
