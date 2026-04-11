@@ -1,117 +1,27 @@
 // app/onboarding.tsx
-// Fixed: no hyphenated style keys, no hyphenated ThemeTokens references.
-// All theme property access uses camelCase (textMuted, phaseRgb, etc.)
+// System initialization sequence. Not a slideshow — a protocol boot.
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback,
   Dimensions, TextInput, Platform, Switch, KeyboardAvoidingView,
-  Keyboard, ScrollView, Animated, Easing, FlatList,
+  Keyboard, Animated, Easing, FlatList,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { useAnimatedTheme } from '@/hooks/useAnimatedTheme';
 import { Surface } from '@/utils/storage';
+import { TypewriterText } from '@/components/typewriter-text';
+import { ScanlineLayer } from '@/components/scanline-layer';
 
 const { width } = Dimensions.get('window');
 
-// ── SVG Icons — no emojis, theme-colored ─────────────────────────────────────
-
-const IconBridge = ({ color = '#7fc9c9', size = 64 }) => (
-  <Svg width={size} height={size} viewBox="0 0 64 64">
-    {/* Outer ring — barely visible */}
-    <Circle cx={32} cy={32} r={30} fill="none" stroke={color} strokeWidth={0.6} opacity={0.15} />
-    {/* Middle ring */}
-    <Circle cx={32} cy={32} r={22} fill="none" stroke={color} strokeWidth={0.9} opacity={0.25} />
-    {/* Inner ring */}
-    <Circle cx={32} cy={32} r={14} fill="none" stroke={color} strokeWidth={1.2} opacity={0.4} />
-    {/* Core glow */}
-    <Circle cx={32} cy={32} r={7} fill={color} opacity={0.15} />
-    <Circle cx={32} cy={32} r={4} fill={color} opacity={0.5} />
-    {/* Pulse dots at cardinal points */}
-    <Circle cx={32} cy={6}  r={1.5} fill={color} opacity={0.4} />
-    <Circle cx={58} cy={32} r={1.5} fill={color} opacity={0.4} />
-    <Circle cx={32} cy={58} r={1.5} fill={color} opacity={0.4} />
-    <Circle cx={6}  cy={32} r={1.5} fill={color} opacity={0.4} />
-    {/* Diagonal accents */}
-    <Circle cx={52} cy={12} r={1} fill={color} opacity={0.25} />
-    <Circle cx={12} cy={52} r={1} fill={color} opacity={0.25} />
-    <Circle cx={52} cy={52} r={1} fill={color} opacity={0.25} />
-    <Circle cx={12} cy={12} r={1} fill={color} opacity={0.25} />
-  </Svg>
-);
-
-const IconPerson = ({ color = '#7fc9c9', size = 64 }) => (
-  <Svg width={size} height={size} viewBox="0 0 64 64">
-    <Circle cx={32} cy={18} r={10} fill="none" stroke={color} strokeWidth={2} />
-    <Path d="M12 54 C12 38 20 32 32 32 C44 32 52 38 52 54"
-      fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" />
-    <Circle cx={32} cy={18} r={3} fill={color} opacity={0.4} />
-  </Svg>
-);
-
-const IconRecovery = ({ color = '#7fc9c9', size = 64 }) => (
-  <Svg width={size} height={size} viewBox="0 0 64 64">
-    <Path d="M8 52 L14 38 L20 44 L26 28 L32 32"
-      fill="none" stroke={color} strokeWidth={2}
-      strokeLinecap="round" strokeLinejoin="round" opacity={0.45} />
-    <Path d="M32 32 L40 26 L50 20 L58 12"
-      fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-    <Circle cx={32} cy={32} r={4} fill={color} />
-    <Circle cx={58} cy={12} r={3} fill={color} opacity={0.65} />
-  </Svg>
-);
-
-const IconClock = ({ color = '#7fc9c9', size = 64 }) => (
-  <Svg width={size} height={size} viewBox="0 0 64 64">
-    <Circle cx={32} cy={32} r={24} fill="none" stroke={color} strokeWidth={2} opacity={0.35} />
-    <Circle cx={32} cy={32} r={16} fill="none" stroke={color} strokeWidth={1} opacity={0.25} />
-    <Circle cx={32} cy={32} r={3} fill={color} />
-    <Line x1={32} y1={32} x2={32} y2={14} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-    <Line x1={32} y1={32} x2={46} y2={32} stroke={color} strokeWidth={2} strokeLinecap="round" />
-    <Line x1={32} y1={8}  x2={32} y2={12} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.6} />
-    <Line x1={56} y1={32} x2={52} y2={32} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.6} />
-    <Line x1={32} y1={56} x2={32} y2={52} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.6} />
-    <Line x1={8}  y1={32} x2={12} y2={32} stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.6} />
-  </Svg>
-);
-
-const IconVault = ({ color = '#7fc9c9', size = 64 }) => (
-  <Svg width={size} height={size} viewBox="0 0 64 64">
-    <Path d="M32 6 L54 16 L54 36 C54 48 44 56 32 60 C20 56 10 48 10 36 L10 16 Z"
-      fill="none" stroke={color} strokeWidth={2} opacity={0.45} />
-    <Rect x={24} y={30} width={16} height={14} rx={3} fill="none" stroke={color} strokeWidth={2} />
-    <Path d="M28 30 L28 24 Q28 18 32 18 Q36 18 36 24 L36 30"
-      fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" />
-    <Circle cx={32} cy={36} r={2.5} fill={color} />
-    <Rect x={30.5} y={36} width={3} height={5} rx={1} fill={color} />
-  </Svg>
-);
-
-const IconBell = ({ color = '#7fc9c9', size = 64 }) => (
-  <Svg width={size} height={size} viewBox="0 0 64 64">
-    <Path d="M20 42 L20 28 Q20 16 32 14 Q44 16 44 28 L44 42 Z"
-      fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
-    <Line x1={16} y1={42} x2={48} y2={42} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-    <Circle cx={32} cy={48} r={3} fill="none" stroke={color} strokeWidth={2} />
-    <Circle cx={32} cy={13} r={2.5} fill="none" stroke={color} strokeWidth={1.5} />
-    <Path d="M14 20 Q10 28 14 36" fill="none" stroke={color} strokeWidth={1} strokeLinecap="round" opacity={0.3} />
-    <Path d="M50 20 Q54 28 50 36" fill="none" stroke={color} strokeWidth={1} strokeLinecap="round" opacity={0.3} />
-  </Svg>
-);
-
-const IconOrchid = ({ color = '#7fc9c9', size = 64 }) => (
-  <Svg width={size} height={size} viewBox="0 0 64 64">
-    <Circle cx={32} cy={32} r={28} fill="none" stroke={color} strokeWidth={0.8} opacity={0.12} />
-    <Circle cx={32} cy={32} r={20} fill="none" stroke={color} strokeWidth={1}   opacity={0.2} />
-    <Circle cx={32} cy={32} r={13} fill="none" stroke={color} strokeWidth={1.5} opacity={0.35} />
-    <Path d="M32 20 L40 32 L32 44 L24 32 Z"
-      fill="none" stroke={color} strokeWidth={1.8} strokeLinejoin="round" opacity={0.8} />
-    <Path d="M32 26 L36 32 L32 38 L28 32 Z" fill={color} opacity={0.6} />
-    <Line x1={32} y1={44} x2={32} y2={56} stroke={color} strokeWidth={1.5} strokeLinecap="round" opacity={0.45} />
-  </Svg>
-);
+// ── Segment progress indicator — protocol boot sequence ───────────────────────
+function segmentBar(total: number, current: number): string {
+  return Array.from({ length: total }, (_, i) =>
+    i < current ? '—' : i === current ? '◈' : '·'
+  ).join('  ');
+}
 
 
 // ── Minimal scroll time picker ────────────────────────────────────────────────
@@ -320,13 +230,13 @@ const pickerStyles = StyleSheet.create({
 // ── Steps ─────────────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: 'welcome',  label: 'a sanctuary that\nbreathes with you', Icon: IconBridge,  cta: 'begin' },
-  { id: 'name',     label: 'what should we\ncall you?',          Icon: IconPerson,  cta: 'continue' },
-  { id: 'substance',label: 'what are you\nrecovering from?',     Icon: IconRecovery, cta: null },
-  { id: 'date',     label: 'when did you\nbegin?',               Icon: IconClock,   cta: 'continue' },
-  { id: 'privacy',  label: 'your data never\nleaves this device', Icon: IconVault,   cta: 'continue' },
-  { id: 'notifs',   label: 'gentle reminders\nwhen you need them',Icon: IconBell,    cta: 'continue' },
-  { id: 'enter',    label: 'three things,\nalways here',           Icon: IconOrchid,  cta: 'enter' },
+  { id: 'welcome',   label: 'a sanctuary that\nbreathes with you',  cta: 'begin' },
+  { id: 'name',      label: 'what should we\ncall you?',            cta: 'continue' },
+  { id: 'substance', label: 'what are you\nrecovering from?',       cta: null },
+  { id: 'date',      label: 'when did you\nbegin?',                 cta: 'continue' },
+  { id: 'privacy',   label: 'your data never\nleaves this device',  cta: 'continue' },
+  { id: 'notifs',    label: 'gentle reminders\nwhen you need them', cta: 'continue' },
+  { id: 'enter',     label: 'three things,\nalways here',           cta: 'enter' },
 ] as const;
 
 // ── Onboarding narration — Amor Fati audio script mapped to steps ─────────────
@@ -399,7 +309,7 @@ export default function Onboarding() {
     router.replace('/(tabs)');
   };
 
-  const { id, label, Icon, cta } = STEPS[step];
+  const { id, label, cta } = STEPS[step];
 
   return (
     <KeyboardAvoidingView
@@ -408,48 +318,38 @@ export default function Onboarding() {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={[styles.root, { backgroundColor: theme.bg }]}>
+          <ScanlineLayer />
 
-      {/* Back button */}
+      {/* Back */}
       <TouchableOpacity style={styles.backBtn} onPress={goBack}>
-        <Text style={[styles.backText, { color: theme.textMuted }]}>←</Text>
+        <Text style={[styles.backText, { color: `rgba(${phaseRgb},0.35)` }]}>‹</Text>
       </TouchableOpacity>
 
-      {/* Progress dots */}
-      <View style={styles.dots}>
-        {STEPS.map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.dot,
-              {
-                width: i === step ? 20 : 6,
-                backgroundColor: i === step ? accentColor : theme.textMuted,
-                opacity: i <= step ? 1 : 0.3,
-              },
-            ]}
-          />
-        ))}
+      {/* Segment bar */}
+      <View style={styles.segmentWrap}>
+        <Text style={[styles.segmentBar, { color: `rgba(${phaseRgb},0.55)` }]}>
+          {segmentBar(STEPS.length, step)}
+        </Text>
       </View>
 
-      {/* Icon */}
-      <View style={styles.iconWrap}>
-        <Icon color={accentColor} size={72} />
-      </View>
+      {/* Label — types in on each step */}
+      <TypewriterText
+        key={step}
+        text={label}
+        speed={14}
+        jitter={5}
+        style={[styles.label, { color: theme.text }]}
+      />
 
-      {/* Label */}
-      <Text style={[styles.label, { color: theme.text }]}>
-        {label}
-      </Text>
-
-      {/* Narration — ambient script line, fades in after label */}
+      {/* Narration — terminal comment style, fades in after label */}
       {NARRATION[id] && (
         <Animated.View style={[styles.narrationWrap, { opacity: narrationOpacity }]}>
-          <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.38)` }]}>
-            {NARRATION[id].line1}
+          <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.32)` }]}>
+            {'// '}{NARRATION[id].line1}
           </Text>
           {NARRATION[id].line2 && (
-            <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.28)` }]}>
-              {NARRATION[id].line2}
+            <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.22)` }]}>
+              {'// '}{NARRATION[id].line2}
             </Text>
           )}
         </Animated.View>
@@ -569,7 +469,7 @@ export default function Onboarding() {
             {([
               { glyph: '~',  title: 'breathe',       hint: 'the orb breathes with you' },
               { glyph: '+',  title: 'check in',       hint: 'mood and a few quiet words' },
-              { glyph: '::',  title: 'reach sponsor', hint: 'one tap, no explanation needed' },
+              { glyph: '::',  title: 'reach sponsor', hint: 'one signal. they\'ll know.' },
             ] as const).map(({ glyph, title, hint }) => (
               <View
                 key={title}
@@ -668,23 +568,31 @@ export default function Onboarding() {
       {cta && (
         <TouchableOpacity
           onPress={advance}
+          activeOpacity={0.7}
           style={[
             styles.cta,
             {
-              borderColor: accentColor,
-              backgroundColor: `rgba(${phaseRgb}, 0.08)`,
+              borderColor: `rgba(${phaseRgb},0.28)`,
+              borderTopColor: `rgba(${phaseRgb},0.55)`,
+              borderTopWidth: 1.5,
+              backgroundColor: `rgba(${phaseRgb},0.05)`,
+              shadowColor: `rgb(${phaseRgb})`,
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0.2,
+              shadowRadius: 8,
+              elevation: 3,
             },
           ]}
         >
-          <Text style={[styles.ctaText, { color: accentColor }]}>
+          <Text style={[styles.ctaText, { color: `rgba(${phaseRgb},0.85)` }]}>
             {cta}
           </Text>
         </TouchableOpacity>
       )}
 
       {/* Counter */}
-      <Text style={[styles.counter, { color: theme.textMuted }]}>
-        {step + 1} / {STEPS.length}
+      <Text style={[styles.counter, { color: `rgba(${phaseRgb},0.25)` }]}>
+        sys · {String(step + 1).padStart(2, '0')} · {String(STEPS.length).padStart(2, '0')}
       </Text>
 
         </View>
@@ -703,27 +611,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingBottom: 48,
   },
-  dots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  segmentWrap: {
     position: 'absolute',
-    top: 64,
-  },
-  dot: {
-    height: 6,
-    borderRadius: 3,
-  },
-  iconWrap: {
-    marginBottom: 32,
+    top: Platform.OS === 'ios' ? 64 : 48,
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  segmentBar: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 3,
   },
   label: {
     fontSize: 22,
     textAlign: 'center',
     lineHeight: 32,
-    marginBottom: 32,
+    marginBottom: 16,
+    marginTop: 8,
     textTransform: 'lowercase',
     letterSpacing: 0.5,
     fontFamily: 'CourierPrime',
@@ -802,48 +705,48 @@ const styles = StyleSheet.create({
   },
   cta: {
     borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 48,
+    borderRadius: 3,
+    paddingVertical: 14,
+    paddingHorizontal: 56,
     alignItems: 'center',
     marginBottom: 16,
   },
   ctaText: {
-    fontSize: 15,
-    letterSpacing: 1.5,
+    fontSize: 12,
+    letterSpacing: 3,
     textTransform: 'lowercase',
     fontFamily: 'CourierPrime',
   },
   counter: {
-    fontSize: 12,
+    fontSize: 10,
     letterSpacing: 2,
-    opacity: 0.5,
     fontFamily: 'CourierPrime',
   },
   narrationWrap: {
-    alignItems: 'center',
-    marginTop: -16,
-    marginBottom: 8,
-    gap: 4,
-    paddingHorizontal: 24,
+    alignItems: 'flex-start',
+    marginTop: 0,
+    marginBottom: 20,
+    gap: 3,
+    paddingHorizontal: 4,
+    width: '100%',
   },
   narrationLine: {
     fontFamily: 'CourierPrime',
     fontSize: 11,
-    letterSpacing: 0.5,
-    lineHeight: 18,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    letterSpacing: 0.3,
+    lineHeight: 17,
+    textAlign: 'left',
   },
   backBtn: {
     position: 'absolute',
-    top: 56,
+    top: Platform.OS === 'ios' ? 60 : 44,
     left: 24,
     padding: 8,
   },
   backText: {
-    fontSize: 20,
-    letterSpacing: 1,
+    fontSize: 24,
+    letterSpacing: 0,
+    fontFamily: 'CourierPrime',
   },
   dateWrap: {
     alignItems: 'center',

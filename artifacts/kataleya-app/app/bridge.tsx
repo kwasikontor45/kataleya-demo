@@ -13,7 +13,7 @@ import {
   View, Text, StyleSheet, Animated, Easing,
   TouchableOpacity, Dimensions, Platform, Image,
 } from 'react-native';
-import Svg, { Line } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { ScanlineLayer } from '@/components/scanline-layer';
 import { useRouter } from 'expo-router';
 import { OuroborosRing } from '@/components/OuroborosRing';
@@ -191,21 +191,40 @@ export default function BridgeScreen() {
       {/* Central composition */}
       <View style={styles.center}>
 
-        {/* Targeting crosshair — sensor array lines, behind ring */}
-        <Animated.View style={[styles.crosshairWrap, { opacity: orbOpacity }]} pointerEvents="none">
-          <Svg width={RING_SIZE * 1.5} height={RING_SIZE * 1.5}>
-            <Line
-              x1={0} y1={RING_SIZE * 0.75}
-              x2={RING_SIZE * 1.5} y2={RING_SIZE * 0.75}
-              stroke={`rgba(${accentRgb}, 0.07)`} strokeWidth={0.5}
-            />
-            <Line
-              x1={RING_SIZE * 0.75} y1={0}
-              x2={RING_SIZE * 0.75} y2={RING_SIZE * 1.5}
-              stroke={`rgba(${accentRgb}, 0.07)`} strokeWidth={0.5}
-            />
-          </Svg>
-        </Animated.View>
+        {/* Orbital arc fragments — atmosphere of the ring, not a targeting system */}
+        {(() => {
+          const S = RING_SIZE * 1.7;
+          const cx = S / 2;
+          const cy = S / 2;
+          const arcs = [
+            { r: RING_SIZE * 0.76, startDeg: 18,  sweepDeg: 44, opacity: 0.055 },
+            { r: RING_SIZE * 0.62, startDeg: 200, sweepDeg: 38, opacity: 0.07  },
+            { r: RING_SIZE * 0.88, startDeg: 118, sweepDeg: 28, opacity: 0.04  },
+          ];
+          const toRad = (d: number) => (d * Math.PI) / 180;
+          return (
+            <Animated.View style={[styles.arcWrap, { opacity: orbOpacity }]} pointerEvents="none">
+              <Svg width={S} height={S}>
+                {arcs.map((arc, i) => {
+                  const x1 = cx + arc.r * Math.cos(toRad(arc.startDeg));
+                  const y1 = cy + arc.r * Math.sin(toRad(arc.startDeg));
+                  const x2 = cx + arc.r * Math.cos(toRad(arc.startDeg + arc.sweepDeg));
+                  const y2 = cy + arc.r * Math.sin(toRad(arc.startDeg + arc.sweepDeg));
+                  return (
+                    <Path
+                      key={i}
+                      d={`M ${x1} ${y1} A ${arc.r} ${arc.r} 0 0 1 ${x2} ${y2}`}
+                      fill="none"
+                      stroke={`rgba(${accentRgb}, ${arc.opacity})`}
+                      strokeWidth={0.6}
+                    />
+                  );
+                })}
+              </Svg>
+            </Animated.View>
+          );
+        })()}
+
 
         {/* OuroborosRing — turning, scarred, never closing */}
         <Animated.View style={[styles.ringWrap, {
@@ -332,10 +351,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     fontStyle: 'italic',
   },
-  crosshairWrap: {
+  arcWrap: {
     position: 'absolute',
-    width: RING_SIZE * 1.5,
-    height: RING_SIZE * 1.5,
+    width: RING_SIZE * 1.7,
+    height: RING_SIZE * 1.7,
     alignItems: 'center',
     justifyContent: 'center',
   },
