@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { DeviceEventEmitter } from 'react-native';
+import { useEffect, useState, useRef } from 'react';
 import { useSharedValue, withTiming, Easing } from 'react-native-reanimated';
 import { CircadianPhase } from '@/constants/circadian';
 import { Sanctuary } from '@/utils/storage';
+import { moodEvents } from '@/utils/mood-event';
 
 interface HeartBiometrics {
   bpm: number;
@@ -26,62 +26,58 @@ function defaultBiometrics(): HeartBiometrics {
 
 export function useResponsiveHeart(phase: CircadianPhase) {
   const [biometrics, setBiometrics] = useState<HeartBiometrics>(defaultBiometrics);
-  const opacity          = useSharedValue(0.45);
-  const scale            = useSharedValue(0.97);
+  const opacity = useSharedValue(0.45);
+  const scale = useSharedValue(0.97);
   const letterSpacingVal = useSharedValue(4);
-  const mountedRef       = useRef(true);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
 
-  // Recalculate BPM from latest mood — called on mount, phase change, 5-min tick,
-  // and immediately when a mood is logged (via moodLogged event from journal)
-  const calculate = useCallback(async () => {
-    const mood = await Sanctuary.getRecentMoodState();
-
-    // Base BPM: 50 (crisis) → 75 (grounded), scaled across score 1–10
-    let bpm = 50 + (mood.lastScore - 1) * 2.8;
-
-    if (mood.avgRestlessness > 0.6) bpm += 5;   // anxious → more frequent
-    if (phase === 'night')          bpm -= 10;   // sleep support → deep and slow
-    if (phase === 'goldenHour')     bpm += 5;    // protective presence → slightly elevated
-    if (mood.hoursSince > 6)        bpm += 8;    // gentle concern → more insistent
-    if (mood.hoursSince > 24)       bpm += 5;    // 24h silence → warm urgency
-
-    bpm = Math.max(45, Math.min(78, bpm));
-
-    const cycleMs = 60000 / bpm;
-    let ratios: [number, number, number];
-    if (mood.lastScore <= 3)      ratios = [0.3, 0.2, 0.5];
-    else if (mood.lastScore >= 8) ratios = [0.4, 0.1, 0.5];
-    else                          ratios = [0.35, 0.15, 0.5];
-
-    const inhaleMs     = cycleMs * ratios[0];
-    const holdMs       = cycleMs * ratios[1];
-    const exhaleMs     = cycleMs * ratios[2];
-    const amplitude    = mood.avgRestlessness > 0.7 ? 0.05 : mood.hoursSince > 12 ? 0.12 : 0.08;
-    const opacityRange: [number, number] = mood.lastScore <= 3 ? [0.3, 0.8] : [0.5, 1.0];
-
-    if (!mountedRef.current) return;
-    setBiometrics({ bpm, inhaleMs, holdMs, exhaleMs, amplitude, opacityRange });
-  }, [phase]);
-
-  // Run on mount + phase change + every 5 minutes
   useEffect(() => {
+    const calculate = async () => {
+      const mood = await Sanctuary.getRecentMoodState();
+
+      // Base BPM: 50 (crisis) → 75 (grounded), scaled across score 1–10
+      let bpm = 50 + (mood.lastScore - 1) * 2.8;
+
+      // Phase modifiers
+      if (mood.avgRestlessness > 0.6) bpm += 5;   // anxious → more frequent, smaller
+      if (phase === 'night')          bpm -= 10;   // sleep support → deep and slow
+      if (phase === 'goldenHour')     bpm += 5;    // protective presence → slightly elevated
+      if (mood.hoursSince > 6)        bpm += 8;    // gentle concern → more insistent
+      if (mood.hoursSince > 24)       bpm += 5;    // 24h silence → warm urgency
+
+      bpm = Math.max(45, Math.min(78, bpm));
+
+      const cycleMs = 60000 / bpm;
+      let ratios: [number, number, number];
+      if (mood.lastScore <= 3) {
+        ratios = [0.3, 0.2, 0.5];
+      } else if (mood.lastScore >= 8) {
+        ratios = [0.4, 0.1, 0.5];
+      } else {
+        ratios = [0.35, 0.15, 0.5];
+      }
+
+      const inhaleMs = cycleMs * ratios[0];
+      const holdMs = cycleMs * ratios[1];
+      const exhaleMs = cycleMs * ratios[2];
+      const amplitude = mood.avgRestlessness > 0.7 ? 0.05 : mood.hoursSince > 12 ? 0.12 : 0.08;
+      const opacityRange: [number, number] = mood.lastScore <= 3 ? [0.3, 0.8] : [0.5, 1.0];
+
+      if (!mountedRef.current) return;
+      setBiometrics({ bpm, inhaleMs, holdMs, exhaleMs, amplitude, opacityRange });
+    };
+
     calculate();
     const interval = setInterval(calculate, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [calculate]);
+    const unsub = moodEvents.subscribe(calculate);
+    return () => { clearInterval(interval); unsub(); };
+  }, [phase]);
 
-  // Respond immediately when a mood is logged in journal
-  useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('moodLogged', calculate);
-    return () => sub.remove();
-  }, [calculate]);
-
-  // Drive the orb animation from biometrics
   useEffect(() => {
     const { inhaleMs, holdMs, exhaleMs, amplitude, opacityRange } = biometrics;
 
@@ -120,6 +116,7 @@ export function useResponsiveHeart(phase: CircadianPhase) {
     return () => clearInterval(loop);
   }, [biometrics, opacity, scale, letterSpacingVal]);
 
+  // Derive a human-readable system state for ambient display
   const systemState: string =
     biometrics.bpm < 52 ? 'holding' :
     biometrics.bpm < 62 ? 'present' :

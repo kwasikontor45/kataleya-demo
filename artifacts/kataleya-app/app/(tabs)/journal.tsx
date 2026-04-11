@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
+import React, { useState, useEffect, useCallback, useRef } from 'react';import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, Keyboard,
-  DeviceEventEmitter,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -10,6 +8,7 @@ import { useCircadian } from '@/hooks/useCircadian';
 import { useOrchidSway } from '@/hooks/useOrchidSway';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { Sanctuary, MoodLog, JournalEntry } from '@/utils/storage';
+import { moodEvents } from '@/utils/mood-event';
 import { suppressReminderForToday } from '@/hooks/useNotifications';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { HoldToConfirm } from '@/components/HoldToConfirm';
@@ -263,10 +262,10 @@ export default function JournalScreen() {
       circadianPhase: phase,
       restlessness: restlessnessScore,
     });
+    moodEvents.emit(); // orb recalculates immediately
     setSelectedMood(null);
     setMoodNote('');
     suppressReminderForToday();
-    DeviceEventEmitter.emit('moodLogged');
     await loadData();
   };
 
