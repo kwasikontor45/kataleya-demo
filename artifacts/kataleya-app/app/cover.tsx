@@ -345,7 +345,7 @@ export default function CoverScreen() {
             width: ORB, height: ORB,
             borderRadius: ORB / 2,
             borderColor: `rgba(${accentRgb}, 1)`,
-            backgroundColor: `rgba(${accentRgb}, 0.05)`,
+            backgroundColor: 'rgba(5,5,8,0.92)',
             transform: [{ scale: orbScale }],
             opacity: orbOpacity,
           }]}>
