@@ -596,6 +596,14 @@ const styles = StyleSheet.create({
     height: ORB_SIZE * 0.52,
     borderRadius: (ORB_SIZE * 0.52) / 2,
   },
+  coreTouch: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: ORB_SIZE * 0.52,
+    height: ORB_SIZE * 0.52,
+    borderRadius: (ORB_SIZE * 0.52) / 2,
+  },
   beginHint: {
     position: 'absolute',
     bottom: '22%',
@@ -606,6 +614,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 2,
     textTransform: 'lowercase',
+  },
+  coreTouch: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: ORB_SIZE * 0.52,
+    height: ORB_SIZE * 0.52,
+    borderRadius: (ORB_SIZE * 0.52) / 2,
   },
   coreTouch: {
     position: 'absolute',
