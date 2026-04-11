@@ -66,7 +66,7 @@ const LABELS = {
   holdIn:    { main: 'hold',             sub: 'let it settle' },
   exhale:    { main: 'exhale',           sub: 'let it go' },
   holdOut:   { main: 'rest',             sub: 'empty' },
-  done:      { main: 'take it with you', sub: 'tap anywhere to close' },
+  done:      { main: 'carry this with you', sub: '' },
 } as const;
 
 interface Props {
