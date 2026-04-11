@@ -13,7 +13,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Animated,
+  View, Text, Image, StyleSheet, TouchableOpacity, Animated,
   Easing, Dimensions, Platform, StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -312,7 +312,25 @@ export default function CoverScreen() {
               transform: [{ scale: orbScale }],
               opacity: orbOpacity,
             },
-          ]} />
+          ]}>
+            {/* Butterfly — barely visible at center, breathing with the orb */}
+            <Animated.Image
+              source={require('../assets/images/butterfly-dna.gif')}
+              style={[
+                styles.butterfly,
+                {
+                  width: ORB * 0.52,
+                  height: ORB * 0.52,
+                  opacity: orbScale.interpolate({
+                    inputRange: [1, 1.06],
+                    outputRange: [0.18, 0.28],
+                  }),
+                  tintColor: `rgba(${accentRgb}, 1)`,
+                },
+              ]}
+              resizeMode="contain"
+            />
+          </Animated.View>
         </TouchableOpacity>
 
       </View>
@@ -382,6 +400,10 @@ const styles = StyleSheet.create({
   orbTouch: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  butterfly: {
+    position: 'absolute',
+    alignSelf: 'center',
   },
   orb: {
     borderWidth: 1,
