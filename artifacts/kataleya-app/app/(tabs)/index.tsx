@@ -312,7 +312,7 @@ export default function SanctuaryScreen() {
     setSettingDate(false);
   };
 
-  const accentRgb = phaseAccentRgb(phase);
+  const accentRgb = theme.phaseRgb ?? phaseAccentRgb(phase);
   const hour = new Date().getHours();
   const is2am = phase === 'night' && hour >= 0 && hour < 5;
   const isStruggling = userState === 'struggling' || userState === 'rest';
@@ -410,7 +410,7 @@ export default function SanctuaryScreen() {
           {overrideHint && (
             <View style={{ position: 'absolute', top: 36, alignSelf: 'center', zIndex: 10 }}>
               <Text style={{ fontFamily: 'SpaceMono', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
-                {darkOverride ? 'following circadian rhythm' : 'void override on'}
+                {darkOverride ? 'following circadian rhythm' : 'night mode on'}
               </Text>
             </View>
           )}
@@ -431,7 +431,7 @@ export default function SanctuaryScreen() {
               backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.08)` : 'transparent',
             }]}>
               <Text style={[styles.circadianPillText, { color: darkOverride ? `rgba(${accentRgb}, 0.9)` : theme.accent }]}>
-                {darkOverride ? '◗ void' : phaseConfig.displayName}
+                {darkOverride ? '◗ night mode' : phaseConfig.displayName}
               </Text>
             </View>
           </TouchableOpacity>
