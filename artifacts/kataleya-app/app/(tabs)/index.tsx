@@ -31,6 +31,7 @@ import { GroundingExercise } from '@/components/GroundingExercise';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { BLOOM_THRESHOLDS } from '@/utils/hapticBloom';
 import { Surface, Sanctuary } from '@/utils/storage';
+import { useUserState } from '@/hooks/use-user-state';
 
 const SCREEN_W = Dimensions.get('window').width;
 const ORB_COMPOSITE = Math.min(SCREEN_W * 0.72, 260);
@@ -86,6 +87,7 @@ export default function SanctuaryScreen() {
   const insets = useSafeAreaInsets();
   const { theme, phase, phaseConfig, darkOverride, setDarkOverride } = useCircadian();
   const { sobriety, setStartDate } = useSobriety();
+  const { state: userState } = useUserState(phase, sobriety.daysSober);
   const { restlessnessScore } = useOrchidSway();
   const { biometrics, systemState } = useResponsiveHeart(phase);
   useNotifications(sobriety.daysSober);
@@ -311,6 +313,9 @@ export default function SanctuaryScreen() {
   };
 
   const accentRgb = phaseAccentRgb(phase);
+  const hour = new Date().getHours();
+  const is2am = phase === 'night' && hour >= 0 && hour < 5;
+  const isStruggling = userState === 'struggling' || userState === 'rest';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -435,7 +440,11 @@ export default function SanctuaryScreen() {
 
         {/* ── GHOST PULSE ORB + OUROBOROS RING — snake encircles butterfly ── */}
         <View style={styles.orbSection}>
-          <View style={styles.orbComposite}>
+          <TouchableOpacity
+            activeOpacity={is2am ? 0.7 : 1}
+            onPress={is2am ? () => router.push('/cover') : undefined}
+            style={styles.orbComposite}
+          >
             {/* OuroborosRing — outer, slow, scarred by time */}
             <View style={styles.ouroborosWrap} pointerEvents="none">
               <OuroborosRing
@@ -459,6 +468,22 @@ export default function SanctuaryScreen() {
             </View>
           </View>
         </View>
+
+        {/* 2am moment — void phase between midnight and 5am */}
+        {is2am && (
+          <TouchableOpacity
+            onPress={() => router.push('/cover')}
+            activeOpacity={0.7}
+            style={styles.amPromptWrap}
+          >
+            <Text style={[styles.amPromptText, { color: `rgba(${accentRgb},0.45)` }]}>
+              the garden is open
+            </Text>
+            <Text style={[styles.amPromptSub, { color: `rgba(${accentRgb},0.22)` }]}>
+              tap to enter
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Timer */}
         {sobriety.startDate ? (
@@ -676,7 +701,7 @@ export default function SanctuaryScreen() {
 
         {/* ── QUICK-SLOTS — Cyberpunk ── */}
         <View style={styles.quickSlotSection}>
-          <View style={styles.quickSlotRow}>
+          <View style={[styles.quickSlotRow, isStruggling && { opacity: 0.5 }]}>
             <TouchableOpacity
               style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.cyan},0.22)`, backgroundColor: `rgba(${NEON_RGB.cyan},0.04)` }]}
               onPress={() => setShowBreathing(true)}
@@ -1100,6 +1125,24 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   // Mindfulness tiles
+  amPromptWrap: {
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  amPromptText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 14,
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  amPromptSub: {
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    letterSpacing: 2.5,
+    textTransform: 'lowercase',
+  },
   quickSlotSection: { width: '100%', gap: 12, marginTop: 8, alignItems: 'center' },
   quickSlotRow: { flexDirection: 'row', gap: 8, width: '100%' },
   quickSlot: {
@@ -1126,6 +1169,24 @@ const styles = StyleSheet.create({
     fontFamily: 'CourierPrime',
     fontSize: 8,
     letterSpacing: 1,
+  },
+  amPromptWrap: {
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  amPromptText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 14,
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  amPromptSub: {
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    letterSpacing: 2.5,
+    textTransform: 'lowercase',
   },
   quickSlotSection: { width: '100%', gap: 12, marginTop: 8, alignItems: 'center' },
   quickSlotRow: { flexDirection: 'row', gap: 8, width: '100%' },
