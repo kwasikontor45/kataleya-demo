@@ -351,7 +351,7 @@ export default function CoverScreen() {
           }]}>
             {/* Butterfly — perfectly centered, own colors */}
             <Image
-              source={require('../assets/images/butterfly-dna.gif')}
+              source={require('../assets/images/butterfly-dna-t.gif')}
               style={{ width: ORB * 0.62, height: ORB * 0.62 }}
               resizeMode="contain"
             />
