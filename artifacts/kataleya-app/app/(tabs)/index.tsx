@@ -12,6 +12,7 @@ import {
   Animated,
   Easing,
   Modal,
+  AccessibilityInfo,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -259,6 +260,7 @@ export default function SanctuaryScreen() {
   const [showBreathing, setShowBreathing] = useState(false);
   const [showGrounding, setShowGrounding] = useState(false);
   const [overrideHint, setOverrideHint] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const overrideHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
@@ -300,40 +302,38 @@ export default function SanctuaryScreen() {
     return () => dayPulse.stopAnimation();
   }, [dayPulse]);
 
-  // ECG sweep — runs continuously through the kataleya pill word
-  // Mimics a heart-monitor line passing left to right then resetting
+  // ECG sweep — occasional heartbeat through letters. Skipped on reduce motion.
   useEffect(() => {
+    if (reduceMotion) return;
     const sweep = () => {
-      ecgAnim.setValue(0);
+      ecgAnim.setValue(-1);
       Animated.timing(ecgAnim, {
-        toValue: 1,
-        duration: 2800,
-        easing: Easing.linear,
+        toValue: 8,
+        duration: 600,
+        easing: Easing.inOut(Easing.sin),
         useNativeDriver: false,
       }).start(({ finished }) => {
-        if (finished) {
-          setTimeout(sweep, 1200); // pause between sweeps
-        }
+        if (finished) setTimeout(sweep, 2400); // long rest — heartbeat not loop
       });
     };
-    const t = setTimeout(sweep, 2000); // initial delay
+    const t = setTimeout(sweep, 1800);
     return () => clearTimeout(t);
-  }, [ecgAnim]);
+  }, [ecgAnim, reduceMotion]);
 
-  // Heart pill idle animation — slow breath, 5.5s cycle
-  // Lets the user sense it's interactive without demanding attention
+  // Heart pill idle animation — slow breath. Skipped on reduce motion.
   useEffect(() => {
+    if (reduceMotion) return;
     const idlePulse = () => {
       Animated.sequence([
         Animated.parallel([
           Animated.timing(pillPulse, {
-            toValue: 1.07,
+            toValue: 1.025,
             duration: 2000,
             easing: Easing.inOut(Easing.sin),
             useNativeDriver: true,
           }),
           Animated.timing(pillGlow, {
-            toValue: 0.75,
+            toValue: 0.52,
             duration: 2000,
             easing: Easing.inOut(Easing.sin),
             useNativeDriver: true,
@@ -357,7 +357,7 @@ export default function SanctuaryScreen() {
     };
     idlePulse();
     return () => { pillPulse.stopAnimation(); pillGlow.stopAnimation(); };
-  }, [pillPulse, pillGlow]);
+  }, [pillPulse, pillGlow, reduceMotion]);
 
   // Wordmark pulse — breathes between dim and legible to signal interactivity
   useEffect(() => {
@@ -407,11 +407,11 @@ export default function SanctuaryScreen() {
   const [pickerDate, setPickerDate] = useState<Date>(
     sobriety.startDate ? new Date(sobriety.startDate) : new Date()
   );
-  const panicRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevDaysSober = useRef(sobriety.daysSober);
 
   useEffect(() => {
     Surface.getName().then(n => setUserName(n ?? null));
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
   }, []);
 
   // Load predictive suggestion once per mount
@@ -435,34 +435,12 @@ export default function SanctuaryScreen() {
     }
   }, [sobriety.daysSober, sobriety.loaded]);
 
-  const handlePanicStart = () => {
-    // Intensify the pill animation as a hold indicator
-    Animated.parallel([
-      Animated.timing(pillPulse, {
-        toValue: 1.18,
-        duration: 1400,
-        easing: Easing.inOut(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(pillGlow, {
-        toValue: 1.0,
-        duration: 1400,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    panicRef.current = setTimeout(() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      router.push('/cover');
-    }, 1500);
-  };
-
-  const handlePanicEnd = () => {
-    if (panicRef.current) clearTimeout(panicRef.current);
-    // Reset pill back to idle breath
-    Animated.parallel([
-      Animated.timing(pillPulse, { toValue: 1.0, duration: 400, useNativeDriver: true }),
-      Animated.timing(pillGlow,  { toValue: 0.4, duration: 400, useNativeDriver: true }),
-    ]).start();
+  const handleOverrideToggle = () => {
+    setDarkOverride(!darkOverride);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setOverrideHint(true);
+    if (overrideHintTimer.current) clearTimeout(overrideHintTimer.current);
+    overrideHintTimer.current = setTimeout(() => setOverrideHint(false), 2500);
   };
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
@@ -561,11 +539,11 @@ export default function SanctuaryScreen() {
         {/* ── HEADER — three pills, full-width, space-between ── */}
         <View style={styles.header}>
 
-          {/* Left pill — "kataleya" ECG sweep — long-press = panic/cover screen */}
+          {/* Left pill — "kataleya" ECG sweep — long-press = override toggle */}
           <TouchableOpacity
-            onPressIn={handlePanicStart}
-            onPressOut={handlePanicEnd}
-            activeOpacity={1}
+            onLongPress={handleOverrideToggle}
+            delayLongPress={600}
+            activeOpacity={0.75}
             hitSlop={8}
             style={styles.logoContainer}
           >
@@ -574,62 +552,60 @@ export default function SanctuaryScreen() {
               {
                 borderColor: pillGlow.interpolate({
                   inputRange: [0.4, 1.0],
-                  outputRange: [`rgba(${accentRgb}, 0.32)`, `rgba(${accentRgb}, 0.82)`],
+                  outputRange: [`rgba(${accentRgb}, 0.32)`, `rgba(${accentRgb}, 0.7)`],
                 }),
+                shadowColor: `rgb(${accentRgb})`,
                 transform: [{ scale: pillPulse }],
               },
             ]}>
               {/* ECG sweep overlay — a moving highlight passes through the text */}
               <View style={styles.pillInner}>
-                <Text style={[styles.heartPillGlyph, { color: `rgba(${accentRgb}, 0.88)` }]}>
-                  kataleya
-                </Text>
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    styles.ecgSweep,
-                    {
-                      left: ecgAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ['-100%', '200%'],
-                      }),
-                      backgroundColor: `rgba(${accentRgb}, 0.18)`,
-                    },
-                  ]}
-                />
+                {'kataleya'.split('').map((char, i) => (
+                  <Animated.Text
+                    key={i}
+                    style={[
+                      styles.heartPillGlyph,
+                      {
+                        color: `rgba(${accentRgb}, 0.88)`,
+                        marginRight: i < 7 ? 3 : 0,
+                        letterSpacing: 0,
+                        opacity: ecgAnim.interpolate({
+                          inputRange: [i - 1.5, i - 0.3, i, i + 0.3, i + 1.5],
+                          outputRange: [0.2, 0.6, 1.0, 0.6, 0.2],
+                          extrapolate: 'clamp',
+                        }),
+                      },
+                    ]}
+                  >
+                    {char}
+                  </Animated.Text>
+                ))}
+                {darkOverride && (
+                  <Text style={[styles.heartPillGlyph, { color: `rgba(${accentRgb}, 0.45)`, marginLeft: 5, letterSpacing: 0 }]}>
+                    ◗
+                  </Text>
+                )}
               </View>
             </Animated.View>
           </TouchableOpacity>
 
-          {/* Centre pill — circadian phase + tap to force override */}
+          {/* Right pill — phase display, read-only */}
           {overrideHint && (
             <View style={{ position: 'absolute', top: 36, alignSelf: 'center', zIndex: 10 }}>
               <Text style={{ fontFamily: 'SpaceMono', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
-                {darkOverride ? 'back to normal' : 'night mode on'}
+                {darkOverride ? 'overriding circadian clock' : 'following circadian rhythm'}
               </Text>
             </View>
           )}
-          <TouchableOpacity
-            onPress={() => {
-              setDarkOverride(!darkOverride);
-              setOverrideHint(true);
-              if (overrideHintTimer.current) clearTimeout(overrideHintTimer.current);
-              overrideHintTimer.current = setTimeout(() => setOverrideHint(false), 2500);
-            }}
-            activeOpacity={0.75}
-            hitSlop={8}
-          >
-            <View style={[styles.circadianPill, {
-              borderColor: darkOverride
-                ? `rgba(${accentRgb}, 0.7)`
-                : `rgba(${accentRgb}, 0.5)`,
-              backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.08)` : 'transparent',
+          <View style={[styles.circadianPill, {
+            borderColor: darkOverride ? `rgba(${accentRgb}, 0.2)` : `rgba(${accentRgb}, 0.35)`,
+          }]}>
+            <Text style={[styles.circadianPillText, {
+              color: darkOverride ? `rgba(${accentRgb}, 0.35)` : theme.accent,
             }]}>
-              <Text style={[styles.circadianPillText, { color: darkOverride ? `rgba(${accentRgb}, 0.9)` : theme.accent }]}>
-                {darkOverride ? '◗ night mode' : phaseConfig.displayName}
-              </Text>
-            </View>
-          </TouchableOpacity>
+              {darkOverride ? `${phaseConfig.displayName} ◗` : phaseConfig.displayName}
+            </Text>
+          </View>
 
         </View>
 
@@ -640,10 +616,12 @@ export default function SanctuaryScreen() {
             onPress={is2am ? () => router.push('/cover') : undefined}
             style={styles.orbComposite}
           >
-            {/* OuroborosRing — outer, slow, scarred by time */}
-            <View style={styles.ouroborosWrap} pointerEvents="none">
+            {/* OuroborosRing — tilted into perspective, halo not flat circle */}
+            <View style={[styles.ouroborosWrap, {
+              transform: [{ perspective: 700 }, { rotateX: '-10deg' }],
+            }]} pointerEvents="none">
               <OuroborosRing
-                size={ORB_COMPOSITE}
+                size={Math.floor(ORB_COMPOSITE * 0.94)}
                 color={theme.accent}
                 cycleCount={sobriety.daysSober}
                 phase={phase as any}
@@ -762,7 +740,13 @@ export default function SanctuaryScreen() {
               activeOpacity={0.85}
               style={{ flex: 1 }}
             >
-              <Animated.View style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.amber},0.22)`, backgroundColor: `rgba(${NEON_RGB.amber},0.04)`, transform: [{ scale: slotScale0 }] }]}>
+              <Animated.View style={[styles.quickSlot, {
+                borderColor: `rgba(${NEON_RGB.amber},0.2)`,
+                borderTopColor: `rgba(${NEON_RGB.amber},0.5)`,
+                backgroundColor: `rgba(${NEON_RGB.amber},0.04)`,
+                shadowColor: `rgb(${NEON_RGB.amber})`,
+                transform: [{ scale: slotScale0 }],
+              }]}>
                 <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.amber},0.45)` }]}>◬</Text>
                 <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.amber},0.55)` }]}>sanctuary</Text>
                 <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.amber},0.25)` }]}>2am</Text>
@@ -776,7 +760,13 @@ export default function SanctuaryScreen() {
               activeOpacity={0.85}
               style={{ flex: 1 }}
             >
-              <Animated.View style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.cyan},0.22)`, backgroundColor: `rgba(${NEON_RGB.cyan},0.04)`, transform: [{ scale: slotScale1 }] }]}>
+              <Animated.View style={[styles.quickSlot, {
+                borderColor: `rgba(${NEON_RGB.cyan},0.2)`,
+                borderTopColor: `rgba(${NEON_RGB.cyan},0.5)`,
+                backgroundColor: `rgba(${NEON_RGB.cyan},0.04)`,
+                shadowColor: `rgb(${NEON_RGB.cyan})`,
+                transform: [{ scale: slotScale1 }],
+              }]}>
                 <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.cyan},0.45)` }]}>◎</Text>
                 <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.cyan},0.55)` }]}>breathe</Text>
                 <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.cyan},0.25)` }]}>4·7·8</Text>
@@ -790,7 +780,13 @@ export default function SanctuaryScreen() {
               activeOpacity={0.85}
               style={{ flex: 1 }}
             >
-              <Animated.View style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.violet},0.22)`, backgroundColor: `rgba(${NEON_RGB.violet},0.04)`, transform: [{ scale: slotScale2 }] }]}>
+              <Animated.View style={[styles.quickSlot, {
+                borderColor: `rgba(${NEON_RGB.violet},0.2)`,
+                borderTopColor: `rgba(${NEON_RGB.violet},0.5)`,
+                backgroundColor: `rgba(${NEON_RGB.violet},0.04)`,
+                shadowColor: `rgb(${NEON_RGB.violet})`,
+                transform: [{ scale: slotScale2 }],
+              }]}>
                 <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.violet},0.45)` }]}>⟡</Text>
                 <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.violet},0.55)` }]}>ground</Text>
                 <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.violet},0.25)` }]}>5·4·3·2·1</Text>
@@ -1027,6 +1023,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 4,
   },
   heartPillGlyph: {
     fontFamily: 'SpaceMono',
@@ -1041,13 +1041,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  ecgSweep: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: '40%',
-    opacity: 1,
   },
   // Privacy modal
   datePickerSheet: {
@@ -1302,11 +1295,16 @@ const styles = StyleSheet.create({
   quickSlot: {
     flex: 1,
     borderWidth: 1,
+    borderTopWidth: 1.5,   // top-edge catches light — EVE Online surface depth
     borderRadius: 4,
     paddingVertical: 10,
     paddingHorizontal: 6,
     alignItems: 'center',
     gap: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   quickSlotGlyph: {
     fontFamily: 'CourierPrime',

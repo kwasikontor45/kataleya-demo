@@ -23,13 +23,49 @@ import { TypewriterText } from '@/components/typewriter-text';
 const { width: W, height: H } = Dimensions.get('window');
 const RING_SIZE = Math.min(W * 0.72, 280);
 
-// ── One phrase per phase — garden language, knows what time it is ─────────────
-const BRIDGE_PHRASES: Record<string, string> = {
-  dawn:       'the garden wakes.\nso do you.',
-  day:        'you are present.\nthat is enough.',
-  goldenHour: 'the threshold.\nhold.',
-  night:      'the garden is open.\neven now.',
+// ── Phrase pools — garden language, knows what time it is ─────────────────────
+// Seeded by day-of-year + hour-block so it shifts across the day and day to day
+// without needing storage. Stable within the same hour, different tomorrow.
+const BRIDGE_PHRASES: Record<string, string[]> = {
+  dawn: [
+    'the garden wakes.\nso do you.',
+    'the signal returns.\nyou chose to come back.',
+    'morning again.\nyou made it here.',
+    'something held last night.\nthat was you.',
+    'another day begins.\nyou are in it.',
+  ],
+  day: [
+    'you are present.\nthat is enough.',
+    'maximum clarity.\neverything nominal.',
+    'the work continues.\nso do you.',
+    'you are here.\nthat is enough.',
+    'the garden is awake.\nso are you.',
+  ],
+  goldenHour: [
+    'the threshold.\nhold.',
+    'between one self and the next.\nhold.',
+    'the garden knows\nwhat season this is.',
+    'this feeling has a lifespan.\noutlast it.',
+    'the light is changing.\nso are you.',
+  ],
+  night: [
+    'the garden is open.\neven now.',
+    'minimal signature.\nmaximum awareness.',
+    '2am always ends.',
+    'the garden doesn\u2019t judge the winter.',
+    'even in winter,\nthe roots hold.',
+    'rest is not surrender.\nit is preparation.',
+  ],
 };
+
+function getBridgePhrase(phase: string): string {
+  const pool = BRIDGE_PHRASES[phase] ?? BRIDGE_PHRASES.night;
+  const now  = new Date();
+  const dayOfYear  = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000);
+  const hourBlock  = Math.floor(now.getHours() / 3); // changes every 3 hours
+  const idx = (dayOfYear * 8 + hourBlock) % pool.length;
+  return pool[idx];
+}
 
 function getAccentRgb(phase: string): string {
   if (phase === 'night')      return '138,95,224';
@@ -43,6 +79,7 @@ export default function BridgeScreen() {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [enterReady, setEnterReady] = useState(false);
   const [phase, setPhase] = useState<string>('night');
+  const [bridgePhrase, setBridgePhrase] = useState<string>('');
 
   // Animated values
   const fadeIn       = useRef(new Animated.Value(0)).current;
@@ -56,6 +93,7 @@ export default function BridgeScreen() {
     const mins = getCurrentMinutes();
     const p = getCurrentPhase(mins);
     setPhase(p);
+    setBridgePhrase(getBridgePhrase(p));
 
     if (Platform.OS !== 'web') {
       Sanctuary.logCircadianEvent({ ts: Date.now(), phase: p, event: 'app_open' }).catch(() => {});
@@ -156,11 +194,15 @@ export default function BridgeScreen() {
 
       </View>
 
-      {/* Garden phrase — one line, knows what time it is */}
+      {/* Garden phrase — typed in, knows what time it is */}
       <Animated.View style={[styles.phraseWrap, { opacity: phraseOpacity }]}>
-        <Text style={[styles.phrase, { color: `rgba(${accentRgb}, 0.72)` }]}>
-          {BRIDGE_PHRASES[phase] ?? BRIDGE_PHRASES.night}
-        </Text>
+        <TypewriterText
+          text={bridgePhrase}
+          speed={14}
+          jitter={6}
+          startDelay={0}
+          style={[styles.phrase, { color: `rgba(${accentRgb}, 0.72)` }]}
+        />
       </Animated.View>
 
       {/* Enter — one action, user controlled */}

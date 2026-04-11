@@ -12,7 +12,7 @@
 //   style       — text style
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { Text, TextStyle } from 'react-native';
 
 interface TypewriterTextProps {
@@ -25,7 +25,7 @@ interface TypewriterTextProps {
   numberOfLines?: number;
 }
 
-export function TypewriterText({
+function TypewriterTextBase({
   text,
   speed = 45,
   jitter = 28,
@@ -57,9 +57,8 @@ export function TypewriterText({
 
       // Irregular timing — punctuation pauses, spaces breathe
       let delay = speed + Math.random() * jitter;
-      if (char === '.' || char === '\n') delay += 140;
-      else if (char === ',')             delay += 80;
-      else if (char === ' ')             delay += 12;
+      if (char === '.' || char === '\n') delay += 30;
+      else if (char === ',')             delay += 15;
 
       timerRef.current = setTimeout(typeNext, delay);
     };
@@ -79,3 +78,5 @@ export function TypewriterText({
     </Text>
   );
 }
+
+export const TypewriterText = memo(TypewriterTextBase);

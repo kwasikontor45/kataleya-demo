@@ -75,6 +75,8 @@ function getOuroborosPhase(phase: string): string {
   return 'choice';
 }
 
+const OUROBOROS_CYCLE = ['void', 'desire', 'renewal', 'choice'];
+
 function getPhrase(phase: string, lastIdx: number): { text: string; index: number } {
   const pool = PHRASES[getOuroborosPhase(phase)];
   let idx = Math.floor(Math.random() * pool.length);
@@ -82,10 +84,14 @@ function getPhrase(phase: string, lastIdx: number): { text: string; index: numbe
   return { text: pool[idx], index: idx };
 }
 
-// ── Rain layer — void phase, Blade Runner vertical drifts ────────────────────
-function RainLayer({ accentRgb }: { accentRgb: string }) {
+// ── Rain layer — Blade Runner vertical drifts, intensity follows circadian ────
+function RainLayer({ accentRgb, count, maxOpacity }: {
+  accentRgb: string;
+  count: number;
+  maxOpacity: number;
+}) {
   const anims = useRef(
-    Array.from({ length: 18 }, () => new Animated.Value(Math.random()))
+    Array.from({ length: count }, () => new Animated.Value(Math.random()))
   ).current;
 
   useEffect(() => {
@@ -94,10 +100,10 @@ function RainLayer({ accentRgb }: { accentRgb: string }) {
         anim.setValue(0);
         Animated.timing(anim, {
           toValue: 1,
-          duration: 9000 + Math.random() * 12000,
+          duration: 8000 + Math.random() * 10000,
           useNativeDriver: true,
           easing: Easing.linear,
-          delay: i * 350,
+          delay: i * 280,
         }).start(({ finished }) => { if (finished) drift(); });
       };
       drift();
@@ -108,17 +114,18 @@ function RainLayer({ accentRgb }: { accentRgb: string }) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {anims.map((anim, i) => {
-        const x = (i / 18) * W + (W / 36);
-        const lineH = 30 + Math.random() * 70;
+        const x     = (i / count) * W + (W / (count * 2));
+        const lineH = 24 + Math.random() * 80;
+        const op    = (0.3 + Math.random() * 0.7) * maxOpacity;
         return (
           <Animated.View
             key={i}
             style={{
               position: 'absolute',
               left: x,
-              width: 0.5,
+              width: 0.6,
               height: lineH,
-              backgroundColor: `rgba(${accentRgb}, 0.05)`,
+              backgroundColor: `rgba(${accentRgb}, ${op})`,
               transform: [{
                 translateY: anim.interpolate({
                   inputRange: [0, 1],
@@ -190,20 +197,15 @@ export default function CoverScreen() {
   const router = useRouter();
   const { theme, phase } = useCircadian();
   const { sobriety } = useSobriety();
-  const isVoid = phase === 'night';
 
   const accentRgb = phase === 'night'      ? '138,95,224'
                   : phase === 'goldenHour' ? '255,107,53'
                   : phase === 'dawn'       ? '255,100,180'
                   : '0,212,170';
 
-  const orbScale     = useRef(new Animated.Value(1)).current;
-  const orbOpacity   = useRef(new Animated.Value(0.22)).current;
-  const ring1Scale   = useRef(new Animated.Value(1)).current;
-  const ring1Opacity = useRef(new Animated.Value(0.07)).current;
-  const ring2Scale   = useRef(new Animated.Value(1)).current;
-  const ring2Opacity = useRef(new Animated.Value(0.04)).current;
-  const bgGlow       = useRef(new Animated.Value(0)).current;
+  const orbScale   = useRef(new Animated.Value(1)).current;
+  const orbOpacity = useRef(new Animated.Value(0.22)).current;
+  const bgGlow     = useRef(new Animated.Value(0)).current; // opacity — native driver safe
   const phraseOpacity  = useRef(new Animated.Value(0)).current;
   const returnOpacity  = useRef(new Animated.Value(0)).current;
 
@@ -212,26 +214,22 @@ export default function CoverScreen() {
   const lastPhraseIdx = useRef(-1);
   const phraseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const currentOuroborosPhase = getOuroborosPhase(phase);
+  const [cycleIdx, setCycleIdx] = useState(() => OUROBOROS_CYCLE.indexOf(currentOuroborosPhase));
+  const wordOpacity = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
         Animated.parallel([
-          Animated.timing(orbScale,     { toValue: 1.06, duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(orbOpacity,   { toValue: 0.32, duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(ring1Scale,   { toValue: 1.10, duration: 5200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(ring1Opacity, { toValue: 0.14, duration: 5200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(ring2Scale,   { toValue: 1.14, duration: 6200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(ring2Opacity, { toValue: 0.08, duration: 6200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(bgGlow,       { toValue: 1,    duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          Animated.timing(orbScale,   { toValue: 1.06, duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(orbOpacity, { toValue: 0.35, duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(bgGlow,     { toValue: 1,    duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
         ]),
         Animated.parallel([
-          Animated.timing(orbScale,     { toValue: 1,    duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(orbOpacity,   { toValue: 0.22, duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(ring1Scale,   { toValue: 1,    duration: 5200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(ring1Opacity, { toValue: 0.07, duration: 5200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(ring2Scale,   { toValue: 1,    duration: 6200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(ring2Opacity, { toValue: 0.04, duration: 6200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(bgGlow,       { toValue: 0,    duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          Animated.timing(orbScale,   { toValue: 1,    duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(orbOpacity, { toValue: 0.22, duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(bgGlow,     { toValue: 0,    duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
         ]),
       ])
     ).start();
@@ -244,12 +242,38 @@ export default function CoverScreen() {
       }).start();
     }, 8000);
 
+    // Cycle ouroboros phase words at top — fade out, swap word, fade in
+    const cycleWord = () => {
+      Animated.timing(wordOpacity, {
+        toValue: 0, duration: 600,
+        useNativeDriver: true, easing: Easing.inOut(Easing.sin),
+      }).start(() => {
+        setCycleIdx(prev => (prev + 1) % OUROBOROS_CYCLE.length);
+        Animated.timing(wordOpacity, {
+          toValue: 1, duration: 600,
+          useNativeDriver: true, easing: Easing.inOut(Easing.sin),
+        }).start();
+      });
+    };
+    const wordInterval = setInterval(cycleWord, 3000);
+
     return () => {
       clearTimeout(t);
-      [orbScale, orbOpacity, ring1Scale, ring1Opacity,
-       ring2Scale, ring2Opacity, bgGlow].forEach(v => v.stopAnimation());
+      clearInterval(wordInterval);
+      [orbScale, orbOpacity, bgGlow].forEach(v => v.stopAnimation());
     };
   }, []);
+
+  const handlePhraseComplete = useCallback(() => {
+    if (phraseTimer.current) clearTimeout(phraseTimer.current);
+    phraseTimer.current = setTimeout(() => {
+      Animated.timing(phraseOpacity, {
+        toValue: 0, duration: 1600,
+        useNativeDriver: true,
+        easing: Easing.inOut(Easing.sin),
+      }).start(() => { setPhraseVisible(false); setPhrase(null); });
+    }, 4000);
+  }, [phraseOpacity]);
 
   const handleTap = useCallback(() => {
     if (phraseVisible) return;
@@ -259,19 +283,11 @@ export default function CoverScreen() {
     setPhrase(text);
     phraseOpacity.setValue(0);
     Animated.timing(phraseOpacity, {
-      toValue: 1, duration: 1000,
+      toValue: 1, duration: 800,
       useNativeDriver: true,
       easing: Easing.inOut(Easing.sin),
     }).start();
     setPhraseVisible(true);
-    if (phraseTimer.current) clearTimeout(phraseTimer.current);
-    phraseTimer.current = setTimeout(() => {
-      Animated.timing(phraseOpacity, {
-        toValue: 0, duration: 1600,
-        useNativeDriver: true,
-        easing: Easing.inOut(Easing.sin),
-      }).start(() => { setPhraseVisible(false); setPhrase(null); });
-    }, 5500);
   }, [phase, phraseVisible]);
 
   const handleReturn = () => {
@@ -279,18 +295,14 @@ export default function CoverScreen() {
     router.back();
   };
 
-  const bgColor = bgGlow.interpolate({
-    inputRange:  [0, 1],
-    outputRange: [`rgba(${accentRgb}, 0.00)`, `rgba(${accentRgb}, 0.05)`],
-  });
 
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#050508" />
 
-      {/* Ambient glow */}
+      {/* Ambient glow — opacity on fixed color, native driver safe */}
       <Animated.View pointerEvents="none"
-        style={[StyleSheet.absoluteFill, { backgroundColor: bgColor }]} />
+        style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(${accentRgb}, 0.05)`, opacity: bgGlow }]} />
 
       {/* Neon bleed */}
       <NeonBleed accentRgb={accentRgb} />
@@ -298,20 +310,27 @@ export default function CoverScreen() {
       {/* Scanlines */}
       <ScanlineLayer />
 
-      {/* Rain — void only */}
-      {isVoid && <RainLayer accentRgb={accentRgb} />}
+      {/* Rain — circadian intensity: night=full, goldenHour=medium, dawn=minimal, day=none */}
+      {phase === 'night'      && <RainLayer accentRgb={accentRgb} count={22} maxOpacity={0.07} />}
+      {phase === 'goldenHour' && <RainLayer accentRgb={accentRgb} count={12} maxOpacity={0.04} />}
+      {phase === 'dawn'       && <RainLayer accentRgb={accentRgb} count={6}  maxOpacity={0.025} />}
 
-      {/* Phase whisper */}
-      <Text style={[styles.phaseWhisper, { color: `rgba(${accentRgb}, 0.18)` }]}>
-        {getOuroborosPhase(phase)}
-      </Text>
+      {/* Phase whisper — cycles through ouroboros words */}
+      <Animated.Text style={[styles.phaseWhisper, { color: `rgba(${accentRgb}, 0.18)`, opacity: wordOpacity }]}>
+        {OUROBOROS_CYCLE[cycleIdx]}
+      </Animated.Text>
 
       {/* Central composition */}
       <View style={styles.center}>
 
-        {/* OuroborosRing — outermost, the snake */}
-        <View style={[styles.absolute, { width: RING_SIZE, height: RING_SIZE }]}
-          pointerEvents="none">
+        {/* OuroborosRing — tilted into perspective, reads as halo not flat circle */}
+        <View
+          style={[styles.absolute, {
+            width: RING_SIZE, height: RING_SIZE,
+            transform: [{ perspective: 600 }, { rotateX: '-12deg' }],
+          }]}
+          pointerEvents="none"
+        >
           <OuroborosRing
             size={RING_SIZE}
             color={theme.accent}
@@ -321,22 +340,21 @@ export default function CoverScreen() {
           />
         </View>
 
-        {/* Breathing ring 2 — outer */}
-        <Animated.View pointerEvents="none" style={[styles.ring, {
-          width: ORB * 1.52, height: ORB * 1.52,
-          borderRadius: ORB * 0.76,
-          borderColor: `rgba(${accentRgb}, 1)`,
-          transform: [{ scale: ring2Scale }],
-          opacity: ring2Opacity,
+        {/* Ambient glow — 3 concentric light pools, not borders */}
+        <Animated.View pointerEvents="none" style={[styles.absolute, {
+          width: ORB * 2.8, height: ORB * 2.8, borderRadius: ORB * 1.4,
+          backgroundColor: `rgba(${accentRgb}, 0.025)`,
+          transform: [{ scale: orbScale }],
         }]} />
-
-        {/* Breathing ring 1 — inner */}
-        <Animated.View pointerEvents="none" style={[styles.ring, {
-          width: ORB * 1.20, height: ORB * 1.20,
-          borderRadius: ORB * 0.60,
-          borderColor: `rgba(${accentRgb}, 1)`,
-          transform: [{ scale: ring1Scale }],
-          opacity: ring1Opacity,
+        <Animated.View pointerEvents="none" style={[styles.absolute, {
+          width: ORB * 2.0, height: ORB * 2.0, borderRadius: ORB * 1.0,
+          backgroundColor: `rgba(${accentRgb}, 0.04)`,
+          transform: [{ scale: orbScale }],
+        }]} />
+        <Animated.View pointerEvents="none" style={[styles.absolute, {
+          width: ORB * 1.35, height: ORB * 1.35, borderRadius: ORB * 0.675,
+          backgroundColor: `rgba(${accentRgb}, 0.06)`,
+          transform: [{ scale: orbScale }],
         }]} />
 
         {/* Core orb — tap target, butterfly inside */}
@@ -365,8 +383,9 @@ export default function CoverScreen() {
         {phrase && (
           <TypewriterText
             text={phrase}
-            speed={48}
-            jitter={30}
+            speed={8}
+            jitter={0}
+            onComplete={handlePhraseComplete}
             style={[styles.phraseText, { color: `rgba(${accentRgb}, 0.88)` }]}
           />
         )}
@@ -414,10 +433,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  ring: {
-    position: 'absolute',
-    borderWidth: 1,
   },
   orb: {
     borderWidth: 1,

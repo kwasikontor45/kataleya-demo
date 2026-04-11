@@ -6,15 +6,34 @@ import React from 'react';
 import { useCircadian } from '@/hooks/useCircadian';
 import { GlyphIcon } from '@/components/GlyphIcon';
 
+function TabIcon({ name, color, size, focused, phaseRgb }: {
+  name: string; color: string; size: number; focused: boolean; phaseRgb: string;
+}) {
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      {focused && (
+        <View style={{
+          position: 'absolute',
+          width: size * 2.4,
+          height: size * 2.4,
+          borderRadius: size * 1.2,
+          backgroundColor: `rgba(${phaseRgb}, 0.1)`,
+        }} />
+      )}
+      <GlyphIcon name={name} size={size} color={color} strokeWidth={focused ? 1.6 : 1.2} />
+    </View>
+  );
+}
+
 export default function TabLayout() {
   const { theme } = useCircadian();
   const isIOS    = Platform.OS === 'ios';
   const isWeb    = Platform.OS === 'web';
   const isAndroid = Platform.OS === 'android';
 
-  // Active = phase accent. Inactive = Scar Silver — past iterations, neutralised.
+  // Active = phase accent with glow. Inactive = near-invisible — present not competing.
   const tabActive   = theme.accent;
-  const tabInactive = '#8a8a9e';
+  const tabInactive = 'rgba(138,138,158,0.35)';
 
   return (
     <>
@@ -28,7 +47,7 @@ export default function TabLayout() {
             position: 'absolute',
             backgroundColor: isIOS ? 'transparent' : '#050508',
             // Phase-colored top border — the signal line
-            borderTopColor: `rgba(${theme.phaseRgb}, 0.35)`,
+            borderTopColor: `rgba(${theme.phaseRgb}, 0.5)`,
             borderTopWidth: 1,
             elevation: 0,
             height: isWeb ? 84 : 60,
@@ -66,8 +85,8 @@ export default function TabLayout() {
           name="index"
           options={{
             title: 'sanctuary',
-            tabBarIcon: ({ color, size }) => (
-              <GlyphIcon name="orb" size={size} color={color} strokeWidth={1.3} />
+            tabBarIcon: ({ color, size, focused }) => (
+              <TabIcon name="orb" color={color} size={size} focused={focused} phaseRgb={theme.phaseRgb ?? '0,212,170'} />
             ),
           }}
         />
@@ -75,8 +94,8 @@ export default function TabLayout() {
           name="growth"
           options={{
             title: 'cycles',
-            tabBarIcon: ({ color, size }) => (
-              <GlyphIcon name="cycle" size={size} color={color} strokeWidth={1.3} />
+            tabBarIcon: ({ color, size, focused }) => (
+              <TabIcon name="cycle" color={color} size={size} focused={focused} phaseRgb={theme.phaseRgb ?? '0,212,170'} />
             ),
           }}
         />
@@ -84,8 +103,8 @@ export default function TabLayout() {
           name="journal"
           options={{
             title: 'journal',
-            tabBarIcon: ({ color, size }) => (
-              <GlyphIcon name="quill" size={size} color={color} strokeWidth={1.3} />
+            tabBarIcon: ({ color, size, focused }) => (
+              <TabIcon name="quill" color={color} size={size} focused={focused} phaseRgb={theme.phaseRgb ?? '0,212,170'} />
             ),
           }}
         />
@@ -93,8 +112,8 @@ export default function TabLayout() {
           name="vault"
           options={{
             title: 'vault',
-            tabBarIcon: ({ color, size }) => (
-              <GlyphIcon name="lock" size={size} color={color} strokeWidth={1.3} />
+            tabBarIcon: ({ color, size, focused }) => (
+              <TabIcon name="lock" color={color} size={size} focused={focused} phaseRgb={theme.phaseRgb ?? '0,212,170'} />
             ),
           }}
         />
@@ -102,8 +121,8 @@ export default function TabLayout() {
           name="sponsor"
           options={{
             title: 'signal',
-            tabBarIcon: ({ color, size }) => (
-              <GlyphIcon name="signal" size={size} color={color} strokeWidth={1.3} />
+            tabBarIcon: ({ color, size, focused }) => (
+              <TabIcon name="signal" color={color} size={size} focused={focused} phaseRgb={theme.phaseRgb ?? '0,212,170'} />
             ),
           }}
         />
