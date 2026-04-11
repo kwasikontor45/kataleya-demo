@@ -287,17 +287,7 @@ export default function CoverScreen() {
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#050508" />
 
-      {/* Deep space atmosphere — radial, centered */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.atmosphere,
-          {
-            backgroundColor: bgColor,
-          },
-        ]}
-      />
-      {/* Full screen ambient */}
+      {/* Dark breathing pulse — full screen, very subtle */}
       <Animated.View pointerEvents="none"
         style={[StyleSheet.absoluteFill, { backgroundColor: bgColor }]} />
 
@@ -465,15 +455,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
-  },
-  atmosphere: {
-    position: 'absolute',
-    width: ORB * 3.5,
-    height: ORB * 3.5,
-    borderRadius: ORB * 1.75,
-    alignSelf: 'center',
-    top: '50%',
-    marginTop: -(ORB * 1.75),
   },
   wordmark: {
     position: 'absolute',
