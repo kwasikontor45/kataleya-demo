@@ -30,9 +30,6 @@ const REASONS = [
 const DANGER_RGB = '255,80,80';
 
 export function BurningRitual({ theme, onComplete, onCancel }: Props) {
-  const [selectedReason, setSelectedReason] = useState<BurnReason>(null);
-  // confirming: hold completed — waiting for explicit final tap before wipe
-  const [confirming, setConfirming] = useState(false);
   const [burned, setBurned] = useState(false);
 
   // ── Hold complete → confirmation gate ─────────────────────────────────────
@@ -80,29 +77,23 @@ export function BurningRitual({ theme, onComplete, onCancel }: Props) {
     return (
       <View style={[styles.container, styles.afterContainer, { backgroundColor: theme.bg }]}>
         <Text style={[styles.burnTitle, { color: theme.danger }]}>
-          The garden burns.
+          the garden has burned.
         </Text>
         <Text style={[styles.burnSubtitle, { color: theme.textMuted }]}>
-          The orchid returns to seed.{'\n'}The soil is fresh.
+          the ground returns to zero.{'\n'}you can begin again.
         </Text>
 
         <View style={styles.afterActions}>
           <TouchableOpacity
-            style={[styles.afterBtn, { borderColor: theme.accent, backgroundColor: `${theme.accent}18` }]}
+            style={[styles.afterBtn, { borderColor: `rgba(${DANGER_RGB},0.3)`, backgroundColor: `rgba(${DANGER_RGB},0.06)` }]}
             onPress={onComplete}
           >
-            <Text style={[styles.afterBtnText, { color: theme.accent }]}>Begin Again</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.afterBtn, { borderColor: theme.border }]}
-            onPress={onComplete}
-          >
-            <Text style={[styles.afterBtnText, { color: theme.textMuted }]}>Close</Text>
+            <Text style={[styles.afterBtnText, { color: `rgba(${DANGER_RGB},0.7)` }]}>begin again</Text>
           </TouchableOpacity>
         </View>
 
         <Text style={[styles.afterNote, { color: `${theme.textMuted}60` }]}>
-          All data has been permanently erased.{'\n'}Nothing remains.
+          nothing remains. no trace. no record.
         </Text>
       </View>
     );
@@ -153,23 +144,6 @@ export function BurningRitual({ theme, onComplete, onCancel }: Props) {
         You are about to destroy all records.{'\n'}This cannot be undone. We cannot recover it. No one can.
       </Text>
 
-      <View style={styles.reasons}>
-        {REASONS.map(r => (
-          <TouchableOpacity
-            key={r.id}
-            onPress={() => setSelectedReason(r.id)}
-            style={[
-              styles.reasonBtn,
-              {
-                borderColor: selectedReason === r.id ? theme.danger : theme.border,
-                backgroundColor: selectedReason === r.id ? `${theme.danger}15` : 'transparent',
-              },
-            ]}
-          >
-            <Text style={[styles.reasonText, { color: theme.text }]}>{r.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
 
       {/* ── Hold to ignite — uses shared HoldToConfirm, danger mode ── */}
       <HoldToConfirm
@@ -178,7 +152,7 @@ export function BurningRitual({ theme, onComplete, onCancel }: Props) {
         accentRgb={DANGER_RGB}
         duration={3000}
         dangerMode
-        disabled={!selectedReason}
+
         onConfirm={handleHoldComplete}
         style={styles.igniteWrapper}
       />
