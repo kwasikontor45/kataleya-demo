@@ -469,3 +469,38 @@ Required: PORT env var, DATA_DIR env var, /health endpoint, Volume at /data.
 See above session update for full list.
 3D depth layer is a priority feature — not post-launch polish.
 Full pass covers: parallax, light sourcing, press depth, OuroborosRing perspective tilt, z-depth opacity gradient, reactive depth on all interactive elements.
+
+## gameplan addition — helix unzipping + rewrite ritual
+
+### the rewrite ritual (v3.0)
+Full replacement of the burn ritual. Three phases:
+
+1. **CONFESSION** — user writes what they would erase. TextInput, full screen, no distraction.
+2. **TRANSMUTATION** — text glitches, scrambles, reassembles as noise. 
+   The butterfly-dna helix unzips during this phase — strands separate progressively,
+   suggesting the data is being dissolved at the molecular level.
+   CRT flicker. Text corruption. 50ms micro-freezes.
+3. **INTEGRATION** — helix fully unzipped, strands dissolve to darkness.
+   A single scar mark is added to the OuroborosRing — permanent, unreadable.
+   Data is gone. The mark remains. You survived it.
+
+### helix unzipping — loading states (v3.0)
+Apply the DNA unzip animation to all heavy operations:
+- Backup decryption — helix unzips as data unlocks
+- Backup restore — helix rezips as data fills
+- Burn ritual transmutation — helix unzips completely, strands fly apart
+
+### implementation notes
+- butterfly-dna.gif is 66 frames, 6 seconds
+- For unzip effect: play frames 1→33 (coiled → separating)
+- For rezip effect: play frames 33→66 (separating → coiled)
+- React Native Image doesn't support frame control on gif
+- Will need react-native-fast-image or expo-av video, OR
+  replace gif with APNG and use frame-by-frame Animated control
+- Build after EAS build is confirmed working — needs native module support
+
+### burn ritual current state
+- Simplified to: hold to ignite → burns → begin again
+- Three-phase burn code untouched (tombstone → SQLite/Fortress → Surface)
+- Rewrite Ritual replaces the UX only — burn code stays as is
+- PAYWALL_ACTIVE=false — do not touch
