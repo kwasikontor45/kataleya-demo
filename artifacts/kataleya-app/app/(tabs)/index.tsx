@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
+  Dimensions,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -30,6 +31,9 @@ import { GroundingExercise } from '@/components/GroundingExercise';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { BLOOM_THRESHOLDS } from '@/utils/hapticBloom';
 import { Surface, Sanctuary } from '@/utils/storage';
+
+const SCREEN_W = Dimensions.get('window').width;
+const ORB_COMPOSITE = Math.min(SCREEN_W * 0.72, 260);
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -343,7 +347,7 @@ export default function SanctuaryScreen() {
           styles.scroll,
           { paddingTop: topPad + 12, paddingBottom: botPad + 16 },
         ]}
-        scrollEnabled={settingDate}
+        scrollEnabled={true}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -435,7 +439,7 @@ export default function SanctuaryScreen() {
             {/* OuroborosRing — outer, slow, scarred by time */}
             <View style={styles.ouroborosWrap} pointerEvents="none">
               <OuroborosRing
-                size={320}
+                size={ORB_COMPOSITE}
                 color={theme.accent}
                 cycleCount={sobriety.daysSober}
                 phase={phase as any}
@@ -817,7 +821,7 @@ const styles = StyleSheet.create({
     width: '160%',
     aspectRatio: 1,
     borderRadius: 9999,
-    top: '15%',
+    top: '10%',
     alignSelf: 'center',
     transform: [{ scaleY: 0.6 }],
   },
@@ -951,14 +955,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   orbSection: {
-    flex: 1,
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 8,
   },
   orbComposite: {
-    width: 320,
-    height: 320,
+    width: ORB_COMPOSITE,
+    height: ORB_COMPOSITE,
     alignItems: 'center',
     justifyContent: 'center',
   },
