@@ -12,7 +12,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { useAnimatedTheme } from '@/hooks/useAnimatedTheme';
-import { Audio } from 'expo-av';
 import { Surface } from '@/utils/storage';
 
 const { width } = Dimensions.get('window');
@@ -360,7 +359,6 @@ export default function Onboarding() {
   const [substance, setSubstance] = useState('');
   const [sobrietyDate, setSobrietyDate] = useState(new Date());
   const narrationOpacity = useRef(new Animated.Value(0)).current;
-  const audioHintOpacity = useRef(new Animated.Value(0)).current;
 
   // Load audio on mount
   useEffect(() => {
@@ -396,47 +394,6 @@ export default function Onboarding() {
   }, []);
 
   // Play / stop audio
-  const handleAudioToggle = async () => {
-    if (!soundRef.current || !audioReady) return;
-    if (audioEnabled) {
-      await soundRef.current.pauseAsync().catch(() => {});
-      setAudioEnabled(false);
-    } else {
-      await soundRef.current.playAsync().catch(() => {});
-      setAudioEnabled(true);
-    }
-  };
-  // ── Audio narration ────────────────────────────────────────────────────────
-  const [audioEnabled, setAudioEnabled] = useState(false);
-  const [audioReady, setAudioReady] = useState(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const [morningEnabled, setMorningEnabled] = useState(true);
-  const [eveningEnabled, setEveningEnabled] = useState(true);
-  const [morningTime, setMorningTime] = useState(() => { const d = new Date(); d.setHours(8, 0, 0, 0); return d; });
-  const [eveningTime, setEveningTime] = useState(() => { const d = new Date(); d.setHours(21, 0, 0, 0); return d; });
-
-  const accentColor = theme.accent;
-  const phaseRgb    = theme.phaseRgb;
-
-  // Narration fade — ambient text breathes in on each step
-  useEffect(() => {
-    narrationOpacity.setValue(0);
-    const t = setTimeout(() => {
-      Animated.timing(narrationOpacity, {
-        toValue: 1,
-        duration: 900,
-        useNativeDriver: true,
-        easing: Easing.inOut(Easing.sin),
-      }).start();
-    }, 600);
-    return () => clearTimeout(t);
-  }, [step]);
-
-  const advance = () => {
-    if (step < STEPS.length - 1) setStep(s => s + 1);
-    else completeOnboarding();
-  };
-
   const goBack = () => {
     if (step > 0) setStep(s => s - 1);
     else router.replace('/bridge');
@@ -503,17 +460,6 @@ export default function Onboarding() {
               {NARRATION[id].line2}
             </Text>
           )}
-        </Animated.View>
-      )}
-
-      {/* Audio hint — welcome step only, fades in after 1.5s */}
-      {id === 'welcome' && audioReady && (
-        <Animated.View style={[styles.audioHint, { opacity: audioHintOpacity }]}>
-          <TouchableOpacity onPress={handleAudioToggle} hitSlop={12}>
-            <Text style={[styles.audioHintText, { color: `rgba(${phaseRgb},${audioEnabled ? 0.7 : 0.35})` }]}>
-              {audioEnabled ? '◎ listening' : '◎ hear this'}
-            </Text>
-          </TouchableOpacity>
         </Animated.View>
       )}
 
@@ -881,16 +827,6 @@ const styles = StyleSheet.create({
   datePicker: {
     width: '100%',
     height: 160,
-  },
-  audioHint: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  audioHintText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 10,
-    letterSpacing: 2.5,
-    textTransform: 'lowercase',
   },
   notifsWrap: {
     gap: 10,

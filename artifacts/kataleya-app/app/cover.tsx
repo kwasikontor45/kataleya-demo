@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
 import { useCircadian } from '@/hooks/useCircadian';
 import { getCurrentPhase, getCurrentMinutes } from '@/constants/circadian';
 
@@ -88,10 +87,6 @@ const ORB = Math.min(width * 0.52, 220);
 export default function CoverScreen() {
   const router = useRouter();
   const { theme, phase } = useCircadian();
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const [audioPlaying, setAudioPlaying] = useState(false);
-  const [audioReady, setAudioReady] = useState(false);
-  const audioHintOpacity = useRef(new Animated.Value(0)).current;
 
   // Phrase state
   const [phrase, setPhrase] = useState<string | null>(null);
@@ -154,30 +149,7 @@ export default function CoverScreen() {
       }).start();
     }, 8000);
 
-    // Load cover narration
-    const loadAudio = async () => {
-      try {
-        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-        const { sound } = await Audio.Sound.createAsync(
-          require('../assets/audio/kataleya-narration-cover.mp3'),
-          { shouldPlay: false, volume: 0.9 }
-        );
-        soundRef.current = sound;
-        setAudioReady(true);
-        // Fade in audio hint after 12s (when return button appears)
-        setTimeout(() => {
-          Animated.timing(audioHintOpacity, {
-            toValue: 1,
-            duration: 1200,
-            useNativeDriver: true,
-            easing: Easing.inOut(Easing.sin),
-          }).start();
-        }, 12000);
-      } catch { /* optional */ }
-    };
-    loadAudio();
-
-    return () => {
+      return () => {
       clearTimeout(returnTimer);
       soundRef.current?.unloadAsync().catch(() => {});
       [orbScale, orbOpacity, ring1Scale, ring1Opacity,
@@ -226,23 +198,6 @@ export default function CoverScreen() {
     inputRange:  [0, 1],
     outputRange: [`rgba(${accentRgb}, 0.00)`, `rgba(${accentRgb}, 0.04)`],
   });
-
-  // ── Audio toggle ─────────────────────────────────────────────────────────
-  const handleAudioToggle = async () => {
-    if (!soundRef.current || !audioReady) return;
-    if (audioPlaying) {
-      await soundRef.current.stopAsync().catch(() => {});
-      await soundRef.current.setPositionAsync(0).catch(() => {});
-      setAudioPlaying(false);
-    } else {
-      await soundRef.current.playAsync().catch(() => {});
-      setAudioPlaying(true);
-      // Auto-reset after playback
-      soundRef.current.setOnPlaybackStatusUpdate(status => {
-        if (status.isLoaded && status.didJustFinish) setAudioPlaying(false);
-      });
-    }
-  };
 
   // ── Return handler ────────────────────────────────────────────────────────
   const handleReturn = () => {
@@ -335,17 +290,6 @@ export default function CoverScreen() {
         </TouchableOpacity>
       </Animated.View>
 
-      {/* Audio hint — appears with return button */}
-      {audioReady && (
-        <Animated.View style={[styles.audioWrap, { opacity: audioHintOpacity }]}>
-          <TouchableOpacity onPress={handleAudioToggle} hitSlop={16}>
-            <Text style={[styles.audioText, { color: `rgba(${accentRgb},0.22)` }]}>
-              {audioPlaying ? '◎ playing' : '◎ amor fati'}
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-
       {/* Kataleya — barely there */}
       <Text style={[styles.wordmark, { color: `rgba(${accentRgb},0.07)` }]}>
         kataleya
@@ -408,17 +352,6 @@ const styles = StyleSheet.create({
   returnText: {
     fontFamily: 'CourierPrime',
     fontSize: 11,
-    letterSpacing: 2.5,
-    textTransform: 'lowercase',
-  },
-  audioWrap: {
-    position: 'absolute',
-    bottom: 88,
-    alignItems: 'center',
-  },
-  audioText: {
-    fontFamily: 'CourierPrime',
-    fontSize: 10,
     letterSpacing: 2.5,
     textTransform: 'lowercase',
   },
