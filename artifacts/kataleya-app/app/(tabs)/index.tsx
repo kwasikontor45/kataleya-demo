@@ -64,6 +64,50 @@ function humanDuration(days: number): string | null {
   return parts.join(' · ');
 }
 
+// ── Mercury line — dense, slow, rolls like liquid metal ──────────────────────
+const MERCURY_W = SCREEN_W - 48; // matches paddingHorizontal: 24
+const BEAD_W    = 48;
+
+function MercuryLine({ accentRgb }: { accentRgb: string }) {
+  const pos = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pos, {
+          toValue: 1, duration: 5200,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.sin),
+        }),
+        Animated.timing(pos, {
+          toValue: 0, duration: 5200,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.sin),
+        }),
+      ])
+    ).start();
+    return () => pos.stopAnimation();
+  }, []);
+
+  const tx = pos.interpolate({
+    inputRange:  [0, 1],
+    outputRange: [0, MERCURY_W - BEAD_W],
+  });
+
+  return (
+    <View style={styles.mercuryWrap}>
+      {/* Wire */}
+      <View style={[styles.mercuryWire, { backgroundColor: `rgba(138,138,158,0.14)` }]} />
+      {/* Mercury bead */}
+      <Animated.View style={[styles.mercuryBead, {
+        backgroundColor: `rgba(${accentRgb}, 0.52)`,
+        shadowColor: `rgb(${accentRgb})`,
+        transform: [{ translateX: tx }],
+      }]} />
+    </View>
+  );
+}
+
 // Circadian accent RGB — matches GhostPulseOrb color logic
 function phaseAccentRgb(phase: string): string {
   if (phase === 'goldenHour') return NEON_RGB.amber;
@@ -660,9 +704,7 @@ export default function SanctuaryScreen() {
                 {humanDuration(sobriety.daysSober)}
               </Text>
             )}
-            <Text style={[styles.hmsCount, { color: `${theme.text}40` }]}>
-              {pad(sobriety.hoursSober)}:{pad(sobriety.minutesSober)}:{pad(sobriety.secondsSober)}
-            </Text>
+            <MercuryLine accentRgb={accentRgb} />
 
             {sobriety.nextMilestone && (
               <View style={styles.progressSection}>
@@ -1170,11 +1212,26 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginTop: 2,
   },
-  hmsCount: {
-    fontFamily: 'SpaceMono',
-    fontSize: 20,
-    letterSpacing: 2,
-    marginTop: 2,
+  mercuryWrap: {
+    width: MERCURY_W,
+    height: 20,
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  mercuryWire: {
+    height: 1,
+    borderRadius: 1,
+    width: '100%',
+  },
+  mercuryBead: {
+    position: 'absolute',
+    width: BEAD_W,
+    height: 3,
+    borderRadius: 2,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.75,
+    shadowRadius: 5,
+    elevation: 3,
   },
   progressSection: { width: '100%', gap: 8, marginTop: 12 },
   progressTrack: { height: 2, borderRadius: 1, width: '100%', overflow: 'hidden' },
