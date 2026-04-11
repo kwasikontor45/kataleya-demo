@@ -57,7 +57,7 @@ const PHRASES = {
   choice: [
     "The garden is awake.\nSo are you.",
     'This is the window.\nUse it.',
-    'Everything is growing,\neven when you can't see it.',
+    "Everything is growing,\neven when you can't see it.",
     'The work continues.\nSo do you.',
     "You are here.\nThat is enough.",
   ],
