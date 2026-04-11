@@ -84,7 +84,7 @@ function getPhrase(phase: string, lastIdx: number): { text: string; index: numbe
 // ── Rain layer — void phase, Blade Runner vertical drifts ────────────────────
 function RainLayer({ accentRgb }: { accentRgb: string }) {
   const anims = useRef(
-    Array.from({ length: 18 }, () => new Animated.Value(Math.random()))
+    Array.from({ length: 22 }, () => new Animated.Value(Math.random()))
   ).current;
 
   useEffect(() => {
@@ -93,7 +93,7 @@ function RainLayer({ accentRgb }: { accentRgb: string }) {
         anim.setValue(0);
         Animated.timing(anim, {
           toValue: 1,
-          duration: 9000 + Math.random() * 12000,
+          duration: 5000 + Math.random() * 7000,
           useNativeDriver: true,
           easing: Easing.linear,
           delay: i * 350,
@@ -108,7 +108,7 @@ function RainLayer({ accentRgb }: { accentRgb: string }) {
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {anims.map((anim, i) => {
         const x = (i / 18) * W + (W / 36);
-        const lineH = 30 + Math.random() * 70;
+        const lineH = 60 + Math.random() * 120;
         return (
           <Animated.View
             key={i}
@@ -117,7 +117,7 @@ function RainLayer({ accentRgb }: { accentRgb: string }) {
               left: x,
               width: 0.5,
               height: lineH,
-              backgroundColor: `rgba(${accentRgb}, 0.05)`,
+              backgroundColor: `rgba(${accentRgb}, ${0.08 + Math.random() * 0.10})`,
               transform: [{
                 translateY: anim.interpolate({
                   inputRange: [0, 1],
