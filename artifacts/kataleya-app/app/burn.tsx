@@ -13,7 +13,7 @@ export default function BurnScreen() {
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <BurningRitual
         theme={theme}
-        onComplete={() => router.replace('/(tabs)')}
+        onComplete={() => router.replace('/onboarding')}
         onCancel={() => router.back()}
       />
     </View>

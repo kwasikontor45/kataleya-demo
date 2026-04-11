@@ -17,7 +17,7 @@ interface OuroborosRingProps {
   cycleCount?: number;  // scar marks — one per 3 days sober
   phase: OuroborosPhase;
   breathing?: boolean;
-  showDots?: boolean;   // head + gap dots — off on cover screen
+  showDots?: boolean;   // legacy — no longer used, kept for call-site compatibility
 }
 
 // Phase rotation speeds — desire is fastest, void is slowest
@@ -34,7 +34,6 @@ export function OuroborosRing({
   cycleCount = 0,
   phase,
   breathing = true,
-  showDots = true,
 }: OuroborosRingProps) {
   const pulse = useRef(new Animated.Value(1)).current;
   const rotate = useRef(new Animated.Value(0)).current;
@@ -175,25 +174,6 @@ export function OuroborosRing({
             />
           ))}
 
-          {/* Head + gap — only shown when showDots is true */}
-          {showDots && (
-            <>
-              <Circle
-                cx={R + radius}
-                cy={R}
-                r={3}
-                fill={color}
-                opacity={0.95}
-              />
-              <Circle
-                cx={R + radius * Math.cos(Math.PI * (1 - gapFraction / 2))}
-                cy={R + radius * Math.sin(Math.PI * (1 - gapFraction / 2))}
-                r={2}
-                fill="#00d4aa"
-                opacity={0.9}
-              />
-            </>
-          )}
         </Svg>
       </Animated.View>
     </View>
