@@ -66,7 +66,7 @@ const LABELS = {
   holdIn:    { main: 'hold',             sub: 'let it settle' },
   exhale:    { main: 'exhale',           sub: 'let it go' },
   holdOut:   { main: 'rest',             sub: 'empty' },
-  done:      { main: 'you did well',     sub: 'carry it with you' },
+  done:      { main: 'take it with you', sub: 'tap anywhere to close' },
 } as const;
 
 interface Props {
@@ -107,6 +107,8 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
   const cycleTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const allAnims    = useRef<Animated.CompositeAnimation[]>([]);
+  const hasStarted  = useRef(false);
+  const isDone      = useRef(false);
 
   // ── Derive timing — pure 4-7-8 ───────────────────────────────────────────────
   function getTiming() {
@@ -263,9 +265,11 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
     countOpacity.setValue(0);
     dismissOpacity.setValue(0);
 
+    hasStarted.current = false;
+    isDone.current = false;
     Animated.timing(labelOpacity, { toValue: 1, duration: 600, useNativeDriver: true }).start();
 
-    const startTimer = setTimeout(runCycle, 1500);
+    const startTimer = setTimeout(() => {}, 0); // no autostart — user taps to begin
 
     return () => {
       isMounted.current = false;
@@ -278,27 +282,47 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
   }, [visible]);
 
   // ── Dismiss ──────────────────────────────────────────────────────────────────
+  // Called when user taps "i feel it" mid-session
   const handleDismiss = useCallback(() => {
+    if (isDone.current) return; // already done — tap closes
     isMounted.current = false;
     allAnims.current.forEach(a => a.stop());
     if (countTimer.current) clearTimeout(countTimer.current);
+    if (cycleTimer.current) clearTimeout(cycleTimer.current);
     countLabel.current = '';
+    isDone.current = true;
     setLabel('done');
-    // Let "you did well" breathe for 2 seconds before fading
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(coreOpacity,  { toValue: 0,   duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(coreGlow,     { toValue: 0,   duration: 1400, useNativeDriver: true }),
-        Animated.timing(r1Opacity,    { toValue: 0,   duration: 1400, useNativeDriver: true }),
-        Animated.timing(r2Opacity,    { toValue: 0,   duration: 1200, useNativeDriver: true }),
-        Animated.timing(r3Opacity,    { toValue: 0,   duration: 1000, useNativeDriver: true }),
-        Animated.timing(countOpacity, { toValue: 0,   duration: 400,  useNativeDriver: true }),
-        Animated.timing(labelOpacity, { toValue: 0,   duration: 1800, useNativeDriver: true }),
-      ]).start(() => {
-        setTimeout(() => { if (onDismiss) onDismiss(); if (onClose) onClose(); }, 400);
-      });
-    }, 2000);
-  }, [onDismiss, onClose, setLabel, countOpacity, labelOpacity]);
+    // Stop rings, show "take it with you" — wait for tap to close
+    Animated.parallel([
+      Animated.timing(coreOpacity,  { toValue: 0.2, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(coreGlow,     { toValue: 0,   duration: 1000, useNativeDriver: true }),
+      Animated.timing(r1Opacity,    { toValue: 0,   duration: 1000, useNativeDriver: true }),
+      Animated.timing(r2Opacity,    { toValue: 0,   duration: 800,  useNativeDriver: true }),
+      Animated.timing(r3Opacity,    { toValue: 0,   duration: 600,  useNativeDriver: true }),
+      Animated.timing(countOpacity, { toValue: 0,   duration: 300,  useNativeDriver: true }),
+    ]).start();
+    Animated.timing(dismissOpacity, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+  }, [setLabel, countOpacity]);
+
+  // Called when user taps anywhere after done state
+  const handleFinalClose = useCallback(() => {
+    if (!isDone.current) return;
+    Animated.parallel([
+      Animated.timing(coreOpacity,  { toValue: 0, duration: 800, useNativeDriver: true }),
+      Animated.timing(labelOpacity, { toValue: 0, duration: 800, useNativeDriver: true }),
+      Animated.timing(dismissOpacity, { toValue: 0, duration: 600, useNativeDriver: true }),
+    ]).start(() => {
+      if (onDismiss) onDismiss();
+      if (onClose) onClose();
+    });
+  }, [onDismiss, onClose, labelOpacity]);
+
+  // Called when user taps orb to begin
+  const handleBegin = useCallback(() => {
+    if (hasStarted.current || isDone.current) return;
+    hasStarted.current = true;
+    runCycle();
+  }, [runCycle]);
 
   // ── Arc interpolation (native driver can't drive strokeDashoffset, so JS) ────
   const arcDashOffset = arcProgress.interpolate({
@@ -329,7 +353,11 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
       statusBarTranslucent
       onRequestClose={() => { if (onClose) onClose(); if (onDismiss) onDismiss(); }}
     >
-    <View style={[styles.root, { backgroundColor: theme.bg }]}>
+    <TouchableOpacity
+      style={[styles.root, { backgroundColor: theme.bg }]}
+      activeOpacity={1}
+      onPress={isDone.current ? handleFinalClose : undefined}
+    >
 
       {/* ── Breathing background glow ─────────────────────────────────── */}
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: bgColor }]} pointerEvents="none" />
@@ -347,6 +375,15 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
       <Text style={[styles.techniqueLabel, { color: `rgba(${phaseRgb}, 0.25)` }]}>
         4 · 7 · 8
       </Text>
+
+      {/* ── Tap to begin — only before start ── */}
+      {!hasStarted.current && !isDone.current && (
+        <TouchableOpacity onPress={handleBegin} hitSlop={24} style={styles.beginHint}>
+          <Text style={[styles.beginHintText, { color: `rgba(${phaseRgb}, 0.35)` }]}>
+            tap the orb to begin
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* ── Orb ─────────────────────────────────────────────────────────── */}
       <View style={[styles.orbWrap, { width: ORB_SIZE, height: ORB_SIZE }]}>
@@ -464,7 +501,7 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
         </TouchableOpacity>
       </Animated.View>
 
-    </View>
+    </TouchableOpacity>
     </Modal>
   );
 }
@@ -526,6 +563,17 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
     textAlign: 'center',
     opacity: 0.7,
+  },
+  beginHint: {
+    position: 'absolute',
+    bottom: '22%',
+    alignSelf: 'center',
+  },
+  beginHintText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
   },
   closeBtn: {
     position: 'absolute',
