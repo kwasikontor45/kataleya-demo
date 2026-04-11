@@ -53,8 +53,7 @@
           "sounds": []
         }
       ],
-      "expo-sqlite",
-      "expo-audio"
+      "expo-sqlite"
     ],
     "updates": {
       "enabled": false
