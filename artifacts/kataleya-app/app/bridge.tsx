@@ -13,6 +13,7 @@ import {
   View, Text, StyleSheet, Animated, Easing,
   TouchableOpacity, Dimensions, Platform, Image,
 } from 'react-native';
+import Svg, { Line } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { OuroborosRing } from '@/components/OuroborosRing';
 import { getCurrentPhase, getCurrentMinutes, CIRCADIAN_PHASES } from '@/constants/circadian';
@@ -72,6 +73,21 @@ function getAccentRgb(phase: string): string {
   if (phase === 'goldenHour') return '255,107,53';
   if (phase === 'dawn')       return '255,100,180';
   return '0,212,170';
+}
+
+// CRT scanline texture — same as cover screen
+function ScanlineLayer() {
+  const count = Math.ceil(H / 4);
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Svg width={W} height={H}>
+        {Array.from({ length: count }, (_, i) => (
+          <Line key={i} x1={0} y1={i * 4} x2={W} y2={i * 4}
+            stroke="rgba(255,255,255,0.012)" strokeWidth={0.5} />
+        ))}
+      </Svg>
+    </View>
+  );
 }
 
 export default function BridgeScreen() {
@@ -165,33 +181,44 @@ export default function BridgeScreen() {
   return (
     <Animated.View style={[styles.root, { backgroundColor: '#050508', opacity: fadeIn }]}>
 
-      {/* Atmospheric glow — fades in with the orb, quiet not competing */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Animated.View style={{
-            position: 'absolute',
-            width: RING_SIZE * 1.7, height: RING_SIZE * 1.7,
-            borderRadius: RING_SIZE * 0.85,
-            backgroundColor: `rgba(${accentRgb}, 0.03)`,
-            opacity: orbOpacity,
-          }} />
-          <Animated.View style={{
-            position: 'absolute',
-            width: RING_SIZE * 1.15, height: RING_SIZE * 1.15,
-            borderRadius: RING_SIZE * 0.575,
-            backgroundColor: `rgba(${accentRgb}, 0.05)`,
-            opacity: orbOpacity,
-          }} />
-        </View>
-      </View>
+      {/* CRT scanlines */}
+      <ScanlineLayer />
 
-      {/* Phase whisper — top center */}
-      <Text style={[styles.phaseWhisper, { color: `rgba(${accentRgb}, 0.18)` }]}>
-        {ouroborosPhase}
+      {/* HUD corner brackets — cockpit frame, fades in with orb */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: orbOpacity }]} pointerEvents="none">
+        {/* Top-left */}
+        <View style={[styles.corner, styles.cornerTL, { borderColor: `rgba(${accentRgb}, 0.38)` }]} />
+        {/* Top-right */}
+        <View style={[styles.corner, styles.cornerTR, { borderColor: `rgba(${accentRgb}, 0.38)` }]} />
+        {/* Bottom-left */}
+        <View style={[styles.corner, styles.cornerBL, { borderColor: `rgba(${accentRgb}, 0.38)` }]} />
+        {/* Bottom-right */}
+        <View style={[styles.corner, styles.cornerBR, { borderColor: `rgba(${accentRgb}, 0.38)` }]} />
+      </Animated.View>
+
+      {/* Phase whisper — terminal system label */}
+      <Text style={[styles.phaseWhisper, { color: `rgba(${accentRgb}, 0.35)` }]}>
+        ◈ {ouroborosPhase}
       </Text>
 
       {/* Central composition */}
       <View style={styles.center}>
+
+        {/* Targeting crosshair — sensor array lines, behind ring */}
+        <Animated.View style={[styles.crosshairWrap, { opacity: orbOpacity }]} pointerEvents="none">
+          <Svg width={RING_SIZE * 1.5} height={RING_SIZE * 1.5}>
+            <Line
+              x1={0} y1={RING_SIZE * 0.75}
+              x2={RING_SIZE * 1.5} y2={RING_SIZE * 0.75}
+              stroke={`rgba(${accentRgb}, 0.07)`} strokeWidth={0.5}
+            />
+            <Line
+              x1={RING_SIZE * 0.75} y1={0}
+              x2={RING_SIZE * 0.75} y2={RING_SIZE * 1.5}
+              stroke={`rgba(${accentRgb}, 0.07)`} strokeWidth={0.5}
+            />
+          </Svg>
+        </Animated.View>
 
         {/* OuroborosRing — turning, scarred, never closing */}
         <Animated.View style={[styles.ringWrap, {
@@ -218,6 +245,14 @@ export default function BridgeScreen() {
         </Animated.View>
 
       </View>
+
+      {/* System status readout — below ring, fades in with enter */}
+      <Animated.Text style={[styles.systemStatus, {
+        color: `rgba(${accentRgb}, 0.22)`,
+        opacity: enterOpacity,
+      }]}>
+        sys · nominal · {ouroborosPhase}
+      </Animated.Text>
 
       {/* Garden phrase — typed in, knows what time it is */}
       <Animated.View style={[styles.phraseWrap, { opacity: phraseOpacity }]}>
@@ -295,7 +330,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   phraseWrap: {
-    marginTop: 32,
+    marginTop: 20,
     alignItems: 'center',
     paddingHorizontal: 40,
   },
@@ -307,15 +342,59 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     fontStyle: 'italic',
   },
+  crosshairWrap: {
+    position: 'absolute',
+    width: RING_SIZE * 1.5,
+    height: RING_SIZE * 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  corner: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    borderWidth: 0,
+  },
+  cornerTL: {
+    top: Platform.OS === 'ios' ? 58 : 42,
+    left: 22,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+  },
+  cornerTR: {
+    top: Platform.OS === 'ios' ? 58 : 42,
+    right: 22,
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+  },
+  cornerBL: {
+    bottom: 42,
+    left: 22,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+  },
+  cornerBR: {
+    bottom: 42,
+    right: 22,
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+  },
+  systemStatus: {
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    letterSpacing: 2.5,
+    textTransform: 'lowercase',
+    marginTop: 10,
+  },
   enterWrap: {
-    marginTop: 40,
+    marginTop: 28,
     alignItems: 'center',
   },
   enterBtn: {
     borderWidth: 1,
-    borderRadius: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 48,
+    borderRadius: 4,
+    paddingVertical: 13,
+    paddingHorizontal: 56,
   },
   enterText: {
     fontFamily: 'CourierPrime',
