@@ -88,7 +88,7 @@ export function OuroborosRing({
   const circ = 2 * Math.PI * radius;
 
   // Gap = 8% of circumference — the ouroboros never closes
-  const gapFraction = 0.08;
+  const gapFraction = 0.14;
   const arcLength = circ * (1 - gapFraction);
 
   // Scar marks — survived cycles (max 12 visible)
@@ -120,7 +120,7 @@ export function OuroborosRing({
             fill="none"
             stroke={color}
             strokeWidth={strokeW}
-            strokeOpacity={0.15}
+            strokeOpacity={0.35}
             strokeDasharray={`${arcLength} ${circ - arcLength}`}
             strokeLinecap="butt"
             rotation={-90}
@@ -131,11 +131,34 @@ export function OuroborosRing({
             cx={R} cy={R} r={radius}
             fill="none"
             stroke={color}
-            strokeWidth={strokeW * 2.5}
-            strokeOpacity={0.22}
+            strokeWidth={strokeW * 2}
+            strokeOpacity={0.18}
             strokeDasharray={`1.5 ${circ / 32}`}
             strokeLinecap="butt"
             rotation={-90}
+            origin={`${R}, ${R}`}
+          />
+          {/* Gap edges — two short bright marks flanking the break */}
+          <Circle
+            cx={R} cy={R} r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={strokeW * 3}
+            strokeOpacity={0.7}
+            strokeDasharray={`2 ${circ - 2}`}
+            strokeLinecap="butt"
+            rotation={-90}
+            origin={`${R}, ${R}`}
+          />
+          <Circle
+            cx={R} cy={R} r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={strokeW * 3}
+            strokeOpacity={0.7}
+            strokeDasharray={`2 ${circ - 2}`}
+            strokeLinecap="butt"
+            rotation={`${-90 + (1 - gapFraction) * 360}`}
             origin={`${R}, ${R}`}
           />
 

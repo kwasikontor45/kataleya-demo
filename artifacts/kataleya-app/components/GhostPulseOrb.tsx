@@ -31,14 +31,14 @@ import { NEON_RGB } from './NeonCard';
 
 // Milestone day thresholds → orb size
 function orbSizeForDays(daysSober: number): number {
-  if (daysSober >= 365) return 112;
-  if (daysSober >= 180) return 104;
-  if (daysSober >= 90)  return 96;
-  if (daysSober >= 30)  return 88;
-  if (daysSober >= 14)  return 80;
-  if (daysSober >= 7)   return 74;
-  if (daysSober >= 1)   return 68;
-  return 62; // seed
+  if (daysSober >= 365) return 130;
+  if (daysSober >= 180) return 120;
+  if (daysSober >= 90)  return 112;
+  if (daysSober >= 30)  return 104;
+  if (daysSober >= 14)  return 96;
+  if (daysSober >= 7)   return 90;
+  if (daysSober >= 1)   return 86;
+  return 82; // seed — still visible and present
 }
 
 // Stage label for ambient display below orb
@@ -52,7 +52,7 @@ function stageLabel(daysSober: number): string {
   if (daysSober >= 14)  return 'two weeks of chosen return';
   if (daysSober >= 7)   return 'one cycle closed';
   if (daysSober >= 1)   return 'the first mark is made';
-  return 'the signal is waiting for you';
+  return 'the garden is waiting for you';
 }
 
 // What the movement sensor shows — plain English
@@ -98,9 +98,9 @@ export function GhostPulseOrb({
   const coreAnim  = useRef(new Animated.Value(0)).current;
 
   // Restlessness makes outer ring pulse faster
-  const outerDuration = Math.max(1600, 3200 - restlessnessScore * 1200);
+  const outerDuration = Math.max(2000, 4000 - restlessnessScore * 1800); // always breathes, restlessness accelerates
   // BPM drives core pulse speed
-  const coreDuration  = Math.round((60 / bpm) * 1000);
+  const coreDuration  = Math.max(800, Math.round((60 / Math.max(bpm, 55)) * 1000)); // minimum pulse always present
 
   useEffect(() => {
     const pulse = (anim: Animated.Value, duration: number, delay = 0) =>
