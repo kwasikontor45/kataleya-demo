@@ -24,7 +24,7 @@ const RING_SIZE = Math.min(W * 0.72, 280);
 
 // ── One phrase per phase — garden language, knows what time it is ─────────────
 const BRIDGE_PHRASES: Record<string, string[]> = {
-  dawn:       ['the garden wakes.\nso do you.', 'the signal returns.\nthe garden with it.'],
+  dawn:       ['the garden wakes.\nso do you.', 'morning.\nthe garden held.'],
   day:        ['you are present.\nthat is enough.', 'the garden is awake.\nso are you.'],
   goldenHour: ['the threshold.\nhold.', 'between one self and the next.\nhold.'],
   night:      ['still here.\nso is the garden.', 'the night held.\nmorning is close.'],

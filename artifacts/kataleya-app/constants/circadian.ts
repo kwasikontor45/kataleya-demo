@@ -10,25 +10,25 @@ export interface PhaseConfig {
 export const CIRCADIAN_PHASES: Record<CircadianPhase, PhaseConfig> = {
   dawn: {
     name: 'dawn',
-    displayName: 'systems online',
+    displayName: 'morning',
     ouroborosPhase: 'renewal',
     description: 'The signal returns. You chose to come back.',
   },
   day: {
     name: 'day',
-    displayName: 'full presence',
+    displayName: 'afternoon',
     ouroborosPhase: 'choice',
     description: 'Maximum clarity. Everything nominal.',
   },
   goldenHour: {
     name: 'goldenHour',
-    displayName: 'the threshold',
+    displayName: 'evening',
     ouroborosPhase: 'desire',
     description: 'Between one self and the next. Hold.',
   },
   night: {
     name: 'night',
-    displayName: 'deep cloak',
+    displayName: 'night',
     ouroborosPhase: 'void',
     description: 'Minimal signature. Maximum awareness. Rest.',
   },
