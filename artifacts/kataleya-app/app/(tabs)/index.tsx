@@ -466,7 +466,7 @@ export default function SanctuaryScreen() {
                 bpm={biometrics.bpm}
               />
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* 2am moment — void phase between midnight and 5am */}
