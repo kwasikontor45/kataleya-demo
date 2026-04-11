@@ -151,7 +151,6 @@ export default function CoverScreen() {
 
       return () => {
       clearTimeout(returnTimer);
-      soundRef.current?.unloadAsync().catch(() => {});
       [orbScale, orbOpacity, ring1Scale, ring1Opacity,
        ring2Scale, ring2Opacity, bgGlow].forEach(v => v.stopAnimation());
     };

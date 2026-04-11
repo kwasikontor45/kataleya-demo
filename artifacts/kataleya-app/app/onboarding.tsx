@@ -136,9 +136,9 @@ function TimePicker({
   const currentMinute = value.getMinutes();
   const currentAmPm = value.getHours() >= 12 ? 'pm' : 'am';
 
-  const hourRef = useRef<FlatList>(null);
-  const minRef = useRef<FlatList>(null);
-  const ampmRef = useRef<FlatList>(null);
+  const hourRef = useRef<any>(null);
+  const minRef = useRef<any>(null);
+  const ampmRef = useRef<any>(null);
 
   const scrollTo = (ref: React.RefObject<FlatList>, index: number) => {
     ref.current?.scrollToIndex({ index: Math.max(0, index), animated: true, viewPosition: 0.5 });
@@ -359,41 +359,33 @@ export default function Onboarding() {
   const [substance, setSubstance] = useState('');
   const [sobrietyDate, setSobrietyDate] = useState(new Date());
   const narrationOpacity = useRef(new Animated.Value(0)).current;
+  const [morningEnabled, setMorningEnabled] = useState(true);
+  const [eveningEnabled, setEveningEnabled] = useState(true);
+  const [morningTime, setMorningTime] = useState(() => { const d = new Date(); d.setHours(8, 0, 0, 0); return d; });
+  const [eveningTime, setEveningTime] = useState(() => { const d = new Date(); d.setHours(21, 0, 0, 0); return d; });
 
-  // Load audio on mount
+  const accentColor = theme.accent;
+  const phaseRgb    = theme.phaseRgb;
+
+  // Narration fade — ambient text breathes in on each step
   useEffect(() => {
-    let sound: Audio.Sound | null = null;
-    const load = async () => {
-      try {
-        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-        const { sound: s } = await Audio.Sound.createAsync(
-          require('../assets/audio/kataleya-narration-full.mp3'),
-          { shouldPlay: false, volume: 0.85 }
-        );
-        sound = s;
-        soundRef.current = s;
-        setAudioReady(true);
-      } catch { /* audio optional — fail silently */ }
-    };
-    load();
-
-    // Fade in audio hint after 1.5s on welcome step
+    narrationOpacity.setValue(0);
     const t = setTimeout(() => {
-      Animated.timing(audioHintOpacity, {
+      Animated.timing(narrationOpacity, {
         toValue: 1,
-        duration: 1200,
+        duration: 900,
         useNativeDriver: true,
         easing: Easing.inOut(Easing.sin),
       }).start();
-    }, 1500);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [step]);
 
-    return () => {
-      clearTimeout(t);
-      sound?.unloadAsync().catch(() => {});
-    };
-  }, []);
+  const advance = () => {
+    if (step < STEPS.length - 1) setStep(s => s + 1);
+    else completeOnboarding();
+  };
 
-  // Play / stop audio
   const goBack = () => {
     if (step > 0) setStep(s => s - 1);
     else router.replace('/bridge');

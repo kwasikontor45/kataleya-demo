@@ -140,7 +140,7 @@ export function NeonCard({
                   in="noise"
                   result="coloredNoise"
                 />
-                <FeBlend mode="overlay" in="coloredNoise" in2="SourceGraphic" />
+                
               </Filter>
             </Defs>
             <Rect
