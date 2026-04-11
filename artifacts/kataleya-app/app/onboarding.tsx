@@ -12,6 +12,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { useAnimatedTheme } from '@/hooks/useAnimatedTheme';
+import { Audio } from 'expo-av';
 import { Surface } from '@/utils/storage';
 
 const { width } = Dimensions.get('window');
@@ -359,6 +360,56 @@ export default function Onboarding() {
   const [substance, setSubstance] = useState('');
   const [sobrietyDate, setSobrietyDate] = useState(new Date());
   const narrationOpacity = useRef(new Animated.Value(0)).current;
+  const audioHintOpacity = useRef(new Animated.Value(0)).current;
+
+  // Load audio on mount
+  useEffect(() => {
+    let sound: Audio.Sound | null = null;
+    const load = async () => {
+      try {
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+        const { sound: s } = await Audio.Sound.createAsync(
+          require('../assets/audio/kataleya-narration-full.mp3'),
+          { shouldPlay: false, volume: 0.85 }
+        );
+        sound = s;
+        soundRef.current = s;
+        setAudioReady(true);
+      } catch { /* audio optional — fail silently */ }
+    };
+    load();
+
+    // Fade in audio hint after 1.5s on welcome step
+    const t = setTimeout(() => {
+      Animated.timing(audioHintOpacity, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+        easing: Easing.inOut(Easing.sin),
+      }).start();
+    }, 1500);
+
+    return () => {
+      clearTimeout(t);
+      sound?.unloadAsync().catch(() => {});
+    };
+  }, []);
+
+  // Play / stop audio
+  const handleAudioToggle = async () => {
+    if (!soundRef.current || !audioReady) return;
+    if (audioEnabled) {
+      await soundRef.current.pauseAsync().catch(() => {});
+      setAudioEnabled(false);
+    } else {
+      await soundRef.current.playAsync().catch(() => {});
+      setAudioEnabled(true);
+    }
+  };
+  // ── Audio narration ────────────────────────────────────────────────────────
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
+  const soundRef = useRef<Audio.Sound | null>(null);
   const [morningEnabled, setMorningEnabled] = useState(true);
   const [eveningEnabled, setEveningEnabled] = useState(true);
   const [morningTime, setMorningTime] = useState(() => { const d = new Date(); d.setHours(8, 0, 0, 0); return d; });
@@ -452,6 +503,17 @@ export default function Onboarding() {
               {NARRATION[id].line2}
             </Text>
           )}
+        </Animated.View>
+      )}
+
+      {/* Audio hint — welcome step only, fades in after 1.5s */}
+      {id === 'welcome' && audioReady && (
+        <Animated.View style={[styles.audioHint, { opacity: audioHintOpacity }]}>
+          <TouchableOpacity onPress={handleAudioToggle} hitSlop={12}>
+            <Text style={[styles.audioHintText, { color: `rgba(${phaseRgb},${audioEnabled ? 0.7 : 0.35})` }]}>
+              {audioEnabled ? '◎ listening' : '◎ hear this'}
+            </Text>
+          </TouchableOpacity>
         </Animated.View>
       )}
 
@@ -819,6 +881,16 @@ const styles = StyleSheet.create({
   datePicker: {
     width: '100%',
     height: 160,
+  },
+  audioHint: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  audioHintText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 2.5,
+    textTransform: 'lowercase',
   },
   notifsWrap: {
     gap: 10,
