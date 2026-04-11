@@ -410,7 +410,7 @@ export default function SanctuaryScreen() {
           {overrideHint && (
             <View style={{ position: 'absolute', top: 36, alignSelf: 'center', zIndex: 10 }}>
               <Text style={{ fontFamily: 'SpaceMono', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
-                {darkOverride ? 'following circadian rhythm' : 'night mode on'}
+                {darkOverride ? 'void override off' : 'void override on'}
               </Text>
             </View>
           )}
@@ -431,7 +431,7 @@ export default function SanctuaryScreen() {
               backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.08)` : 'transparent',
             }]}>
               <Text style={[styles.circadianPillText, { color: darkOverride ? `rgba(${accentRgb}, 0.9)` : theme.accent }]}>
-                {darkOverride ? '◗ ' : ''}{phaseConfig.displayName}
+                {darkOverride ? `◗ ${phaseConfig.displayName}` : `${phaseConfig.displayName} ·  force void`}
               </Text>
             </View>
           </TouchableOpacity>
@@ -720,15 +720,7 @@ export default function SanctuaryScreen() {
               <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.violet},0.55)` }]}>ground</Text>
               <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.violet},0.25)` }]}>5·4·3·2·1</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.amber},0.22)`, backgroundColor: `rgba(${NEON_RGB.amber},0.04)` }]}
-              onPress={() => router.push('/cover')}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.amber},0.45)` }]}>◬</Text>
-              <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.amber},0.55)` }]}>sanctuary</Text>
-              <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.amber},0.25)` }]}>2am</Text>
-            </TouchableOpacity>
+
           </View>
           <TouchableOpacity onPress={() => setShowPrivacy(true)} hitSlop={16} activeOpacity={0.7}>
             <Animated.Text style={[styles.wordmark, { color: theme.textMuted, opacity: wordmarkPulse }]}>
