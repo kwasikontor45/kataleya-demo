@@ -7,12 +7,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   Platform,
   Animated,
   Easing,
   Modal,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -80,6 +80,168 @@ async function getPredictiveSuggestion(phase: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+
+// ── Custom date picker — three scroll columns, phase-themed ──────────────────
+const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const ITEM_H = 40;
+
+function DateScrollPicker({
+  value, onChange, accentRgb, phaseRgb, textMuted, bg,
+}: {
+  value: Date;
+  onChange: (d: Date) => void;
+  accentRgb: string;
+  phaseRgb: string;
+  textMuted: string;
+  bg: string;
+}) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
+  const months = Array.from({ length: 12 }, (_, i) => i);
+  const getDays = (m: number, y: number) => new Date(y, m + 1, 0).getDate();
+  const days = Array.from({ length: getDays(value.getMonth(), value.getFullYear()) }, (_, i) => i + 1);
+
+  const monthRef = useRef<any>(null);
+  const dayRef   = useRef<any>(null);
+  const yearRef  = useRef<any>(null);
+
+  const scrollTo = (ref: React.RefObject<any>, idx: number) => {
+    ref.current?.scrollToIndex({ index: Math.max(0, idx), animated: true, viewPosition: 0.5 });
+  };
+
+  const setMonth = (m: number) => {
+    const d = new Date(value);
+    d.setMonth(m);
+    if (d > now) d.setTime(now.getTime());
+    onChange(d);
+  };
+  const setDay = (day: number) => {
+    const d = new Date(value);
+    d.setDate(day);
+    if (d > now) d.setTime(now.getTime());
+    onChange(d);
+  };
+  const setYear = (y: number) => {
+    const d = new Date(value);
+    d.setFullYear(y);
+    if (d > now) d.setTime(now.getTime());
+    onChange(d);
+  };
+
+  const renderItem = (
+    label: string, isSelected: boolean, onSelect: () => void
+  ) => (
+    <TouchableOpacity
+      onPress={onSelect}
+      style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
+      activeOpacity={0.7}
+    >
+      <Text style={{
+        fontFamily: 'CourierPrime',
+        fontSize: isSelected ? 18 : 13,
+        color: isSelected ? `rgba(${accentRgb},0.9)` : `rgba(${accentRgb},0.28)`,
+        letterSpacing: 1,
+      }}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={{
+      flexDirection: 'row',
+      height: ITEM_H * 3,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderWidth: 1,
+      borderColor: `rgba(${accentRgb},0.15)`,
+      borderRadius: 10,
+      backgroundColor: `rgba(${accentRgb},0.04)`,
+      overflow: 'hidden',
+      paddingHorizontal: 8,
+    }}>
+      {/* Selection highlight */}
+      <View style={{
+        position: 'absolute',
+        left: 8, right: 8,
+        height: ITEM_H,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: `rgba(${phaseRgb},0.18)`,
+        backgroundColor: `rgba(${phaseRgb},0.06)`,
+      }} pointerEvents="none" />
+
+      {/* Month */}
+      <FlatList
+        ref={monthRef}
+        data={months}
+        keyExtractor={i => String(i)}
+        style={{ width: 52, height: ITEM_H * 3 }}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingVertical: ITEM_H }}
+        getItemLayout={(_, i) => ({ length: ITEM_H, offset: ITEM_H * i, index: i })}
+        onLayout={() => scrollTo(monthRef, value.getMonth())}
+        onMomentumScrollEnd={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          if (months[idx] !== undefined) setMonth(months[idx]);
+        }}
+        renderItem={({ item }) => renderItem(
+          MONTHS[item], item === value.getMonth(),
+          () => { setMonth(item); scrollTo(monthRef, item); }
+        )}
+      />
+
+      {/* Day */}
+      <FlatList
+        ref={dayRef}
+        data={days}
+        keyExtractor={i => String(i)}
+        style={{ width: 40, height: ITEM_H * 3 }}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingVertical: ITEM_H }}
+        getItemLayout={(_, i) => ({ length: ITEM_H, offset: ITEM_H * i, index: i })}
+        onLayout={() => scrollTo(dayRef, value.getDate() - 1)}
+        onMomentumScrollEnd={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          if (days[idx] !== undefined) setDay(days[idx]);
+        }}
+        renderItem={({ item }) => renderItem(
+          String(item).padStart(2, '0'), item === value.getDate(),
+          () => { setDay(item); scrollTo(dayRef, item - 1); }
+        )}
+      />
+
+      {/* Year */}
+      <FlatList
+        ref={yearRef}
+        data={years}
+        keyExtractor={i => String(i)}
+        style={{ width: 58, height: ITEM_H * 3 }}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingVertical: ITEM_H }}
+        getItemLayout={(_, i) => ({ length: ITEM_H, offset: ITEM_H * i, index: i })}
+        onLayout={() => scrollTo(yearRef, years.indexOf(value.getFullYear()))}
+        onMomentumScrollEnd={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          if (years[idx] !== undefined) setYear(years[idx]);
+        }}
+        renderItem={({ item }) => renderItem(
+          String(item), item === value.getFullYear(),
+          () => { setYear(item); scrollTo(yearRef, years.indexOf(item)); }
+        )}
+      />
+    </View>
+  );
 }
 
 export default function SanctuaryScreen() {
@@ -300,12 +462,6 @@ export default function SanctuaryScreen() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
 
-  const bgLum = (() => {
-    const n = parseInt(theme.bg.replace('#', ''), 16);
-    return 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
-  })();
-  const pickerVariant: 'dark' | 'light' = bgLum < 128 ? 'dark' : 'light';
-
   const handleConfirmDate = async () => {
     await setStartDate(pickerDate.toISOString());
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -519,22 +675,14 @@ export default function SanctuaryScreen() {
             {settingDate && (
               <View style={styles.datePickerArea}>
                 {Platform.OS !== 'web' ? (
-                  <View style={[styles.pickerCard, { backgroundColor: theme.surface, borderColor: `rgba(${accentRgb}, 0.2)` }]}>
-                    <DateTimePicker
-                      value={pickerDate}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
-                      maximumDate={new Date()}
-                      onChange={(_e, date) => {
-                        if (date) {
-                          setPickerDate(date);
-                          if (Platform.OS === 'android') handleConfirmDate();
-                        }
-                      }}
-                      themeVariant={pickerVariant}
-                      accentColor={theme.accent}
-                    />
-                  </View>
+                  <DateScrollPicker
+                    value={pickerDate}
+                    onChange={setPickerDate}
+                    accentRgb={accentRgb}
+                    phaseRgb={theme.phaseRgb ?? accentRgb}
+                    textMuted={theme.textMuted}
+                    bg={theme.bg}
+                  />
                 ) : (
                   <View style={[styles.webDateCard, { backgroundColor: theme.surface, borderColor: `rgba(${accentRgb}, 0.2)` }]}>
                     <Text style={[styles.webDateLabel, { color: theme.textMuted }]}>select date</Text>
@@ -608,22 +756,14 @@ export default function SanctuaryScreen() {
             ) : (
               <View style={styles.datePickerArea}>
                 {Platform.OS !== 'web' ? (
-                  <View style={[styles.pickerCard, { backgroundColor: theme.surface, borderColor: `rgba(${accentRgb}, 0.2)` }]}>
-                    <DateTimePicker
-                      value={pickerDate}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
-                      maximumDate={new Date()}
-                      onChange={(_e, date) => {
-                        if (date) {
-                          setPickerDate(date);
-                          if (Platform.OS === 'android') handleConfirmDate();
-                        }
-                      }}
-                      themeVariant={pickerVariant}
-                      accentColor={theme.accent}
-                    />
-                  </View>
+                  <DateScrollPicker
+                    value={pickerDate}
+                    onChange={setPickerDate}
+                    accentRgb={accentRgb}
+                    phaseRgb={theme.phaseRgb ?? accentRgb}
+                    textMuted={theme.textMuted}
+                    bg={theme.bg}
+                  />
                 ) : (
                   <View style={[styles.webDateCard, { backgroundColor: theme.surface, borderColor: `rgba(${accentRgb}, 0.2)` }]}>
                     <Text style={[styles.webDateLabel, { color: theme.textMuted }]}>select date</Text>
