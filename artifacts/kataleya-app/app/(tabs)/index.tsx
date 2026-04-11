@@ -75,12 +75,14 @@ function MercuryLine({ accentRgb }: { accentRgb: string }) {
     Animated.loop(
       Animated.sequence([
         Animated.timing(pos, {
-          toValue: 1, duration: 5200,
+          toValue: 1,
+          duration: 5200,
           useNativeDriver: true,
-          easing: Easing.inOut(Easing.sin),
+          easing: Easing.inOut(Easing.sin), // viscous, like mercury
         }),
         Animated.timing(pos, {
-          toValue: 0, duration: 5200,
+          toValue: 0,
+          duration: 5200,
           useNativeDriver: true,
           easing: Easing.inOut(Easing.sin),
         }),
@@ -90,18 +92,35 @@ function MercuryLine({ accentRgb }: { accentRgb: string }) {
   }, []);
 
   const tx = pos.interpolate({
-    inputRange:  [0, 1],
+    inputRange: [0, 1],
     outputRange: [0, MERCURY_W - MERCURY_LEN],
   });
 
   return (
     <View style={styles.mercuryWrap}>
-      {/* The mercury — a 1px line rolling */}
-      <Animated.View style={[styles.mercurySlug, {
-        backgroundColor: `rgba(${accentRgb}, 0.6)`,
-        shadowColor: `rgb(${accentRgb})`,
-        transform: [{ translateX: tx }],
-      }]} />
+      {/* Rolling capsule — halo + core move as one */}
+      <Animated.View style={[styles.mercuryCapsule, { transform: [{ translateX: tx }] }]}>
+        {/* ① Diffuse halo — liquid light bleeding out */}
+        <View
+          style={[
+            styles.mercuryHalo,
+            {
+              backgroundColor: `rgba(${accentRgb}, 0.12)`,
+              shadowColor: `rgb(${accentRgb})`,
+            },
+          ]}
+        />
+        {/* ② Bright core — the actual mercury slug with wet surface tension */}
+        <View
+          style={[
+            styles.mercuryCore,
+            {
+              backgroundColor: `rgba(${accentRgb}, 0.95)`,
+              borderColor: `rgba(255,255,255,0.35)`, // specular highlight
+            },
+          ]}
+        />
+      </Animated.View>
     </View>
   );
 }
@@ -1211,25 +1230,45 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   mercuryWrap: {
-    width: MERCURY_W,
-    height: 16,
-    justifyContent: 'center',
-    marginTop: 4,
+  width: MERCURY_W,
+  height: 18,
+  justifyContent: 'center',
+  marginTop: 4,
   },
   mercuryChannel: {
     height: 1,
     width: '100%',
     borderRadius: 1,
   },
-  mercurySlug: {
-    position: 'absolute',
-    width: MERCURY_LEN,
-    height: 1,
-    borderRadius: 1,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 3,
-    elevation: 2,
+  mercuryCapsule: {
+  position: 'absolute',
+  width: MERCURY_LEN,
+  height: 18,
+  justifyContent: 'center',
+  alignItems: 'center',
+  },
+  mercuryHalo: {
+  position: 'absolute',
+  width: MERCURY_LEN + 10,
+  height: 10,
+  borderRadius: 5,
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0.45,
+  shadowRadius: 12,
+  elevation: 4,
+  opacity: 0.8,
+  },
+  mercuryCore: {
+  position: 'absolute',
+  width: MERCURY_LEN,
+  height: 2.5,
+  borderRadius: 1.25, // rounded meniscus = liquid surface tension
+  borderWidth: 0.5,
+  zIndex: 2,
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.3,
+  shadowRadius: 2,
+  elevation: 3,
   },
   progressSection: { width: '100%', gap: 8, marginTop: 12 },
   progressTrack: { height: 2, borderRadius: 1, width: '100%', overflow: 'hidden' },
