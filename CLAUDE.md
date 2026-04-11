@@ -464,3 +464,8 @@ Required: PORT env var, DATA_DIR env var, /health endpoint, Volume at /data.
 - PAYWALL_ACTIVE=false — do not touch
 - expo-av and expo-audio both broken in SDK 54 Expo Go — audio deferred to EAS build
 - mixBlendMode screen on butterfly removed — transparent gif handles it now
+
+## gameplan tracking — april 11 2026
+See above session update for full list.
+3D depth layer is a priority feature — not post-launch polish.
+Full pass covers: parallax, light sourcing, press depth, OuroborosRing perspective tilt, z-depth opacity gradient, reactive depth on all interactive elements.
