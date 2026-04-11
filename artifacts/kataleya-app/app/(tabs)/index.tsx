@@ -273,6 +273,14 @@ export default function SanctuaryScreen() {
   const orbHint      = useRef(new Animated.Value(0)).current;
   const wordmarkPulse = useRef(new Animated.Value(0.3)).current;
   const ambientGlow   = useRef(new Animated.Value(0)).current;
+  // Scroll parallax
+  const scrollY       = useRef(new Animated.Value(0)).current;
+  const orbParallaxY  = scrollY.interpolate({ inputRange: [0, 400], outputRange: [0, 120], extrapolate: 'clamp' });
+  const bgParallaxY   = scrollY.interpolate({ inputRange: [0, 400], outputRange: [0, 20],  extrapolate: 'clamp' });
+  // Quick-slot press depth
+  const slotScale0 = useRef(new Animated.Value(1)).current;
+  const slotScale1 = useRef(new Animated.Value(1)).current;
+  const slotScale2 = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     const breathe = () => {
       Animated.sequence([
@@ -469,6 +477,19 @@ export default function SanctuaryScreen() {
   };
 
   const accentRgb = darkOverride ? '138,95,224' : (theme.phaseRgb ?? phaseAccentRgb(phase));
+
+  // Phase directional light — one source per phase
+  const phaseLightStyle = (() => {
+    const p = darkOverride ? 'night' : phase;
+    const size = 300;
+    const cx = SCREEN_W / 2 - size / 2;
+    switch (p) {
+      case 'dawn':        return { top: -100, left: -80,  width: size, height: size } as const;
+      case 'goldenHour':  return { top: 100,  right: -80, width: size, height: size } as const;
+      case 'night':       return { bottom: 0, left: cx,   width: size, height: size } as const;
+      default:            return { top: -100, left: cx,   width: size, height: size } as const;
+    }
+  })();
   const hour = new Date().getHours();
   const is2am = phase === 'night' && hour >= 0 && hour < 5;
   const isStruggling = userState === 'struggling' || userState === 'rest';
@@ -499,6 +520,22 @@ export default function SanctuaryScreen() {
               outputRange: [0.0, 0.55],
             }),
             backgroundColor: `rgba(${accentRgb}, 0.04)`,
+            transform: [{ scaleY: 0.6 }, { translateY: bgParallaxY }],
+          },
+        ]}
+      />
+      {/* Phase directional light — dawn top-left, day top-center, golden-hour right, night from below */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.phaseLight,
+          phaseLightStyle,
+          {
+            backgroundColor: `rgba(${accentRgb}, 0.07)`,
+            opacity: ambientGlow.interpolate({
+              inputRange:  [0, 1],
+              outputRange: [0.3, 0.8],
+            }),
           },
         ]}
       />
@@ -511,6 +548,11 @@ export default function SanctuaryScreen() {
         scrollEnabled={!settingDate}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
       >
         {/* Greeting */}
         {userName ? (
@@ -595,7 +637,7 @@ export default function SanctuaryScreen() {
         </View>
 
         {/* ── GHOST PULSE ORB + OUROBOROS RING — snake encircles butterfly ── */}
-        <View style={styles.orbSection}>
+        <Animated.View style={[styles.orbSection, { transform: [{ translateY: orbParallaxY }] }]}>
           <TouchableOpacity
             activeOpacity={is2am ? 0.7 : 1}
             onPress={is2am ? () => router.push('/cover') : undefined}
@@ -623,7 +665,7 @@ export default function SanctuaryScreen() {
               />
             </View>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
         {/* Timer */}
         {sobriety.startDate ? (
@@ -827,34 +869,46 @@ export default function SanctuaryScreen() {
         <View style={styles.quickSlotSection}>
           <View style={[styles.quickSlotRow, isStruggling && { opacity: 0.5 }]}>
             <TouchableOpacity
-              style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.amber},0.22)`, backgroundColor: `rgba(${NEON_RGB.amber},0.04)` }]}
               onPress={() => router.push('/cover')}
-              activeOpacity={0.75}
+              onPressIn={() => Animated.spring(slotScale0, { toValue: 0.93, useNativeDriver: true }).start()}
+              onPressOut={() => Animated.spring(slotScale0, { toValue: 1.0,  useNativeDriver: true }).start()}
+              activeOpacity={0.85}
+              style={{ flex: 1 }}
             >
-              <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.amber},0.45)` }]}>◬</Text>
-              <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.amber},0.55)` }]}>sanctuary</Text>
-              <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.amber},0.25)` }]}>2am</Text>
+              <Animated.View style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.amber},0.22)`, backgroundColor: `rgba(${NEON_RGB.amber},0.04)`, transform: [{ scale: slotScale0 }] }]}>
+                <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.amber},0.45)` }]}>◬</Text>
+                <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.amber},0.55)` }]}>sanctuary</Text>
+                <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.amber},0.25)` }]}>2am</Text>
+              </Animated.View>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.cyan},0.22)`, backgroundColor: `rgba(${NEON_RGB.cyan},0.04)` }]}
               onPress={() => setShowBreathing(true)}
-              activeOpacity={0.75}
+              onPressIn={() => Animated.spring(slotScale1, { toValue: 0.93, useNativeDriver: true }).start()}
+              onPressOut={() => Animated.spring(slotScale1, { toValue: 1.0,  useNativeDriver: true }).start()}
+              activeOpacity={0.85}
+              style={{ flex: 1 }}
             >
-              <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.cyan},0.45)` }]}>◎</Text>
-              <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.cyan},0.55)` }]}>breathe</Text>
-              <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.cyan},0.25)` }]}>4·7·8</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.violet},0.22)`, backgroundColor: `rgba(${NEON_RGB.violet},0.04)` }]}
-              onPress={() => setShowGrounding(true)}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.violet},0.45)` }]}>⟡</Text>
-              <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.violet},0.55)` }]}>ground</Text>
-              <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.violet},0.25)` }]}>5·4·3·2·1</Text>
+              <Animated.View style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.cyan},0.22)`, backgroundColor: `rgba(${NEON_RGB.cyan},0.04)`, transform: [{ scale: slotScale1 }] }]}>
+                <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.cyan},0.45)` }]}>◎</Text>
+                <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.cyan},0.55)` }]}>breathe</Text>
+                <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.cyan},0.25)` }]}>4·7·8</Text>
+              </Animated.View>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              onPress={() => setShowGrounding(true)}
+              onPressIn={() => Animated.spring(slotScale2, { toValue: 0.93, useNativeDriver: true }).start()}
+              onPressOut={() => Animated.spring(slotScale2, { toValue: 1.0,  useNativeDriver: true }).start()}
+              activeOpacity={0.85}
+              style={{ flex: 1 }}
+            >
+              <Animated.View style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.violet},0.22)`, backgroundColor: `rgba(${NEON_RGB.violet},0.04)`, transform: [{ scale: slotScale2 }] }]}>
+                <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.violet},0.45)` }]}>⟡</Text>
+                <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.violet},0.55)` }]}>ground</Text>
+                <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.violet},0.25)` }]}>5·4·3·2·1</Text>
+              </Animated.View>
+            </TouchableOpacity>
           </View>
           <TouchableOpacity onPress={() => setShowPrivacy(true)} hitSlop={16} activeOpacity={0.7}>
             <Animated.Text style={[styles.wordmark, { color: theme.textMuted, opacity: wordmarkPulse }]}>
@@ -972,7 +1026,11 @@ const styles = StyleSheet.create({
     borderRadius: 9999,
     top: '10%',
     alignSelf: 'center',
-    transform: [{ scaleY: 0.6 }],
+  },
+  phaseLight: {
+    position: 'absolute',
+    borderRadius: 9999,
+    transform: [{ scaleY: 0.55 }],
   },
   ambientGlow: {
     position: 'absolute', top: 0, left: 0, right: 0, height: 320,
