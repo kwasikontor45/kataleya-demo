@@ -325,7 +325,7 @@ export default function CoverScreen() {
                     inputRange: [1, 1.06],
                     outputRange: [0.18, 0.28],
                   }),
-                  tintColor: `rgba(${accentRgb}, 1)`,
+                  // no tintColor — butterfly keeps its own colors
                 },
               ]}
               resizeMode="contain"

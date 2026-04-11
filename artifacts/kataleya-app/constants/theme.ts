@@ -71,10 +71,10 @@ export const GoldenHourTheme: ThemeTokens = {
 // Resolve Violet. The self that survives the cycle. Sharpened.
 export const NightTheme: ThemeTokens = {
   ...BASE,
-  gold:        '#9b6dff',
-  accent:      '#9b6dff',   // Resolve Violet (readable on Null Black)
-  accentSoft:  '#7b2cbf',
-  phaseRgb:    '155,109,255',
+  gold:        '#8a5fe0',
+  accent:      '#8a5fe0',   // Resolve Violet — pulled back, less saturated
+  accentSoft:  '#6b48b0',
+  phaseRgb:    '138,95,224',
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
