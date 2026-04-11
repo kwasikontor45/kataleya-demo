@@ -247,9 +247,12 @@ const styles = StyleSheet.create({
   },
   glyph: {
     fontFamily: 'CourierPrime',
-    fontSize: 13,
-    letterSpacing: 2,
+    fontSize: 11,
+    letterSpacing: 1.5,
     textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    lineHeight: 14,
   },
   stageText: {
     fontFamily: 'CourierPrime',
