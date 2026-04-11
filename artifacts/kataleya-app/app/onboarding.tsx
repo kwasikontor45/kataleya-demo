@@ -326,7 +326,7 @@ const STEPS = [
   { id: 'date',     label: 'when did you\nbegin?',               Icon: IconClock,   cta: 'continue' },
   { id: 'privacy',  label: 'your data never\nleaves this device', Icon: IconVault,   cta: 'continue' },
   { id: 'notifs',   label: 'gentle reminders\nwhen you need them',Icon: IconBell,    cta: 'continue' },
-  { id: 'enter',    label: 'the cycle\nbegins',                  Icon: IconOrchid,  cta: 'enter' },
+  { id: 'enter',    label: 'three things,\nalways here',           Icon: IconOrchid,  cta: 'enter' },
 ] as const;
 
 // ── Onboarding narration — Amor Fati audio script mapped to steps ─────────────
@@ -339,7 +339,7 @@ const NARRATION: Record<string, { line1: string; line2?: string }> = {
   date:      { line1: "Growth is measured in seasons,", line2: "not streaks." },
   privacy:   { line1: "Three vaults. Sealed by design.", line2: "The blind relay carries only what it cannot read." },
   notifs:    { line1: "The app should know as little", line2: "about you as possible." },
-  enter:     { line1: "Amor Fati.", line2: "Life rewritten by choice." },
+  enter:     { line1: "the garden is always open.", line2: "return whenever you need." },
 };
 
 const SUBSTANCE_OPTIONS = [
@@ -561,6 +561,39 @@ export default function Onboarding() {
             <Text style={[styles.privacyNote, { color: theme.textMuted }]}>
               we physically cannot access your data.
             </Text>
+          </View>
+        )}
+
+        {id === 'enter' && (
+          <View style={styles.threeThings}>
+            {([
+              { glyph: '~',  title: 'breathe',       hint: 'the orb breathes with you' },
+              { glyph: '+',  title: 'check in',       hint: 'mood and a few quiet words' },
+              { glyph: '::',  title: 'reach sponsor', hint: 'one tap, no explanation needed' },
+            ] as const).map(({ glyph, title, hint }) => (
+              <View
+                key={title}
+                style={[
+                  styles.thingRow,
+                  {
+                    borderColor: `rgba(${phaseRgb}, 0.18)`,
+                    backgroundColor: `rgba(${phaseRgb}, 0.05)`,
+                  },
+                ]}
+              >
+                <Text style={[styles.thingGlyph, { color: accentColor }]}>
+                  {glyph}
+                </Text>
+                <View style={styles.thingText}>
+                  <Text style={[styles.thingTitle, { color: theme.text }]}>
+                    {title}
+                  </Text>
+                  <Text style={[styles.thingHint, { color: theme.textMuted }]}>
+                    {hint}
+                  </Text>
+                </View>
+              </View>
+            ))}
           </View>
         )}
 
@@ -821,8 +854,6 @@ const styles = StyleSheet.create({
     height: 160,
   },
   notifsWrap: {
-    gap: 10,
-  },
   notifsSubtitle: {
     fontFamily: 'CourierPrime',
     fontSize: 10,
@@ -855,5 +886,43 @@ const styles = StyleSheet.create({
     fontFamily: 'CourierPrime',
     fontSize: 10,
     opacity: 0.6,
+  },
+  threeThings: {
+    gap: 10,
+    width: '100%',
+  },
+  thingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    gap: 16,
+  },
+  thingGlyph: {
+    fontFamily: 'CourierPrime',
+    fontSize: 18,
+    width: 22,
+    textAlign: 'center',
+    letterSpacing: 1,
+    opacity: 0.85,
+  },
+  thingText: {
+    flex: 1,
+    gap: 2,
+  },
+  thingTitle: {
+    fontFamily: 'CourierPrime',
+    fontSize: 14,
+    letterSpacing: 0.8,
+    textTransform: 'lowercase',
+  },
+  thingHint: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 0.3,
+    opacity: 0.6,
+    lineHeight: 16,
   },
 });
