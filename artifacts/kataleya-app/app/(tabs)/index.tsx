@@ -674,38 +674,36 @@ export default function SanctuaryScreen() {
           </View>
         )}
 
-        {/* ── MINDFULNESS TILES ── */}
-        <View style={styles.mindfulSection}>
-          <View style={styles.mindfulRow}>
-            <NeonCard
-              theme={theme}
-              glowColor="cyan"
-              style={styles.mindfulCard}
+        {/* ── QUICK-SLOTS — Cyberpunk ── */}
+        <View style={styles.quickSlotSection}>
+          <View style={styles.quickSlotRow}>
+            <TouchableOpacity
+              style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.cyan},0.22)`, backgroundColor: `rgba(${NEON_RGB.cyan},0.04)` }]}
               onPress={() => setShowBreathing(true)}
+              activeOpacity={0.75}
             >
-              <Text style={[styles.mindfulGlyph, { color: `rgba(${NEON_RGB.cyan}, 0.85)` }]}>◎</Text>
-              <Text style={[styles.mindfulCardTitle, { color: `rgba(${NEON_RGB.cyan}, 0.9)` }]}>
-                breathe
-              </Text>
-              <Text style={[styles.mindfulCardSub, { color: `rgba(${NEON_RGB.cyan}, 0.4)` }]}>
-                4 — 7 — 8
-              </Text>
-            </NeonCard>
-
-            <NeonCard
-              theme={theme}
-              glowColor="violet"
-              style={styles.mindfulCard}
+              <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.cyan},0.45)` }]}>◎</Text>
+              <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.cyan},0.55)` }]}>breathe</Text>
+              <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.cyan},0.25)` }]}>4·7·8</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.violet},0.22)`, backgroundColor: `rgba(${NEON_RGB.violet},0.04)` }]}
               onPress={() => setShowGrounding(true)}
+              activeOpacity={0.75}
             >
-              <Text style={[styles.mindfulGlyph, { color: `rgba(${NEON_RGB.violet}, 0.85)` }]}>⟡</Text>
-              <Text style={[styles.mindfulCardTitle, { color: `rgba(${NEON_RGB.violet}, 0.9)` }]}>
-                ground
-              </Text>
-              <Text style={[styles.mindfulCardSub, { color: `rgba(${NEON_RGB.violet}, 0.4)` }]}>
-                5 — 4 — 3 — 2 — 1
-              </Text>
-            </NeonCard>
+              <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.violet},0.45)` }]}>⟡</Text>
+              <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.violet},0.55)` }]}>ground</Text>
+              <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.violet},0.25)` }]}>5·4·3·2·1</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.amber},0.22)`, backgroundColor: `rgba(${NEON_RGB.amber},0.04)` }]}
+              onPress={() => router.push('/cover')}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.amber},0.45)` }]}>◬</Text>
+              <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.amber},0.55)` }]}>sanctuary</Text>
+              <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.amber},0.25)` }]}>2am</Text>
+            </TouchableOpacity>
           </View>
           <TouchableOpacity onPress={() => setShowPrivacy(true)} hitSlop={16} activeOpacity={0.7}>
             <Animated.Text style={[styles.wordmark, { color: theme.textMuted, opacity: wordmarkPulse }]}>
@@ -1102,6 +1100,60 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   // Mindfulness tiles
+  quickSlotSection: { width: '100%', gap: 12, marginTop: 8, alignItems: 'center' },
+  quickSlotRow: { flexDirection: 'row', gap: 8, width: '100%' },
+  quickSlot: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    gap: 3,
+  },
+  quickSlotGlyph: {
+    fontFamily: 'CourierPrime',
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  quickSlotLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+  },
+  quickSlotSub: {
+    fontFamily: 'CourierPrime',
+    fontSize: 8,
+    letterSpacing: 1,
+  },
+  quickSlotSection: { width: '100%', gap: 12, marginTop: 8, alignItems: 'center' },
+  quickSlotRow: { flexDirection: 'row', gap: 8, width: '100%' },
+  quickSlot: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    gap: 3,
+  },
+  quickSlotGlyph: {
+    fontFamily: 'CourierPrime',
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  quickSlotLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+  },
+  quickSlotSub: {
+    fontFamily: 'CourierPrime',
+    fontSize: 8,
+    letterSpacing: 1,
+  },
   mindfulSection: { width: '100%', gap: 8, marginTop: 12 },
   mindfulRow: { flexDirection: 'row', gap: 10 },
   mindfulCard: {

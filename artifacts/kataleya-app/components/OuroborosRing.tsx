@@ -83,7 +83,7 @@ export function OuroborosRing({
   });
 
   const R = size / 2;
-  const strokeW = 1.5;
+  const strokeW = 1.2;
   const radius = R - strokeW - 3;
   const circ = 2 * Math.PI * radius;
 
@@ -114,15 +114,27 @@ export function OuroborosRing({
         }}
       >
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-          {/* Base ring — incomplete, always a gap */}
+          {/* Base ring — segmented, mechanical */}
           <Circle
             cx={R} cy={R} r={radius}
             fill="none"
             stroke={color}
             strokeWidth={strokeW}
-            strokeOpacity={0.28}
+            strokeOpacity={0.15}
             strokeDasharray={`${arcLength} ${circ - arcLength}`}
-            strokeLinecap="round"
+            strokeLinecap="butt"
+            rotation={-90}
+            origin={`${R}, ${R}`}
+          />
+          {/* Segment ticks — EVE Online style */}
+          <Circle
+            cx={R} cy={R} r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={strokeW * 2.5}
+            strokeOpacity={0.22}
+            strokeDasharray={`1.5 ${circ / 32}`}
+            strokeLinecap="butt"
             rotation={-90}
             origin={`${R}, ${R}`}
           />
@@ -146,16 +158,16 @@ export function OuroborosRing({
               <Circle
                 cx={R + radius}
                 cy={R}
-                r={2.5}
+                r={3}
                 fill={color}
-                opacity={0.9}
+                opacity={0.95}
               />
               <Circle
                 cx={R + radius * Math.cos(Math.PI * (1 - gapFraction / 2))}
                 cy={R + radius * Math.sin(Math.PI * (1 - gapFraction / 2))}
-                r={1.5}
+                r={2}
                 fill="#00d4aa"
-                opacity={0.85}
+                opacity={0.9}
               />
             </>
           )}
