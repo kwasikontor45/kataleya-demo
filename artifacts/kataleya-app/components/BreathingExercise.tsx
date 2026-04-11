@@ -653,8 +653,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   dismiss: {
-    paddingVertical: 12,
-    paddingHorizontal: 32,
+    position: 'absolute',
+    bottom: '22%',
+    alignSelf: 'center',
   },
   dismissText: {
     fontSize: 11,
