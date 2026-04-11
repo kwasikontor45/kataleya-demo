@@ -3,7 +3,6 @@ import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  Image,
   Animated,
   StyleSheet,
   Easing,
@@ -255,9 +254,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderStyle: 'solid',
   },
-  butterfly: {
-    position: 'absolute',
-    alignSelf: 'center',
+  glyph: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    letterSpacing: 2,
+    textAlign: 'center',
   },
   stageText: {
     fontFamily: 'CourierPrime',
