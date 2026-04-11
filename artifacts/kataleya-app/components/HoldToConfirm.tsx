@@ -85,8 +85,9 @@ export function HoldToConfirm({
             : Haptics.NotificationFeedbackType.Success
         );
         onConfirm();
-        // Reset after a brief moment
+        // Reset after a brief moment — firedRef must clear so next hold works
         setTimeout(() => {
+          firedRef.current = false;
           holdingAnim.setValue(0);
           Animated.timing(progress, {
             toValue: 0,

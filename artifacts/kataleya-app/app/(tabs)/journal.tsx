@@ -15,12 +15,12 @@ import { HoldToConfirm } from '@/components/HoldToConfirm';
 
 // ── Mood grid — matches base44 layout ────────────────────────────────────────
 const MOOD_GRID = [
-  { score: 8,  label: 'Calm',      icon: '◉',  rgb: '127,201,201' },
-  { score: 3,  label: 'Anxious',   icon: '∿',  rgb: '220,160,80'  },
-  { score: 2,  label: 'Stressed',  icon: '⌁',  rgb: '255,107,107' },
-  { score: 6,  label: 'Neutral',   icon: '◌',  rgb: '160,144,96'  },
-  { score: 9,  label: 'Energized', icon: '✦',  rgb: '74,222,128'  },
-  { score: 1,  label: 'Low',       icon: '·',  rgb: '240,130,100' },
+  { score: 8,  label: 'Calm',      icon: '≋',  rgb: '127,201,201' },
+  { score: 3,  label: 'Anxious',   icon: '↯',  rgb: '220,160,80'  },
+  { score: 2,  label: 'Stressed',  icon: '⊗',  rgb: '255,107,107' },
+  { score: 6,  label: 'Neutral',   icon: '⊙',  rgb: '160,144,96'  },
+  { score: 9,  label: 'Energized', icon: '⊛',  rgb: '74,222,128'  },
+  { score: 1,  label: 'Low',       icon: '▽',  rgb: '240,130,100' },
 ];
 
 const MOOD_PILL_LABELS = [
@@ -372,10 +372,17 @@ export default function JournalScreen() {
                       style={[
                         styles.moodGridBtn,
                         {
-                          borderColor: `rgba(${m.rgb},${sel ? 0.8 : 0.2})`,
+                          borderColor: `rgba(${m.rgb},${sel ? 0.75 : 0.18})`,
+                          borderTopColor: `rgba(${m.rgb},${sel ? 1 : 0.32})`,
+                          borderTopWidth: 1.5,
                           backgroundColor: sel
-                            ? `rgba(${m.rgb},0.18)`
+                            ? `rgba(${m.rgb},0.16)`
                             : `rgba(${m.rgb},0.05)`,
+                          shadowColor: `rgb(${m.rgb})`,
+                          shadowOffset: { width: 0, height: sel ? 4 : 1 },
+                          shadowOpacity: sel ? 0.35 : 0.08,
+                          shadowRadius: sel ? 8 : 3,
+                          elevation: sel ? 4 : 1,
                         },
                       ]}
                       onPress={() => {
@@ -383,7 +390,9 @@ export default function JournalScreen() {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       }}
                     >
-                      <Text style={styles.moodGridIcon}>{m.icon}</Text>
+                      <Text style={[styles.moodGridIcon, { color: `rgba(${m.rgb},${sel ? 1 : 0.65})` }]}>
+                        {m.icon}
+                      </Text>
                       <Text style={[
                         styles.moodGridLabel,
                         { color: `rgba(${m.rgb},${sel ? 1 : 0.6})` },
@@ -396,7 +405,7 @@ export default function JournalScreen() {
               </View>
 
               {/* Restlessness bar */}
-              {restlessnessScore > 0.15 && (
+              {restlessnessScore > 0.45 && (
                 <View style={styles.restlessRow}>
                   <View style={[styles.restlessTrack, { backgroundColor: `rgba(${accentRgb},0.1)` }]}>
                     <View style={[styles.restlessFill, {
@@ -672,7 +681,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  moodGridIcon: { fontSize: 22 },
+  moodGridIcon: { fontSize: 26, lineHeight: 30 },
   moodGridLabel: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 0.3 },
 
   // ── Mood badge (log + entry) ──

@@ -87,7 +87,6 @@ export default function BridgeScreen() {
   const enterOpacity    = useRef(new Animated.Value(0)).current;
   const wordmarkOpacity = useRef(new Animated.Value(0)).current;
   const orbOpacity      = useRef(new Animated.Value(0)).current;
-  const glowPulse       = useRef(new Animated.Value(0)).current;
 
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -148,21 +147,6 @@ export default function BridgeScreen() {
       useNativeDriver: true,
     }).start();
 
-    // Ambient glow — slow breath, loops forever
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowPulse, {
-          toValue: 1, duration: 4000,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.sin),
-        }),
-        Animated.timing(glowPulse, {
-          toValue: 0, duration: 4000,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.sin),
-        }),
-      ])
-    ).start();
   }, []);
 
   const navigate = useCallback(() => {
@@ -173,14 +157,6 @@ export default function BridgeScreen() {
   const accentRgb = getAccentRgb(phase);
   const theme = themeForPhase(phase as any);
 
-  // Phase-directional light — one source per phase
-  const lightOffset = phase === 'dawn'       ? { dx: -W * 0.22, dy: -H * 0.14 }
-                    : phase === 'goldenHour' ? { dx:  W * 0.22, dy: -H * 0.04 }
-                    : phase === 'night'      ? { dx:  0,        dy:  H * 0.18  }
-                    :                         { dx:  0,        dy: -H * 0.14  }; // day: top
-
-  const glowOpacity = glowPulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.0] });
-
   const ouroborosPhase = phase === 'night' ? 'void'
     : phase === 'goldenHour' ? 'desire'
     : phase === 'dawn' ? 'renewal'
@@ -189,49 +165,24 @@ export default function BridgeScreen() {
   return (
     <Animated.View style={[styles.root, { backgroundColor: '#050508', opacity: fadeIn }]}>
 
-      {/* Ambient glow pools — phase atmosphere, breathes with the ring */}
+      {/* Atmospheric glow — fades in with the orb, quiet not competing */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <Animated.View style={{
             position: 'absolute',
-            width: RING_SIZE * 2.6, height: RING_SIZE * 2.6,
-            borderRadius: RING_SIZE * 1.3,
-            backgroundColor: `rgba(${accentRgb}, 0.018)`,
-            opacity: glowOpacity,
+            width: RING_SIZE * 1.7, height: RING_SIZE * 1.7,
+            borderRadius: RING_SIZE * 0.85,
+            backgroundColor: `rgba(${accentRgb}, 0.03)`,
+            opacity: orbOpacity,
           }} />
           <Animated.View style={{
             position: 'absolute',
-            width: RING_SIZE * 1.85, height: RING_SIZE * 1.85,
-            borderRadius: RING_SIZE * 0.925,
-            backgroundColor: `rgba(${accentRgb}, 0.032)`,
-            opacity: glowOpacity,
-          }} />
-          <Animated.View style={{
-            position: 'absolute',
-            width: RING_SIZE * 1.25, height: RING_SIZE * 1.25,
-            borderRadius: RING_SIZE * 0.625,
+            width: RING_SIZE * 1.15, height: RING_SIZE * 1.15,
+            borderRadius: RING_SIZE * 0.575,
             backgroundColor: `rgba(${accentRgb}, 0.05)`,
-            opacity: glowOpacity,
+            opacity: orbOpacity,
           }} />
         </View>
-      </View>
-
-      {/* Phase-directional light — one source per phase */}
-      <View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          { alignItems: 'center', justifyContent: 'center' },
-        ]}
-      >
-        <View style={{
-          position: 'absolute',
-          left: W / 2 - RING_SIZE * 1.1 + lightOffset.dx,
-          top: H / 2 - RING_SIZE * 1.1 + lightOffset.dy,
-          width: RING_SIZE * 2.2, height: RING_SIZE * 2.2,
-          borderRadius: RING_SIZE * 1.1,
-          backgroundColor: `rgba(${accentRgb}, 0.014)`,
-        }} />
       </View>
 
       {/* Phase whisper — top center */}
