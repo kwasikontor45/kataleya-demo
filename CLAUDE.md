@@ -425,3 +425,42 @@ Required: PORT env var, DATA_DIR env var, /health endpoint, Volume at /data.
 - PAYWALL_ACTIVE=false — do not touch
 - expo-av and expo-audio both broken in SDK 54 Expo Go — audio deferred to EAS build
 - mixBlendMode screen on butterfly removed — transparent gif handles it now
+
+---
+
+## session update — april 11 2026
+
+### completed this session
+- cover.tsx — full rebuild: Blade Runner rain, scanlines, neon edge bleeds, OuroborosRing (no dots), butterfly-dna-t.gif centered in dark orb, garden phrases phase-aware
+- GhostPulseOrb — butterfly removed, ..: :.. heartbeat glyph, orb size floor raised to 82px, always breathing not just on shake
+- OuroborosRing — segment ticks (EVE Online style), gap widened to 14%, gap edge markers, showDots prop added
+- index.tsx — use-user-state wired, is2am detection, orb tappable at void phase, quick-slots Cyberpunk style (breathe/ground/sanctuary), duplicate sanctuary removed, plural days fixed, override pill shows "◗ void" when active / "following circadian rhythm" hint
+- use-user-state.ts — garden language greetings, apostrophe fixed
+- BreathingExercise — tap to begin (no autostart), "take it with you" on completion, tap anywhere to close, no auto-dismiss timer
+- butterfly-dna-t.gif — re-exported with transparent background via online tool, replaces ImageMagick version
+- NeonCard — glassmorphism, noise texture, shimmer, scar wear from cycleCount
+- theme.ts — night violet pulled back from #9b6dff to #8a5fe0
+
+### pending fixes (known issues)
+- "1 days" plural — fix not landing on device, needs verification
+- BreathingExercise tap-to-begin — hasStarted.current is a ref, won't trigger re-render for beginHint visibility — may need useState instead
+- OuroborosRing on home — still reads as a closed circle to some users despite 14% gap
+- GhostPulseOrb ..: :.. glyph vertical alignment — shifted down, includeFontPadding fix applied but needs device check
+
+### current build order (immediate)
+1. Verify all patches above on device
+2. Bridge screen rebuild — OuroborosRing breathing, phase, one action: enter
+3. Onboarding exit screen — three things: breathe, check in, reach sponsor
+4. Sponsor tab first impression — "your sponsor is one tap away" before setup
+5. GhostPulse BPM ← mood score (close the feedback loop)
+6. Railway fresh deploy
+7. EAS build Android first
+
+### architecture reminders
+- Code speaks Ouroboros — void/desire/renewal/choice, scar marks, never-closing ring
+- User experiences the garden — seasons, roots, winter, morning
+- butterfly-dna-t.gif on cover screen only — do not add elsewhere
+- butterfly-dna.gif (original) — keep in assets, do not delete
+- PAYWALL_ACTIVE=false — do not touch
+- expo-av and expo-audio both broken in SDK 54 Expo Go — audio deferred to EAS build
+- mixBlendMode screen on butterfly removed — transparent gif handles it now
