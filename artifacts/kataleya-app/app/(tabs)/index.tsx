@@ -605,7 +605,7 @@ export default function SanctuaryScreen() {
           {overrideHint && (
             <View style={{ position: 'absolute', top: 36, alignSelf: 'center', zIndex: 10 }}>
               <Text style={{ fontFamily: 'SpaceMono', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
-                {darkOverride ? 'circadian' : 'void mode'}
+                {darkOverride ? 'back to normal' : 'night mode on'}
               </Text>
             </View>
           )}
@@ -626,7 +626,7 @@ export default function SanctuaryScreen() {
               backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.08)` : 'transparent',
             }]}>
               <Text style={[styles.circadianPillText, { color: darkOverride ? `rgba(${accentRgb}, 0.9)` : theme.accent }]}>
-                {darkOverride ? '◗ void' : phaseConfig.displayName}
+                {darkOverride ? '◗ night mode' : phaseConfig.displayName}
               </Text>
             </View>
           </TouchableOpacity>
