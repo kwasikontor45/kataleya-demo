@@ -31,13 +31,13 @@ const { width, height } = Dimensions.get('window');
 const PHRASES = {
   void: [
     '2am always ends.',
-    'The garden doesn't judge the winter.',
-    'You opened this instead.\nThat is enough.',
+    "The garden doesn't judge the winter.",
+    "You opened this instead.\nThat is enough.",
     'Nothing is required of you\nright now.',
     'This is the hard hour.\nYou are not alone in it.',
     'Rest is not surrender.\nIt is preparation.',
-    'Even in winter,\nthe roots hold.',
-    'The night always ends\nat the same place — morning.',
+    "Even in winter,\nthe roots hold.",
+    "The night always ends\nat the same place — morning.",
   ],
   desire: [
     'Acknowledge it.\nDo not feed it.',
@@ -48,18 +48,18 @@ const PHRASES = {
     'You know what this is.\nYou also know what comes after.',
   ],
   renewal: [
-    'The garden wakes.\nSo do you.',
+    "The garden wakes.\nSo do you.",
     'You made it to morning.\nThat counts.',
     'This is what continuation looks like.',
     'Something held last night.\nThat was you.',
     'Another day begins.\nYou are in it.',
   ],
   choice: [
-    'The garden is awake.\nSo are you.',
+    "The garden is awake.\nSo are you.",
     'This is the window.\nUse it.',
     'Everything is growing,\neven when you can't see it.',
     'The work continues.\nSo do you.',
-    'You are here.\nThat is enough.',
+    "You are here.\nThat is enough.",
   ],
 };
 
