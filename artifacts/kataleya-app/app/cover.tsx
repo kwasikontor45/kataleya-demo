@@ -379,7 +379,7 @@ export default function CoverScreen() {
       </Animated.View>
 
       {/* Wordmark */}
-      <Text style={[styles.wordmark, { color: `rgba(${accentRgb}, 0.07)` }]}>
+      <Text style={[styles.wordmark, { color: `rgba(${accentRgb}, 0.22)` }]}>
         kataleya
       </Text>
     </View>

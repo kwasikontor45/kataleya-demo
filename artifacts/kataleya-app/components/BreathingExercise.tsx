@@ -511,7 +511,7 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
 
       {/* ── Dismiss — only after 2 cycles, no play/pause ────────────────── */}
       <Animated.View style={[styles.dismiss, { opacity: dismissOpacity }]}>
-        <Text style={[styles.dismissText, { color: `rgba(${phaseRgb}, 0.35)`, fontFamily: 'CourierPrime' }]}>
+        <Text style={[styles.dismissText, { color: `rgba(${phaseRgb}, 0.75)`, fontFamily: 'CourierPrime' }]}>
           you did well
         </Text>
       </Animated.View>
