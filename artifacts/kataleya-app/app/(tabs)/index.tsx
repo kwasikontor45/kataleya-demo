@@ -64,9 +64,9 @@ function humanDuration(days: number): string | null {
   return parts.join(' · ');
 }
 
-// ── Mercury line — dense, slow, rolls like liquid metal ──────────────────────
-const MERCURY_W = SCREEN_W - 48; // matches paddingHorizontal: 24
-const BEAD_W    = 48;
+// ── Mercury line — the line itself is the mercury, rolling on glass ──────────
+const MERCURY_W  = SCREEN_W - 48;
+const MERCURY_LEN = 56; // length of the mercury slug
 
 function MercuryLine({ accentRgb }: { accentRgb: string }) {
   const pos = useRef(new Animated.Value(0)).current;
@@ -91,16 +91,16 @@ function MercuryLine({ accentRgb }: { accentRgb: string }) {
 
   const tx = pos.interpolate({
     inputRange:  [0, 1],
-    outputRange: [0, MERCURY_W - BEAD_W],
+    outputRange: [0, MERCURY_W - MERCURY_LEN],
   });
 
   return (
     <View style={styles.mercuryWrap}>
-      {/* Wire */}
-      <View style={[styles.mercuryWire, { backgroundColor: `rgba(138,138,158,0.14)` }]} />
-      {/* Mercury bead */}
-      <Animated.View style={[styles.mercuryBead, {
-        backgroundColor: `rgba(${accentRgb}, 0.52)`,
+      {/* Channel — barely there */}
+      <View style={[styles.mercuryChannel, { backgroundColor: `rgba(138,138,158,0.08)` }]} />
+      {/* The mercury — a 1px line rolling */}
+      <Animated.View style={[styles.mercurySlug, {
+        backgroundColor: `rgba(${accentRgb}, 0.6)`,
         shadowColor: `rgb(${accentRgb})`,
         transform: [{ translateX: tx }],
       }]} />
@@ -1214,24 +1214,24 @@ const styles = StyleSheet.create({
   },
   mercuryWrap: {
     width: MERCURY_W,
-    height: 20,
+    height: 16,
     justifyContent: 'center',
     marginTop: 4,
   },
-  mercuryWire: {
+  mercuryChannel: {
+    height: 1,
+    width: '100%',
+    borderRadius: 1,
+  },
+  mercurySlug: {
+    position: 'absolute',
+    width: MERCURY_LEN,
     height: 1,
     borderRadius: 1,
-    width: '100%',
-  },
-  mercuryBead: {
-    position: 'absolute',
-    width: BEAD_W,
-    height: 3,
-    borderRadius: 2,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.75,
-    shadowRadius: 5,
-    elevation: 3,
+    shadowOpacity: 0.6,
+    shadowRadius: 3,
+    elevation: 2,
   },
   progressSection: { width: '100%', gap: 8, marginTop: 12 },
   progressTrack: { height: 2, borderRadius: 1, width: '100%', overflow: 'hidden' },
