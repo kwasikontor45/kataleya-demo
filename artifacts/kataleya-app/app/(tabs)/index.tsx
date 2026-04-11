@@ -965,13 +965,15 @@ const styles = StyleSheet.create({
   },
   orbSection: {
     width: '100%',
+    height: 280,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    overflow: 'hidden',
   },
   orbComposite: {
     width: ORB_COMPOSITE,
     height: ORB_COMPOSITE,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
