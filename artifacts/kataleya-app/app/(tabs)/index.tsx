@@ -76,13 +76,13 @@ function MercuryLine({ accentRgb }: { accentRgb: string }) {
       Animated.sequence([
         Animated.timing(pos, {
           toValue: 1,
-          duration: 5200,
+          duration: 10400,
           useNativeDriver: true,
           easing: Easing.inOut(Easing.sin), // viscous, like mercury
         }),
         Animated.timing(pos, {
           toValue: 0,
-          duration: 5200,
+          duration: 10400,
           useNativeDriver: true,
           easing: Easing.inOut(Easing.sin),
         }),
@@ -1231,44 +1231,39 @@ const styles = StyleSheet.create({
   },
   mercuryWrap: {
   width: MERCURY_W,
-  height: 18,
+  height: 12,        // was 18
   justifyContent: 'center',
   marginTop: 4,
-  },
-  mercuryChannel: {
-    height: 1,
-    width: '100%',
-    borderRadius: 1,
   },
   mercuryCapsule: {
   position: 'absolute',
   width: MERCURY_LEN,
-  height: 18,
+  height: 12,        // match wrap
   justifyContent: 'center',
   alignItems: 'center',
   },
   mercuryHalo: {
   position: 'absolute',
-  width: MERCURY_LEN + 10,
-  height: 10,
-  borderRadius: 5,
+  width: MERCURY_LEN + 8,  // slightly tighter around thin core
+  height: 6,               // was 10
+  borderRadius: 3,
   shadowOffset: { width: 0, height: 0 },
-  shadowOpacity: 0.45,
-  shadowRadius: 12,
-  elevation: 4,
-  opacity: 0.8,
+  shadowOpacity: 0.4,      // slightly softer
+  shadowRadius: 8,         // tighter bloom for thin line
+  elevation: 2,
+  opacity: 0.7,
   },
   mercuryCore: {
   position: 'absolute',
   width: MERCURY_LEN,
-  height: 2.5,
-  borderRadius: 1.25, // rounded meniscus = liquid surface tension
+  height: 1.2,             // was 2.5 — hairline mercury thread
+  borderRadius: 0.6,       // half of height (pill caps)
   borderWidth: 0.5,
   zIndex: 2,
   shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.3,
-  shadowRadius: 2,
-  elevation: 3,
+  shadowOpacity: 0.25,
+  shadowRadius: 1.5,
+  elevation: 2,
   },
   progressSection: { width: '100%', gap: 8, marginTop: 12 },
   progressTrack: { height: 2, borderRadius: 1, width: '100%', overflow: 'hidden' },
