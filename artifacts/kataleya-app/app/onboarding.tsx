@@ -345,11 +345,11 @@ export default function Onboarding() {
       {NARRATION[id] && (
         <Animated.View style={[styles.narrationWrap, { opacity: narrationOpacity }]}>
           <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.32)` }]}>
-            {'// '}{NARRATION[id].line1}
+            {NARRATION[id].line1}
           </Text>
           {NARRATION[id].line2 && (
             <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.22)` }]}>
-              {'// '}{NARRATION[id].line2}
+              {NARRATION[id].line2}
             </Text>
           )}
         </Animated.View>
