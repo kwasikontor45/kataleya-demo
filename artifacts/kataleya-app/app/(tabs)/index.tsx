@@ -431,7 +431,7 @@ export default function SanctuaryScreen() {
               backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.08)` : 'transparent',
             }]}>
               <Text style={[styles.circadianPillText, { color: darkOverride ? `rgba(${accentRgb}, 0.9)` : theme.accent }]}>
-                {darkOverride ? `◗ ${phaseConfig.displayName}` : phaseConfig.displayName}
+                {darkOverride ? '◗ void' : phaseConfig.displayName}
               </Text>
             </View>
           </TouchableOpacity>
