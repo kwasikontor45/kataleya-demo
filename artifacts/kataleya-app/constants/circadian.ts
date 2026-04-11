@@ -54,7 +54,7 @@ export function msUntilNextMinute(): number {
 
 export function calculateBlendRatio(minutes: number): number {
   const DAWN_START  = timeToMinutes('05:00');
-  const DAY_START   = timeToMinutes('08:00');
+  const DAY_START   = timeToMinutes('07:00');
   const GOLDEN_START = timeToMinutes('17:00');
   const NIGHT_START = timeToMinutes('20:00');
   const DAWN_PRE    = timeToMinutes('04:30');
@@ -74,7 +74,7 @@ export function calculateBlendRatio(minutes: number): number {
 
 export function getCurrentPhase(minutes: number): CircadianPhase {
   const DAWN_START   = timeToMinutes('05:00');
-  const DAY_START    = timeToMinutes('08:00');
+  const DAY_START    = timeToMinutes('07:00');
   const GOLDEN_START = timeToMinutes('17:00');
   const NIGHT_START  = timeToMinutes('20:00');
   if (minutes >= DAWN_START  && minutes < DAY_START)    return 'dawn';
