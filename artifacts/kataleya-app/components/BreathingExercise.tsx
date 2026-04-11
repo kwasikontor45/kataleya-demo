@@ -109,8 +109,6 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
   const allAnims    = useRef<Animated.CompositeAnimation[]>([]);
   const hasStarted  = useRef(false);
   const isDone      = useRef(false);
-  const hasStarted  = useRef(false);
-  const isDone      = useRef(false);
 
   // ── Derive timing — pure 4-7-8 ───────────────────────────────────────────────
   function getTiming() {
