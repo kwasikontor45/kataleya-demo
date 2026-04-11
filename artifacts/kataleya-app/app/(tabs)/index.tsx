@@ -496,7 +496,7 @@ export default function SanctuaryScreen() {
                   />
                 </View>
                 <Text style={[styles.nextLabel, { color: `rgba(${accentRgb}, 0.45)` }]}>
-                  {sobriety.nextMilestone.days - sobriety.daysSober} days to{' '}
+                  {`${sobriety.nextMilestone.days - sobriety.daysSober} ${sobriety.nextMilestone.days - sobriety.daysSober === 1 ? 'day' : 'days'} to`}{' '}
                   <Text style={{ color: `rgba(${accentRgb}, 0.8)` }}>
                     {sobriety.nextMilestone.label}
                   </Text>
