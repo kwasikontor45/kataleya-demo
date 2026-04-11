@@ -279,9 +279,6 @@ export default function SanctuaryScreen() {
   const overrideHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
-  const [clockTime, setClockTime] = useState(() => {
-    const n = new Date(); return `${pad(n.getHours())}:${pad(n.getMinutes())}`;
-  });
 
   // Day count pulse — gentle breath at BPM rate
   const dayPulse  = useRef(new Animated.Value(1)).current;
@@ -430,10 +427,6 @@ export default function SanctuaryScreen() {
   useEffect(() => {
     Surface.getName().then(n => setUserName(n ?? null));
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
-    const clockTick = setInterval(() => {
-      const n = new Date(); setClockTime(`${pad(n.getHours())}:${pad(n.getMinutes())}`);
-    }, 15000);
-    return () => clearInterval(clockTick);
   }, []);
 
   // Load predictive suggestion once per mount
@@ -656,9 +649,6 @@ export default function SanctuaryScreen() {
         {/* Timer */}
         {sobriety.startDate ? (
           <View style={styles.timerSection}>
-            <Text style={[styles.clockTime, { color: `rgba(${accentRgb}, 0.28)` }]}>
-              {clockTime}
-            </Text>
             <Animated.Text style={[styles.dayCount, { color: `rgba(${accentRgb}, 0.95)`, transform: [{ scale: dayPulse }] }]}>
               {sobriety.daysSober}
             </Animated.Text>
@@ -1161,12 +1151,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timerSection: { alignItems: 'center', gap: 6, width: '100%' },
-  clockTime: {
-    fontFamily: 'SpaceMono',
-    fontSize: 11,
-    letterSpacing: 3,
-    marginBottom: 2,
-  },
   dayCount: {
     fontFamily: 'CourierPrime',
     fontSize: 64,
