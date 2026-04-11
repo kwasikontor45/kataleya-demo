@@ -96,8 +96,6 @@ function MercuryLine({ accentRgb }: { accentRgb: string }) {
 
   return (
     <View style={styles.mercuryWrap}>
-      {/* Channel — barely there */}
-      <View style={[styles.mercuryChannel, { backgroundColor: `rgba(138,138,158,0.08)` }]} />
       {/* The mercury — a 1px line rolling */}
       <Animated.View style={[styles.mercurySlug, {
         backgroundColor: `rgba(${accentRgb}, 0.6)`,
