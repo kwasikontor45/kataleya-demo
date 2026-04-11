@@ -8,9 +8,10 @@
 import React, { useRef, useEffect } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Animated,
-  Easing, ViewStyle,
+  Easing, ViewStyle, Platform,
 } from 'react-native';
-import Svg, { Rect, Filter, FeTurbulence, FeColorMatrix, FeBlend, Defs } from 'react-native-svg';
+import Svg, { Rect, Filter, FeTurbulence, FeColorMatrix, Defs } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export const NEON_RGB = {
   cyan:   '0,212,170',
@@ -31,6 +32,7 @@ interface NeonCardProps {
   onPress?: () => void;
   style?: ViewStyle;
   cycleCount?: number; // scar wear level — 0 = pristine
+  depth?: 'low' | 'mid' | 'high'; // physical shadow depth — default mid
 }
 
 const GLOW_MAP: Record<GlowColor, string> = {
@@ -58,10 +60,22 @@ export function NeonCard({
   onPress,
   style,
   cycleCount = 0,
+  depth = 'mid',
 }: NeonCardProps) {
   const rgb = accentRgb ?? (glowColor ? GLOW_MAP[glowColor] : NEON_RGB.cyan);
   const shimmer = useRef(new Animated.Value(0)).current;
   const [dims, setDims] = React.useState({ w: 0, h: 0 });
+
+  // Physical depth config — shadow intensity scales with depth level
+  const DEPTH_CONFIG = {
+    low:  { shadowRadius: 10, shadowOpacity: 0.10, elevation: 4,  yOffset: 2 },
+    mid:  { shadowRadius: 20, shadowOpacity: 0.15, elevation: 8,  yOffset: 4 },
+    high: { shadowRadius: 32, shadowOpacity: 0.22, elevation: 14, yOffset: 6 },
+  };
+  const dCfg = DEPTH_CONFIG[depth];
+
+  // Top edge highlight intensity — light catching the rim
+  const topEdgeBrightness = Math.min(borderIntensity * 1.8, 0.45);
 
   // Subtle shimmer — light catching worn surface
   useEffect(() => {
@@ -113,13 +127,13 @@ export function NeonCard({
         {
           backgroundColor: `rgba(${rgb},${fillIntensity})`,
           borderColor: `rgba(${rgb},${borderIntensity})`,
-          borderTopColor: `rgba(${rgb},${Math.min(borderIntensity * 1.8, 0.42)})`,
-          borderTopWidth: 1.5,
+          borderTopColor: `rgba(${rgb},${topEdgeBrightness})`,
+          // Physical shadow — the glass sits above the surface
           shadowColor: `rgb(${rgb})`,
-          shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.18,
-          shadowRadius: 8,
-          elevation: 3,
+          shadowOffset: { width: 0, height: dCfg.yOffset },
+          shadowOpacity: dCfg.shadowOpacity,
+          shadowRadius: dCfg.shadowRadius,
+          elevation: dCfg.elevation,
         },
         style,
       ]}
@@ -159,6 +173,18 @@ export function NeonCard({
           </Svg>
         </View>
       )}
+
+      {/* Inner glow — liquid light behind glass, catches from top edge */}
+      <LinearGradient
+        colors={[
+          `rgba(${rgb},0.07)`,
+          `rgba(${rgb},0.01)`,
+          'transparent',
+        ]}
+        locations={[0, 0.35, 1]}
+        style={[StyleSheet.absoluteFill, styles.innerGlow]}
+        pointerEvents="none"
+      />
 
       {/* Shimmer — light on worn surface */}
       <Animated.View
@@ -211,6 +237,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
+  },
+  innerGlow: {
+    borderRadius: 14,
+    zIndex: 0,
   },
   content: {
     zIndex: 1,
