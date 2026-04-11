@@ -246,7 +246,7 @@ export default function SponsorScreen() {
     deleteMessage, clearMessages, isConnected,
   } = useSponsorChannel();
 
-  const [firstImpression, setFirstImpression] = useState(true);
+  const [firstImpression, setFirstImpression] = useState(false);
   const [sponsorName, setSponsorName] = useState('');
   const [roleChoice, setRoleChoice] = useState<RoleChoice>(null);
   const [proximity, setProximity] = useState<'together' | 'remote' | null>(null);
@@ -277,7 +277,6 @@ export default function SponsorScreen() {
 
   useEffect(() => { if (status) { setCheckedIn(status.checkedIn); setCheckedInDate(status.checkedInDate); } }, [status]);
   useEffect(() => { if (isConnected && role) setRoleChoice(role); }, [isConnected, role]);
-  useEffect(() => { if (isConnected) setFirstImpression(false); }, [isConnected]);
 
   const firedSignalIds = useRef(new Set<string>());
   useEffect(() => {
@@ -365,14 +364,40 @@ export default function SponsorScreen() {
 
         <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)` }]}>sponsor presence</Text>
 
-        {/* ── FIRST IMPRESSION — types in, name field appears, then opens the flow ── */}
-        {firstImpression && !isConnected && (
+        {/* ── ROLE PICKER — always first, no warmth needed here ── */}
+        {!isConnected && !roleChoice && (
+          <NeonCard theme={theme} accentRgb={accentRgb}>
+            <View style={styles.cardInner}>
+              <Text style={[styles.cardTitle, { color: theme.text }]}>who are you in this session?</Text>
+              <Text style={[styles.cardBody, { color: `${theme.textMuted}cc` }]}>
+                one device is the person in recovery.{'\n'}the other is their sponsor.
+              </Text>
+              <View style={styles.roleRow}>
+                <TouchableOpacity
+                  style={[styles.roleBtn, { borderColor: `rgba(${accentRgb},0.45)`, backgroundColor: `rgba(${accentRgb},0.08)` }]}
+                  onPress={() => { setRoleChoice('user'); setFirstImpression(true); }}>
+                  <Text style={[styles.roleBtnTitle, { color: `rgba(${accentRgb},0.9)` }]}>i am in recovery</Text>
+                  <Text style={[styles.roleBtnSub, { color: `rgba(${accentRgb},0.45)` }]}>generate invite code</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.roleBtn, { borderColor: `rgba(${accentRgb},0.15)`, backgroundColor: `rgba(${accentRgb},0.04)` }]}
+                  onPress={() => { setRoleChoice('sponsor'); setFirstImpression(false); }}>
+                  <Text style={[styles.roleBtnTitle, { color: `${theme.text}cc` }]}>i am the sponsor</Text>
+                  <Text style={[styles.roleBtnSub, { color: `${theme.textMuted}99` }]}>enter invite code</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </NeonCard>
+        )}
+
+        {/* ── FIRST IMPRESSION — only for recovery user, after role choice ── */}
+        {!isConnected && roleChoice === 'user' && firstImpression && (
           <View style={styles.firstImpressionWrap}>
             <TypewriterText
               text="who do you reach for at 2am?"
               speed={42}
               jitter={22}
-              startDelay={400}
+              startDelay={300}
               style={[styles.firstImpressionQ, { color: theme.text }]}
             />
             <TextInput
@@ -383,10 +408,7 @@ export default function SponsorScreen() {
               returnKeyType="done"
               autoCorrect={false}
               onSubmitEditing={() => {
-                if (sponsorName.trim()) {
-                  Keyboard.dismiss();
-                  setFirstImpression(false);
-                }
+                if (sponsorName.trim()) { Keyboard.dismiss(); setFirstImpression(false); }
               }}
               style={[styles.firstImpressionInput, {
                 color: theme.text,
@@ -409,40 +431,19 @@ export default function SponsorScreen() {
                 </Text>
               </TouchableOpacity>
             )}
+            <TouchableOpacity onPress={() => { setRoleChoice(null); setSponsorName(''); }}>
+              <Text style={[styles.backLink, { color: `rgba(${accentRgb},0.3)` }]}>← back</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* ── ROLE PICKER ── */}
-        {!isConnected && !roleChoice && !firstImpression && (
+        {/* ── USER: PROXIMITY CHOICE — name carries in as the title ── */}
+        {!isConnected && effectiveRole === 'user' && connState !== 'inviting' && !proximity && !firstImpression && (
           <NeonCard theme={theme} accentRgb={accentRgb}>
             <View style={styles.cardInner}>
-              <Text style={[styles.cardTitle, { color: theme.text }]}>who are you in this session?</Text>
-              <Text style={[styles.cardBody, { color: `${theme.textMuted}cc` }]}>
-                one device is the person in recovery.{'\n'}the other is their sponsor.
+              <Text style={[styles.cardTitle, { color: theme.text }]}>
+                {sponsorName.trim() ? `invite ${sponsorName.trim()}` : 'invite your sponsor'}
               </Text>
-              <View style={styles.roleRow}>
-                <TouchableOpacity
-                  style={[styles.roleBtn, { borderColor: `rgba(${accentRgb},0.45)`, backgroundColor: `rgba(${accentRgb},0.08)` }]}
-                  onPress={() => setRoleChoice('user')}>
-                  <Text style={[styles.roleBtnTitle, { color: `rgba(${accentRgb},0.9)` }]}>i am in recovery</Text>
-                  <Text style={[styles.roleBtnSub, { color: `rgba(${accentRgb},0.45)` }]}>generate invite code</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.roleBtn, { borderColor: `rgba(${accentRgb},0.15)`, backgroundColor: `rgba(${accentRgb},0.04)` }]}
-                  onPress={() => setRoleChoice('sponsor')}>
-                  <Text style={[styles.roleBtnTitle, { color: `${theme.text}cc` }]}>i am the sponsor</Text>
-                  <Text style={[styles.roleBtnSub, { color: `${theme.textMuted}99` }]}>enter invite code</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </NeonCard>
-        )}
-
-        {/* ── USER: PROXIMITY CHOICE ── */}
-        {!isConnected && effectiveRole === 'user' && connState !== 'inviting' && !proximity && (
-          <NeonCard theme={theme} accentRgb={accentRgb}>
-            <View style={styles.cardInner}>
-              <Text style={[styles.cardTitle, { color: theme.text }]}>invite your sponsor</Text>
               <Text style={[styles.cardBody, { color: `${theme.textMuted}cc` }]}>
                 are you with them right now, or are they somewhere else?
               </Text>
