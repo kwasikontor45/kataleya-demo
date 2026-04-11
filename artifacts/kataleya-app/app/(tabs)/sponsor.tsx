@@ -12,6 +12,7 @@ import { WaterVisual, LightVisual, WaterBanner, LightBanner, WaterFlood, LightBl
 import { sponsorWater, sponsorLight } from '@/utils/hapticBloom';
 import type { PresenceLogEntry } from '@/hooks/useSponsorChannel';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
+import { TypewriterText } from '@/components/typewriter-text';
 import * as Sharing from 'expo-sharing';
 
 type RoleChoice = 'user' | 'sponsor' | null;
@@ -245,6 +246,8 @@ export default function SponsorScreen() {
     deleteMessage, clearMessages, isConnected,
   } = useSponsorChannel();
 
+  const [firstImpression, setFirstImpression] = useState(true);
+  const [sponsorName, setSponsorName] = useState('');
   const [roleChoice, setRoleChoice] = useState<RoleChoice>(null);
   const [proximity, setProximity] = useState<'together' | 'remote' | null>(null);
   const [relayOpen, setRelayOpen] = useState(false);
@@ -274,6 +277,7 @@ export default function SponsorScreen() {
 
   useEffect(() => { if (status) { setCheckedIn(status.checkedIn); setCheckedInDate(status.checkedInDate); } }, [status]);
   useEffect(() => { if (isConnected && role) setRoleChoice(role); }, [isConnected, role]);
+  useEffect(() => { if (isConnected) setFirstImpression(false); }, [isConnected]);
 
   const firedSignalIds = useRef(new Set<string>());
   useEffect(() => {
@@ -361,8 +365,55 @@ export default function SponsorScreen() {
 
         <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)` }]}>sponsor presence</Text>
 
+        {/* ── FIRST IMPRESSION — types in, name field appears, then opens the flow ── */}
+        {firstImpression && !isConnected && (
+          <View style={styles.firstImpressionWrap}>
+            <TypewriterText
+              text="who do you reach for at 2am?"
+              speed={42}
+              jitter={22}
+              startDelay={400}
+              style={[styles.firstImpressionQ, { color: theme.text }]}
+            />
+            <TextInput
+              value={sponsorName}
+              onChangeText={setSponsorName}
+              placeholder="their name"
+              placeholderTextColor={`rgba(${accentRgb},0.25)`}
+              returnKeyType="done"
+              autoCorrect={false}
+              onSubmitEditing={() => {
+                if (sponsorName.trim()) {
+                  Keyboard.dismiss();
+                  setFirstImpression(false);
+                }
+              }}
+              style={[styles.firstImpressionInput, {
+                color: theme.text,
+                borderColor: sponsorName.trim()
+                  ? `rgba(${accentRgb},0.45)`
+                  : `rgba(${accentRgb},0.12)`,
+                backgroundColor: `rgba(${accentRgb},0.04)`,
+              }]}
+            />
+            {sponsorName.trim().length > 0 && (
+              <TouchableOpacity
+                style={[styles.firstImpressionCta, {
+                  borderColor: `rgba(${accentRgb},0.35)`,
+                  backgroundColor: `rgba(${accentRgb},0.07)`,
+                }]}
+                onPress={() => { Keyboard.dismiss(); setFirstImpression(false); }}
+              >
+                <Text style={[styles.firstImpressionCtaText, { color: `rgba(${accentRgb},0.85)` }]}>
+                  reach out →
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* ── ROLE PICKER ── */}
-        {!isConnected && !roleChoice && (
+        {!isConnected && !roleChoice && !firstImpression && (
           <NeonCard theme={theme} accentRgb={accentRgb}>
             <View style={styles.cardInner}>
               <Text style={[styles.cardTitle, { color: theme.text }]}>who are you in this session?</Text>
@@ -972,4 +1023,47 @@ const styles = StyleSheet.create({
   relayRow: { flexDirection: 'row', paddingVertical: 8, gap: 8 },
   relayField: { fontFamily: 'CourierPrime', fontSize: 10, flex: 1 },
   relayValue: { fontFamily: 'CourierPrime', fontSize: 10, flex: 1.3, textAlign: 'right' },
+
+  firstImpressionWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingTop: 48,
+    paddingBottom: 32,
+    gap: 32,
+  },
+  firstImpressionQ: {
+    fontFamily: 'CourierPrime',
+    fontSize: 22,
+    lineHeight: 34,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    textTransform: 'lowercase',
+  },
+  firstImpressionInput: {
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    fontFamily: 'CourierPrime',
+    fontSize: 18,
+    textAlign: 'center',
+    letterSpacing: 1,
+    textTransform: 'lowercase',
+  },
+  firstImpressionCta: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+  },
+  firstImpressionCtaText: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
+  },
 });
