@@ -362,7 +362,7 @@ export default function CoverScreen() {
             {/* Butterfly — centered, embedded in glow */}
             <View style={styles.butterflyGlow}>
               <Image
-                source={require('../assets/images/butterfly-dna.gif')}
+                source={require('../assets/images/butterfly-dna-t.gif')}
                 style={{ width: ORB * 0.58, height: ORB * 0.58 }}
                 resizeMode="contain"
               />

@@ -208,7 +208,7 @@ export function GhostPulseOrb({
           ]}
         >
           <Image
-            source={require('../assets/images/butterfly-dna.gif')}
+            source={require('../assets/images/butterfly-dna-t.gif')}
             style={[
               styles.butterfly,
               {
