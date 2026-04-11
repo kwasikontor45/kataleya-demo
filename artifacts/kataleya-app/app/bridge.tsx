@@ -14,6 +14,7 @@ import {
   TouchableOpacity, Dimensions, Platform, Image,
 } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
+import { ScanlineLayer } from '@/components/scanline-layer';
 import { useRouter } from 'expo-router';
 import { OuroborosRing } from '@/components/OuroborosRing';
 import { getCurrentPhase, getCurrentMinutes, CIRCADIAN_PHASES } from '@/constants/circadian';
@@ -75,20 +76,6 @@ function getAccentRgb(phase: string): string {
   return '0,212,170';
 }
 
-// CRT scanline texture — same as cover screen
-function ScanlineLayer() {
-  const count = Math.ceil(H / 4);
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Svg width={W} height={H}>
-        {Array.from({ length: count }, (_, i) => (
-          <Line key={i} x1={0} y1={i * 4} x2={W} y2={i * 4}
-            stroke="rgba(255,255,255,0.012)" strokeWidth={0.5} />
-        ))}
-      </Svg>
-    </View>
-  );
-}
 
 export default function BridgeScreen() {
   const router = useRouter();
@@ -235,11 +222,14 @@ export default function BridgeScreen() {
           />
         </Animated.View>
 
-        {/* Butterfly at center — transformation */}
-        <Animated.View style={[styles.butterflyWrap, { opacity: orbOpacity }]}>
+        {/* Butterfly at center — same plane as the ring */}
+        <Animated.View style={[styles.butterflyWrap, {
+          opacity: orbOpacity,
+          transform: [{ perspective: 700 }, { rotateX: '-10deg' }],
+        }]}>
           <Image
             source={require('../assets/images/butterfly-dna-t.gif')}
-            style={{ width: RING_SIZE * 0.38, height: RING_SIZE * 0.38 }}
+            style={{ width: RING_SIZE * 0.34, height: RING_SIZE * 0.34, opacity: 0.82 }}
             resizeMode="contain"
           />
         </Animated.View>

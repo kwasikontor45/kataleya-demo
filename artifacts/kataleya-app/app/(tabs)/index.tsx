@@ -32,6 +32,7 @@ import { TAB_BAR_HEIGHT } from '@/constants/circadian';
 import { BLOOM_THRESHOLDS } from '@/utils/hapticBloom';
 import { Surface, Sanctuary } from '@/utils/storage';
 import { useUserState } from '@/hooks/use-user-state';
+import { ScanlineLayer } from '@/components/scanline-layer';
 
 const SCREEN_W = Dimensions.get('window').width;
 const ORB_COMPOSITE = Math.min(SCREEN_W * 0.72, 260);
@@ -472,6 +473,7 @@ export default function SanctuaryScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <ScanlineLayer />
       {/* Ambient breathing glow — the environment is alive */}
       <Animated.View
         pointerEvents="none"

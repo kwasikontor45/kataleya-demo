@@ -12,6 +12,7 @@ import { moodEvents } from '@/utils/mood-event';
 import { suppressReminderForToday } from '@/hooks/useNotifications';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { HoldToConfirm } from '@/components/HoldToConfirm';
+import { ScanlineLayer } from '@/components/scanline-layer';
 
 // ── Mood grid — matches base44 layout ────────────────────────────────────────
 const MOOD_GRID = [
@@ -294,6 +295,7 @@ export default function JournalScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <ScanlineLayer />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

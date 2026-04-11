@@ -14,6 +14,7 @@ import type { PresenceLogEntry } from '@/hooks/useSponsorChannel';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { TypewriterText } from '@/components/typewriter-text';
 import * as Sharing from 'expo-sharing';
+import { ScanlineLayer } from '@/components/scanline-layer';
 
 type RoleChoice = 'user' | 'sponsor' | null;
 
@@ -414,6 +415,7 @@ export default function SponsorScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <ScanlineLayer />
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: botPad + 16 }]}
         showsVerticalScrollIndicator={false}

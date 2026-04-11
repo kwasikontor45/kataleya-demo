@@ -12,6 +12,7 @@ import { Sanctuary } from '@/utils/storage';
 import { encryptBackup, decryptBackup, restorePayload, saveAndShareBackup, pickBackupFile } from '@/utils/backup';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { HoldToConfirm } from '@/components/HoldToConfirm';
+import { ScanlineLayer } from '@/components/scanline-layer';
 
 function phaseAccentRgb(phase: string): string {
   if (phase === 'goldenHour') return NEON_RGB.amber;
@@ -92,6 +93,7 @@ export default function VaultScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <ScanlineLayer />
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: botPad + 16 }]}
         showsVerticalScrollIndicator={false}

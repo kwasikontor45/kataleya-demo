@@ -21,7 +21,8 @@ import {
   View, Text, Image, StyleSheet, TouchableOpacity, Animated,
   Easing, Dimensions, Platform, StatusBar,
 } from 'react-native';
-import Svg, { Line, Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { ScanlineLayer } from '@/components/scanline-layer';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useCircadian } from '@/hooks/useCircadian';
@@ -141,25 +142,6 @@ function RainLayer({ accentRgb, count, maxOpacity }: {
 }
 
 // ── Scanlines — CRT texture ───────────────────────────────────────────────────
-function ScanlineLayer() {
-  const count = Math.floor(H / 4);
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Svg width={W} height={H}>
-        {Array.from({ length: count }, (_, i) => (
-          <Line
-            key={i}
-            x1={0} y1={i * 4}
-            x2={W} y2={i * 4}
-            stroke="rgba(0,0,0,0.10)"
-            strokeWidth={0.5}
-          />
-        ))}
-      </Svg>
-    </View>
-  );
-}
-
 // ── Neon bleed — phase color bleeding from all four edges ────────────────────
 function NeonBleed({ accentRgb }: { accentRgb: string }) {
   return (
