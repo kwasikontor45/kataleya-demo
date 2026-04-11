@@ -410,7 +410,7 @@ export default function SanctuaryScreen() {
           {overrideHint && (
             <View style={{ position: 'absolute', top: 36, alignSelf: 'center', zIndex: 10 }}>
               <Text style={{ fontFamily: 'SpaceMono', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
-                {darkOverride ? 'void override off' : 'void override on'}
+                {darkOverride ? 'following circadian rhythm' : 'void override on'}
               </Text>
             </View>
           )}
@@ -431,7 +431,7 @@ export default function SanctuaryScreen() {
               backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.08)` : 'transparent',
             }]}>
               <Text style={[styles.circadianPillText, { color: darkOverride ? `rgba(${accentRgb}, 0.9)` : theme.accent }]}>
-                {darkOverride ? `◗ ${phaseConfig.displayName}` : `${phaseConfig.displayName} ·  force void`}
+                {darkOverride ? `◗ ${phaseConfig.displayName}` : phaseConfig.displayName}
               </Text>
             </View>
           </TouchableOpacity>
