@@ -113,6 +113,13 @@ export function NeonCard({
         {
           backgroundColor: `rgba(${rgb},${fillIntensity})`,
           borderColor: `rgba(${rgb},${borderIntensity})`,
+          borderTopColor: `rgba(${rgb},${Math.min(borderIntensity * 1.8, 0.42)})`,
+          borderTopWidth: 1.5,
+          shadowColor: `rgb(${rgb})`,
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.18,
+          shadowRadius: 8,
+          elevation: 3,
         },
         style,
       ]}
