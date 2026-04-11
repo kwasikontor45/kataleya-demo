@@ -10,13 +10,36 @@ The soul of kataleya: **presence without monitoring. context-awareness without s
 
 ---
 
+## railway — blind relay server
+
+The Railway server is NOT a database. It does not store user data.
+It runs one job: pass encrypted messages between user and sponsor, then discard them.
+The server never sees message content. It is structurally blind by design.
+This does NOT violate the privacy-first architecture — it was designed to honor it.
+
+### what the relay does
+- receives an encrypted blob from user's phone
+- forwards it to sponsor's phone
+- immediately discards it
+- stores nothing permanently except channels.json (sponsor channel metadata only)
+
+### current status
+- Previous Railway project was DELETED due to persistent deploy failures
+- Needs a fresh Railway project created and redeployed
+- Server code lives in: ~/kataleya/lib/ or ~/kataleya/exports/ (check repo)
+- Required env vars: PORT, DATA_DIR
+- Required: /health endpoint for Railway health checks
+- channels.json must persist via Railway Volume mounted at /data
+
+---
+
 ## accounts & identifiers
 
 - GitHub: github.com/kwasikontor45/kataleya
 - Expo account: bleedin6ed6e
 - EAS project ID: 8c2a466b-748a-4eb5-a42e-4f0bdb9aa856
 - Project root: ~/kataleya/artifacts/kataleya-app
-- Railway: API server (Node.js), blind relay only
+- Railway: DELETED — previous deployment had persistent deploy failures. needs to be redeployed fresh.
 - Base44 prototype: https://kataleya-9011e6eb.base44.app (reference UI only — not production)
 
 ---
@@ -30,8 +53,7 @@ The soul of kataleya: **presence without monitoring. context-awareness without s
 - expo-secure-store
 - AsyncStorage
 - TweetNaCl (X25519 + XSalsa20-Poly1305) — E2E message encryption
-- Railway (Node.js API server)
-- channels.json persists via Railway Volume at /data (DATA_DIR env var)
+- Railway (Node.js blind relay server) — NEEDS FRESH DEPLOY. Previous project deleted due to deploy failures.
 - pnpm workspace
 
 ---
@@ -224,3 +246,104 @@ git add -A && git commit -m "fix: description" && git push origin main
 ```
 
 - kebab-case. always. no exceptions unless forced by platform.
+
+---
+
+## vision shift — april 2026
+
+### the mind shift
+The visionary has shifted direction. This is intentional and correct.
+Garden language is out. Ouroboros Protocol is in.
+The app should not look like a standard app with rigid boxes.
+It needs to feel like it breathes.
+
+### the design principle — everything answers to this
+> "Does this feel like it's alive, or does it feel like it was placed here?"
+
+If it feels placed — it's wrong. If it feels like it emerged — it's right.
+
+### what breathing UI means technically
+- Nothing is fully static when idle. Something always moves.
+- No hard edges. Borders suggest, not frame.
+- Color is atmospheric temperature, not information.
+- Transitions are organic — things emerge and recede.
+- Text has weight established by space, not just size.
+- The tab bar is nearly invisible when idle.
+- Cards are not boxes — they are fields.
+
+### ouroboros protocol — language and identity
+- Phase names in UI: void · desire · renewal · choice (not night/goldenHour/dawn/day)
+- Color names: Null Black · Choice Cyan · Craving Amber · Resolve Violet · Scar Silver
+- Milestone language: scars, not badges. Survived cycles, not streaks.
+- The ring never closes. Always a gap. Always becoming.
+- butterfly-dna.gif stays. Do NOT remove or replace.
+
+### source documents
+Two documents inform the entire design direction:
+
+1. **Kataleya — Amor Fati audio script** — the soul document.
+   Key line: "Some things don't need to be tracked to be understood."
+   This is the onboarding narration. Map each line to each onboarding step.
+   It plays as ambient text while the user moves through onboarding.
+
+2. **Personal Sanctuary React component** — shows the interaction model for the cover screen.
+   One breathing object. Tap → phrase → fade → silence. No input required.
+   This is the 2am moment. The cover screen is this.
+
+### what was just built
+- cover.tsx — rebuilt as breathing object. Phase-aware phrases (void/desire/renewal/choice).
+  Orb breathes at 9s cycle. Phrase fades in 6s. Return appears after 8s. Nothing asked of user.
+- NeonCard.tsx — glassmorphism. Noise texture via SVG feTurbulence. Shimmer. Scar marks from cycleCount.
+- OuroborosRing.tsx — new component. Never closes. Scar marks every 3 days sober (max 12).
+  Phase-aware rotation speed. Breathing scale.
+- circadian.ts — added ouroborosPhase field: void · desire · renewal · choice
+
+### what is being built next (in order)
+1. **Onboarding narration** — map audio script lines to 7 onboarding steps.
+   Ambient text, not a modal. Appears and fades behind the UI.
+2. **Ambient animation layer** — full-screen breathing background behind everything.
+   Slower than the orb. The environment itself is alive.
+3. **use-user-state.ts** — the adaptive state engine.
+   Four states: struggling · stable · thriving · rest.
+   Home screen reads this and responds. This is the soul of the experience.
+4. **Milestone moments** — when user crosses 7/30/90/365 days, the app feels different.
+   Not a notification. Not a badge. The orb behaves differently. One quiet acknowledgment.
+5. **Home screen as orbital space** — not cards stacked vertically.
+   Orb at center. Content at different depths as user scrolls.
+   Physics-based spring transitions, not timing functions.
+6. **Tab bar dissolves** — icons only, no labels, very low opacity idle.
+   Appears on interaction. Nearly invisible between touches.
+
+### the 2am principle
+The moment Kataleya exists for:
+> Someone at 2am reaches for the app instead of the other thing.
+> The app meets them. No menu. No options. Just the orb breathing
+> and one quiet line that already knows what time it is.
+
+Everything is built in service of that moment.
+
+### user journey (three modes)
+- **Arriving** — bridge screen. One action: enter. Nothing else.
+- **Present** — home screen. Orb at center. Mood, breathe, ground, urge surf orbit it.
+- **2am** — cover screen. One breathing object. One phrase. Silence. Return when ready.
+
+### what the app must never be
+- A notification machine
+- A streak tracker that punishes
+- A clinical tool
+- A standard app with rigid boxes
+- Loud in any way
+
+### railway (still pending)
+Previous project deleted. Needs fresh deploy.
+Server is blind relay only — sees ciphertext, nothing else.
+Required: PORT env var, DATA_DIR env var, /health endpoint, Volume at /data.
+
+### working rules (unchanged)
+- one file at a time. test → commit → next.
+- kebab-case file names always.
+- never generic emojis in UI.
+- never transmit user health data to any server.
+- blind relay only.
+- PAYWALL_ACTIVE=false — do not enable.
+- butterfly-dna.gif — do NOT touch.

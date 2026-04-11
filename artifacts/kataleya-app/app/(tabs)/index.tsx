@@ -37,10 +37,10 @@ function formatDate(d: Date): string {
 }
 
 function greetPhrase(phase: string): string {
-  if (phase === 'dawn') return 'good morning';
-  if (phase === 'day') return 'good afternoon';
-  if (phase === 'goldenHour') return 'good evening';
-  return 'good night';
+  if (phase === 'dawn')        return 'the signal returns';
+  if (phase === 'day')         return 'full presence';
+  if (phase === 'goldenHour')  return 'the threshold';
+  return 'deep cloak';
 }
 
 // Circadian accent RGB — matches GhostPulseOrb color logic
@@ -103,6 +103,7 @@ export default function SanctuaryScreen() {
   const ecgAnim    = useRef(new Animated.Value(0)).current;
   const orbHint      = useRef(new Animated.Value(0)).current;
   const wordmarkPulse = useRef(new Animated.Value(0.3)).current;
+  const ambientGlow   = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const breathe = () => {
       Animated.sequence([
@@ -205,6 +206,29 @@ export default function SanctuaryScreen() {
     return () => clearTimeout(t);
   }, [wordmarkPulse]);
 
+  // Ambient glow — 12s breath cycle, behind everything
+  // Slower than the orb. The environment breathes, not performs.
+  useEffect(() => {
+    const breathe = () => {
+      Animated.sequence([
+        Animated.timing(ambientGlow, {
+          toValue: 1,
+          duration: 6000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+        Animated.timing(ambientGlow, {
+          toValue: 0,
+          duration: 6000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+      ]).start(({ finished }) => { if (finished) breathe(); });
+    };
+    const t = setTimeout(breathe, 800);
+    return () => clearTimeout(t);
+  }, [ambientGlow]);
+
   const [pickerDate, setPickerDate] = useState<Date>(
     sobriety.startDate ? new Date(sobriety.startDate) : new Date()
   );
@@ -285,11 +309,31 @@ export default function SanctuaryScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      {/* Ambient top glow — circadian color */}
-      <View
+      {/* Ambient breathing glow — the environment is alive */}
+      <Animated.View
+        pointerEvents="none"
         style={[
           styles.ambientGlow,
-          { backgroundColor: `rgba(${accentRgb}, 0.04)` },
+          {
+            backgroundColor: ambientGlow.interpolate({
+              inputRange:  [0, 1],
+              outputRange: [`rgba(${accentRgb}, 0.02)`, `rgba(${accentRgb}, 0.06)`],
+            }),
+          },
+        ]}
+      />
+      {/* Deep radial — centered on orb, slower and wider */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.ambientRadial,
+          {
+            opacity: ambientGlow.interpolate({
+              inputRange:  [0, 1],
+              outputRange: [0.0, 0.55],
+            }),
+            backgroundColor: `rgba(${accentRgb}, 0.04)`,
+          },
         ]}
       />
 
@@ -377,7 +421,7 @@ export default function SanctuaryScreen() {
               backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.08)` : 'transparent',
             }]}>
               <Text style={[styles.circadianPillText, { color: darkOverride ? `rgba(${accentRgb}, 0.9)` : theme.accent }]}>
-                {darkOverride ? '◗ ' : ''}{phaseConfig.displayName}
+                {darkOverride ? '◗ ' : ''}{phaseConfig.ouroborosPhase ?? phaseConfig.displayName}
               </Text>
             </View>
           </TouchableOpacity>
@@ -752,6 +796,15 @@ export default function SanctuaryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  ambientRadial: {
+    position: 'absolute',
+    width: '160%',
+    aspectRatio: 1,
+    borderRadius: 9999,
+    top: '15%',
+    alignSelf: 'center',
+    transform: [{ scaleY: 0.6 }],
+  },
   ambientGlow: {
     position: 'absolute', top: 0, left: 0, right: 0, height: 320,
     pointerEvents: 'none',

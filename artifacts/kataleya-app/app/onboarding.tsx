@@ -2,11 +2,11 @@
 // Fixed: no hyphenated style keys, no hyphenated ThemeTokens references.
 // All theme property access uses camelCase (textMuted, phaseRgb, etc.)
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback,
   Dimensions, TextInput, Platform, Switch, KeyboardAvoidingView,
-  Keyboard, ScrollView, Animated, FlatList,
+  Keyboard, ScrollView, Animated, Easing, FlatList,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
@@ -18,7 +18,7 @@ const { width } = Dimensions.get('window');
 
 // ── SVG Icons — no emojis, theme-colored ─────────────────────────────────────
 
-const IconBridge = ({ color = '#8a8a9e', size = 64 }) => (
+const IconBridge = ({ color = '#7fc9c9', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     {/* Outer ring — barely visible */}
     <Circle cx={32} cy={32} r={30} fill="none" stroke={color} strokeWidth={0.6} opacity={0.15} />
@@ -42,7 +42,7 @@ const IconBridge = ({ color = '#8a8a9e', size = 64 }) => (
   </Svg>
 );
 
-const IconPerson = ({ color = '#8a8a9e', size = 64 }) => (
+const IconPerson = ({ color = '#7fc9c9', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Circle cx={32} cy={18} r={10} fill="none" stroke={color} strokeWidth={2} />
     <Path d="M12 54 C12 38 20 32 32 32 C44 32 52 38 52 54"
@@ -51,7 +51,7 @@ const IconPerson = ({ color = '#8a8a9e', size = 64 }) => (
   </Svg>
 );
 
-const IconRecovery = ({ color = '#8a8a9e', size = 64 }) => (
+const IconRecovery = ({ color = '#7fc9c9', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Path d="M8 52 L14 38 L20 44 L26 28 L32 32"
       fill="none" stroke={color} strokeWidth={2}
@@ -63,7 +63,7 @@ const IconRecovery = ({ color = '#8a8a9e', size = 64 }) => (
   </Svg>
 );
 
-const IconClock = ({ color = '#8a8a9e', size = 64 }) => (
+const IconClock = ({ color = '#7fc9c9', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Circle cx={32} cy={32} r={24} fill="none" stroke={color} strokeWidth={2} opacity={0.35} />
     <Circle cx={32} cy={32} r={16} fill="none" stroke={color} strokeWidth={1} opacity={0.25} />
@@ -77,7 +77,7 @@ const IconClock = ({ color = '#8a8a9e', size = 64 }) => (
   </Svg>
 );
 
-const IconVault = ({ color = '#8a8a9e', size = 64 }) => (
+const IconVault = ({ color = '#7fc9c9', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Path d="M32 6 L54 16 L54 36 C54 48 44 56 32 60 C20 56 10 48 10 36 L10 16 Z"
       fill="none" stroke={color} strokeWidth={2} opacity={0.45} />
@@ -89,7 +89,7 @@ const IconVault = ({ color = '#8a8a9e', size = 64 }) => (
   </Svg>
 );
 
-const IconBell = ({ color = '#8a8a9e', size = 64 }) => (
+const IconBell = ({ color = '#7fc9c9', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Path d="M20 42 L20 28 Q20 16 32 14 Q44 16 44 28 L44 42 Z"
       fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
@@ -101,7 +101,7 @@ const IconBell = ({ color = '#8a8a9e', size = 64 }) => (
   </Svg>
 );
 
-const IconOrchid = ({ color = '#8a8a9e', size = 64 }) => (
+const IconOrchid = ({ color = '#7fc9c9', size = 64 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64">
     <Circle cx={32} cy={32} r={28} fill="none" stroke={color} strokeWidth={0.8} opacity={0.12} />
     <Circle cx={32} cy={32} r={20} fill="none" stroke={color} strokeWidth={1}   opacity={0.2} />
@@ -326,8 +326,21 @@ const STEPS = [
   { id: 'date',     label: 'when did you\nbegin?',               Icon: IconClock,   cta: 'continue' },
   { id: 'privacy',  label: 'your data never\nleaves this device', Icon: IconVault,   cta: 'continue' },
   { id: 'notifs',   label: 'gentle reminders\nwhen you need them',Icon: IconBell,    cta: 'continue' },
-  { id: 'enter',    label: 'the garden\nis ready',               Icon: IconOrchid,  cta: 'enter sanctuary' },
+  { id: 'enter',    label: 'the cycle\nbegins',                  Icon: IconOrchid,  cta: 'enter' },
 ] as const;
+
+// ── Onboarding narration — Amor Fati audio script mapped to steps ─────────────
+// Ambient text beneath each step label. Fades in 600ms after step loads.
+// No interaction required. Words appear. Words fade. Presence only.
+const NARRATION: Record<string, { line1: string; line2?: string }> = {
+  welcome:   { line1: "Some things don't need to be tracked", line2: "to be understood." },
+  name:      { line1: "A quiet place where healing", line2: "doesn't perform for anyone." },
+  substance: { line1: "2am is not the same as dawn.", line2: "The circadian engine knows this." },
+  date:      { line1: "Growth is measured in seasons,", line2: "not streaks." },
+  privacy:   { line1: "Three vaults. Sealed by design.", line2: "The blind relay carries only what it cannot read." },
+  notifs:    { line1: "The app should know as little", line2: "about you as possible." },
+  enter:     { line1: "Amor Fati.", line2: "Life rewritten by choice." },
+};
 
 const SUBSTANCE_OPTIONS = [
   'alcohol',
@@ -345,6 +358,7 @@ export default function Onboarding() {
   const [name, setName] = useState('');
   const [substance, setSubstance] = useState('');
   const [sobrietyDate, setSobrietyDate] = useState(new Date());
+  const narrationOpacity = useRef(new Animated.Value(0)).current;
   const [morningEnabled, setMorningEnabled] = useState(true);
   const [eveningEnabled, setEveningEnabled] = useState(true);
   const [morningTime, setMorningTime] = useState(() => { const d = new Date(); d.setHours(8, 0, 0, 0); return d; });
@@ -352,6 +366,20 @@ export default function Onboarding() {
 
   const accentColor = theme.accent;
   const phaseRgb    = theme.phaseRgb;
+
+  // Narration fade — ambient text breathes in on each step
+  useEffect(() => {
+    narrationOpacity.setValue(0);
+    const t = setTimeout(() => {
+      Animated.timing(narrationOpacity, {
+        toValue: 1,
+        duration: 900,
+        useNativeDriver: true,
+        easing: Easing.inOut(Easing.sin),
+      }).start();
+    }, 600);
+    return () => clearTimeout(t);
+  }, [step]);
 
   const advance = () => {
     if (step < STEPS.length - 1) setStep(s => s + 1);
@@ -412,6 +440,20 @@ export default function Onboarding() {
       <Text style={[styles.label, { color: theme.text }]}>
         {label}
       </Text>
+
+      {/* Narration — ambient script line, fades in after label */}
+      {NARRATION[id] && (
+        <Animated.View style={[styles.narrationWrap, { opacity: narrationOpacity }]}>
+          <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.38)` }]}>
+            {NARRATION[id].line1}
+          </Text>
+          {NARRATION[id].line2 && (
+            <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.28)` }]}>
+              {NARRATION[id].line2}
+            </Text>
+          )}
+        </Animated.View>
+      )}
 
       {/* Step content */}
       <View style={styles.content}>
@@ -744,6 +786,21 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     opacity: 0.5,
     fontFamily: 'CourierPrime',
+  },
+  narrationWrap: {
+    alignItems: 'center',
+    marginTop: -16,
+    marginBottom: 8,
+    gap: 4,
+    paddingHorizontal: 24,
+  },
+  narrationLine: {
+    fontFamily: 'CourierPrime',
+    fontSize: 11,
+    letterSpacing: 0.5,
+    lineHeight: 18,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   backBtn: {
     position: 'absolute',
