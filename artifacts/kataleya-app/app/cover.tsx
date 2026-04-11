@@ -350,13 +350,11 @@ export default function CoverScreen() {
             opacity: orbOpacity,
           }]}>
             {/* Butterfly — centered, embedded in glow */}
-            <View style={styles.butterflyGlow}>
-              <Image
-                source={require('../assets/images/butterfly-dna.gif')}
-                style={{ width: ORB * 0.58, height: ORB * 0.58 }}
-                resizeMode="contain"
-              />
-            </View>
+            <Image
+              source={require('../assets/images/butterfly-dna-t.gif')}
+              style={{ width: ORB * 0.75, height: ORB * 0.75 }}
+              resizeMode="contain"
+            />
           </Animated.View>
         </TouchableOpacity>
 
@@ -422,6 +420,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   phraseWrap: {
     position: 'absolute',
