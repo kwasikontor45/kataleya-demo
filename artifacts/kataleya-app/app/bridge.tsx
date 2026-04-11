@@ -82,11 +82,12 @@ export default function BridgeScreen() {
   const [bridgePhrase, setBridgePhrase] = useState<string>('');
 
   // Animated values
-  const fadeIn       = useRef(new Animated.Value(0)).current;
-  const phraseOpacity = useRef(new Animated.Value(0)).current;
-  const enterOpacity = useRef(new Animated.Value(0)).current;
+  const fadeIn          = useRef(new Animated.Value(0)).current;
+  const phraseOpacity   = useRef(new Animated.Value(0)).current;
+  const enterOpacity    = useRef(new Animated.Value(0)).current;
   const wordmarkOpacity = useRef(new Animated.Value(0)).current;
-  const orbOpacity   = useRef(new Animated.Value(0)).current;
+  const orbOpacity      = useRef(new Animated.Value(0)).current;
+  const glowPulse       = useRef(new Animated.Value(0)).current;
 
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -146,6 +147,22 @@ export default function BridgeScreen() {
       toValue: 0.12, duration: 2000, delay: 4000,
       useNativeDriver: true,
     }).start();
+
+    // Ambient glow — slow breath, loops forever
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowPulse, {
+          toValue: 1, duration: 4000,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.sin),
+        }),
+        Animated.timing(glowPulse, {
+          toValue: 0, duration: 4000,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.sin),
+        }),
+      ])
+    ).start();
   }, []);
 
   const navigate = useCallback(() => {
@@ -155,6 +172,15 @@ export default function BridgeScreen() {
 
   const accentRgb = getAccentRgb(phase);
   const theme = themeForPhase(phase as any);
+
+  // Phase-directional light — one source per phase
+  const lightOffset = phase === 'dawn'       ? { dx: -W * 0.22, dy: -H * 0.14 }
+                    : phase === 'goldenHour' ? { dx:  W * 0.22, dy: -H * 0.04 }
+                    : phase === 'night'      ? { dx:  0,        dy:  H * 0.18  }
+                    :                         { dx:  0,        dy: -H * 0.14  }; // day: top
+
+  const glowOpacity = glowPulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.0] });
+
   const ouroborosPhase = phase === 'night' ? 'void'
     : phase === 'goldenHour' ? 'desire'
     : phase === 'dawn' ? 'renewal'
@@ -162,6 +188,51 @@ export default function BridgeScreen() {
 
   return (
     <Animated.View style={[styles.root, { backgroundColor: '#050508', opacity: fadeIn }]}>
+
+      {/* Ambient glow pools — phase atmosphere, breathes with the ring */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Animated.View style={{
+            position: 'absolute',
+            width: RING_SIZE * 2.6, height: RING_SIZE * 2.6,
+            borderRadius: RING_SIZE * 1.3,
+            backgroundColor: `rgba(${accentRgb}, 0.018)`,
+            opacity: glowOpacity,
+          }} />
+          <Animated.View style={{
+            position: 'absolute',
+            width: RING_SIZE * 1.85, height: RING_SIZE * 1.85,
+            borderRadius: RING_SIZE * 0.925,
+            backgroundColor: `rgba(${accentRgb}, 0.032)`,
+            opacity: glowOpacity,
+          }} />
+          <Animated.View style={{
+            position: 'absolute',
+            width: RING_SIZE * 1.25, height: RING_SIZE * 1.25,
+            borderRadius: RING_SIZE * 0.625,
+            backgroundColor: `rgba(${accentRgb}, 0.05)`,
+            opacity: glowOpacity,
+          }} />
+        </View>
+      </View>
+
+      {/* Phase-directional light — one source per phase */}
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { alignItems: 'center', justifyContent: 'center' },
+        ]}
+      >
+        <View style={{
+          position: 'absolute',
+          left: W / 2 - RING_SIZE * 1.1 + lightOffset.dx,
+          top: H / 2 - RING_SIZE * 1.1 + lightOffset.dy,
+          width: RING_SIZE * 2.2, height: RING_SIZE * 2.2,
+          borderRadius: RING_SIZE * 1.1,
+          backgroundColor: `rgba(${accentRgb}, 0.014)`,
+        }} />
+      </View>
 
       {/* Phase whisper — top center */}
       <Text style={[styles.phaseWhisper, { color: `rgba(${accentRgb}, 0.18)` }]}>
@@ -172,7 +243,10 @@ export default function BridgeScreen() {
       <View style={styles.center}>
 
         {/* OuroborosRing — turning, scarred, never closing */}
-        <Animated.View style={[styles.ringWrap, { opacity: orbOpacity }]} pointerEvents="none">
+        <Animated.View style={[styles.ringWrap, {
+          opacity: orbOpacity,
+          transform: [{ perspective: 700 }, { rotateX: '-10deg' }],
+        }]} pointerEvents="none">
           <OuroborosRing
             size={RING_SIZE}
             color={theme.accent}
@@ -212,7 +286,14 @@ export default function BridgeScreen() {
           activeOpacity={0.7}
           style={[styles.enterBtn, {
             borderColor: `rgba(${accentRgb}, 0.28)`,
+            borderTopColor: `rgba(${accentRgb}, 0.5)`,
+            borderTopWidth: 1.5,
             backgroundColor: `rgba(${accentRgb}, 0.05)`,
+            shadowColor: `rgb(${accentRgb})`,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.28,
+            shadowRadius: 10,
+            elevation: 4,
           }]}
         >
           <Text style={[styles.enterText, { color: `rgba(${accentRgb}, 0.8)` }]}>
