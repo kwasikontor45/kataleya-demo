@@ -376,23 +376,9 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
         4 · 7 · 8
       </Text>
 
-      {/* ── Tap to begin — only before start ── */}
-      {!hasStarted.current && !isDone.current && (
-        <TouchableOpacity onPress={handleBegin} hitSlop={24} style={styles.beginHint}>
-          <Text style={[styles.beginHintText, { color: `rgba(${phaseRgb}, 0.35)` }]}>
-            tap the orb to begin
-          </Text>
-        </TouchableOpacity>
-      )}
 
-      {/* ── Tap to begin — only before start ── */}
-      {!hasStarted.current && !isDone.current && (
-        <TouchableOpacity onPress={handleBegin} hitSlop={24} style={styles.beginHint}>
-          <Text style={[styles.beginHintText, { color: `rgba(${phaseRgb}, 0.35)` }]}>
-            tap the orb to begin
-          </Text>
-        </TouchableOpacity>
-      )}
+
+
 
       {/* ── Orb ─────────────────────────────────────────────────────────── */}
       <View style={[styles.orbWrap, { width: ORB_SIZE, height: ORB_SIZE }]}>
