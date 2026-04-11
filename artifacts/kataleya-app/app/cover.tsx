@@ -25,12 +25,13 @@ import Svg, { Line, Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useCircadian } from '@/hooks/useCircadian';
+import { TypewriterText } from '@/components/typewriter-text';
 import { OuroborosRing } from '@/components/OuroborosRing';
 import { useSobriety } from '@/hooks/useSobriety';
 
 const { width: W, height: H } = Dimensions.get('window');
 const ORB = Math.min(W * 0.48, 200);
-const RING_SIZE = ORB * 1.72;
+const RING_SIZE = ORB * 2.6;
 
 // ── Phrases — garden language, honest, never performative ────────────────────
 const PHRASES: Record<string, string[]> = {
@@ -84,7 +85,7 @@ function getPhrase(phase: string, lastIdx: number): { text: string; index: numbe
 // ── Rain layer — void phase, Blade Runner vertical drifts ────────────────────
 function RainLayer({ accentRgb }: { accentRgb: string }) {
   const anims = useRef(
-    Array.from({ length: 22 }, () => new Animated.Value(Math.random()))
+    Array.from({ length: 18 }, () => new Animated.Value(Math.random()))
   ).current;
 
   useEffect(() => {
@@ -93,7 +94,7 @@ function RainLayer({ accentRgb }: { accentRgb: string }) {
         anim.setValue(0);
         Animated.timing(anim, {
           toValue: 1,
-          duration: 5000 + Math.random() * 7000,
+          duration: 9000 + Math.random() * 12000,
           useNativeDriver: true,
           easing: Easing.linear,
           delay: i * 350,
@@ -108,7 +109,7 @@ function RainLayer({ accentRgb }: { accentRgb: string }) {
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {anims.map((anim, i) => {
         const x = (i / 18) * W + (W / 36);
-        const lineH = 60 + Math.random() * 120;
+        const lineH = 30 + Math.random() * 70;
         return (
           <Animated.View
             key={i}
@@ -117,7 +118,7 @@ function RainLayer({ accentRgb }: { accentRgb: string }) {
               left: x,
               width: 0.5,
               height: lineH,
-              backgroundColor: `rgba(${accentRgb}, ${0.08 + Math.random() * 0.10})`,
+              backgroundColor: `rgba(${accentRgb}, 0.05)`,
               transform: [{
                 translateY: anim.interpolate({
                   inputRange: [0, 1],
@@ -287,7 +288,7 @@ export default function CoverScreen() {
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#050508" />
 
-      {/* Dark breathing pulse — full screen, very subtle */}
+      {/* Ambient glow */}
       <Animated.View pointerEvents="none"
         style={[StyleSheet.absoluteFill, { backgroundColor: bgColor }]} />
 
@@ -317,7 +318,6 @@ export default function CoverScreen() {
             cycleCount={sobriety.daysSober}
             phase={phase as any}
             breathing={false}
-            showDots={false}
           />
         </View>
 
@@ -345,14 +345,14 @@ export default function CoverScreen() {
             width: ORB, height: ORB,
             borderRadius: ORB / 2,
             borderColor: `rgba(${accentRgb}, 1)`,
-            backgroundColor: 'rgba(5,5,8,0.92)',
+            backgroundColor: `rgba(${accentRgb}, 0.05)`,
             transform: [{ scale: orbScale }],
             opacity: orbOpacity,
           }]}>
-            {/* Butterfly — centered, embedded in glow */}
+            {/* Butterfly — perfectly centered, own colors */}
             <Image
-              source={require('../assets/images/butterfly-dna-t.gif')}
-              style={{ width: ORB * 0.75, height: ORB * 0.75 }}
+              source={require('../assets/images/butterfly-dna.gif')}
+              style={{ width: ORB * 0.62, height: ORB * 0.62 }}
               resizeMode="contain"
             />
           </Animated.View>
@@ -363,9 +363,12 @@ export default function CoverScreen() {
       {/* Phrase */}
       <Animated.View style={[styles.phraseWrap, { opacity: phraseOpacity }]}>
         {phrase && (
-          <Text style={[styles.phraseText, { color: `rgba(${accentRgb}, 0.88)` }]}>
-            {phrase}
-          </Text>
+          <TypewriterText
+            text={phrase}
+            speed={48}
+            jitter={30}
+            style={[styles.phraseText, { color: `rgba(${accentRgb}, 0.88)` }]}
+          />
         )}
       </Animated.View>
 
@@ -379,7 +382,7 @@ export default function CoverScreen() {
       </Animated.View>
 
       {/* Wordmark */}
-      <Text style={[styles.wordmark, { color: `rgba(${accentRgb}, 0.22)` }]}>
+      <Text style={[styles.wordmark, { color: `rgba(${accentRgb}, 0.07)` }]}>
         kataleya
       </Text>
     </View>
@@ -420,7 +423,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
   phraseWrap: {
     position: 'absolute',
@@ -446,14 +448,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 2.5,
     textTransform: 'lowercase',
-  },
-  butterflyGlow: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#ffffff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
   },
   wordmark: {
     position: 'absolute',

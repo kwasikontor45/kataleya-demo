@@ -18,22 +18,18 @@ import { OuroborosRing } from '@/components/OuroborosRing';
 import { getCurrentPhase, getCurrentMinutes, CIRCADIAN_PHASES } from '@/constants/circadian';
 import { themeForPhase } from '@/constants/theme';
 import { Surface, Sanctuary } from '@/utils/storage';
+import { TypewriterText } from '@/components/typewriter-text';
 
 const { width: W, height: H } = Dimensions.get('window');
 const RING_SIZE = Math.min(W * 0.72, 280);
 
 // ── One phrase per phase — garden language, knows what time it is ─────────────
-const BRIDGE_PHRASES: Record<string, string[]> = {
-  dawn:       ['the garden wakes.\nso do you.', 'morning.\nthe garden held.'],
-  day:        ['you are present.\nthat is enough.', 'the garden is awake.\nso are you.'],
-  goldenHour: ['the threshold.\nhold.', 'between one self and the next.\nhold.'],
-  night:      ['still here.\nso is the garden.', 'the night held.\nmorning is close.'],
+const BRIDGE_PHRASES: Record<string, string> = {
+  dawn:       'the garden wakes.\nso do you.',
+  day:        'you are present.\nthat is enough.',
+  goldenHour: 'the threshold.\nhold.',
+  night:      'the garden is open.\neven now.',
 };
-
-function getBridgePhrase(phase: string): string {
-  const pool = BRIDGE_PHRASES[phase] ?? BRIDGE_PHRASES.night;
-  return pool[Math.floor(Math.random() * pool.length)];
-}
 
 function getAccentRgb(phase: string): string {
   if (phase === 'night')      return '138,95,224';
@@ -163,7 +159,7 @@ export default function BridgeScreen() {
       {/* Garden phrase — one line, knows what time it is */}
       <Animated.View style={[styles.phraseWrap, { opacity: phraseOpacity }]}>
         <Text style={[styles.phrase, { color: `rgba(${accentRgb}, 0.72)` }]}>
-          {getBridgePhrase(phase)}
+          {BRIDGE_PHRASES[phase] ?? BRIDGE_PHRASES.night}
         </Text>
       </Animated.View>
 
