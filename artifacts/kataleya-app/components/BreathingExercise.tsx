@@ -495,12 +495,10 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
       </Animated.View>
 
       {/* ── Dismiss — only after 2 cycles, no play/pause ────────────────── */}
-      <Animated.View style={{ opacity: dismissOpacity }}>
-        <TouchableOpacity onPress={handleDismiss} style={styles.dismiss}>
-          <Text style={[styles.dismissText, { color: theme.textMuted, fontFamily: 'CourierPrime' }]}>
-            i feel it
-          </Text>
-        </TouchableOpacity>
+      <Animated.View style={[styles.dismiss, { opacity: dismissOpacity }]}>
+        <Text style={[styles.dismissText, { color: `rgba(${phaseRgb}, 0.35)`, fontFamily: 'CourierPrime' }]}>
+          you did well
+        </Text>
       </Animated.View>
 
     </TouchableOpacity>
@@ -647,12 +645,6 @@ const styles = StyleSheet.create({
     fontFamily: 'CourierPrime',
     fontSize: 16,
     letterSpacing: 1,
-  },
-  dismissPill: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 28,
   },
   dismissPill: {
     borderWidth: 1,
