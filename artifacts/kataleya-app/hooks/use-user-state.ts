@@ -206,7 +206,7 @@ export const STATE_CONFIG = {
     greeting: [
       'the garden sleeps.',
       'rest is not surrender.',
-      'the garden doesn't judge the winter.',
+      "the garden doesn't judge the winter.",
       '2am always ends.',
     ],
   },
