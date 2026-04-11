@@ -613,6 +613,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 28,
   },
+  dismissPill: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+  },
   dismiss: {
     paddingVertical: 12,
     paddingHorizontal: 32,
