@@ -695,15 +695,7 @@ export default function SanctuaryScreen() {
               <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.amber},0.55)` }]}>sanctuary</Text>
               <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.amber},0.25)` }]}>2am</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.amber},0.22)`, backgroundColor: `rgba(${NEON_RGB.amber},0.04)` }]}
-              onPress={() => router.push('/cover')}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.amber},0.45)` }]}>◬</Text>
-              <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.amber},0.55)` }]}>sanctuary</Text>
-              <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.amber},0.25)` }]}>2am</Text>
-            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.cyan},0.22)`, backgroundColor: `rgba(${NEON_RGB.cyan},0.04)` }]}
               onPress={() => setShowBreathing(true)}
