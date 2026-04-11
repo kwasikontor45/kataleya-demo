@@ -214,7 +214,8 @@ export function GhostPulseOrb({
               {
                 width: coreSize * 0.68,
                 height: coreSize * 0.68,
-              },
+                mixBlendMode: 'screen',
+              } as any,
             ]}
             resizeMode="contain"
           />
