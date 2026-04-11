@@ -66,7 +66,7 @@ function phaseAccentRgb(phase: CircadianPhase): string {
   switch (phase) {
     case 'goldenHour': return NEON_RGB.amber;
     case 'night':      return NEON_RGB.violet;
-    case 'dawn':       return NEON_RGB.pink;
+    case 'dawn':       return NEON_RGB.cyan;
     default:           return NEON_RGB.cyan;
   }
 }

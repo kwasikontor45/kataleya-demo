@@ -52,7 +52,7 @@ function greetPhrase(phase: string): string {
 function phaseAccentRgb(phase: string): string {
   if (phase === 'goldenHour') return NEON_RGB.amber;
   if (phase === 'night')      return NEON_RGB.violet;
-  if (phase === 'dawn')       return NEON_RGB.pink;
+  if (phase === 'dawn')       return NEON_RGB.cyan;
   return NEON_RGB.cyan;
 }
 
@@ -274,7 +274,6 @@ export default function SanctuaryScreen() {
   const ambientGlow   = useRef(new Animated.Value(0)).current;
   // Scroll parallax
   const scrollY       = useRef(new Animated.Value(0)).current;
-  const orbParallaxY  = scrollY.interpolate({ inputRange: [0, 400], outputRange: [0, 120], extrapolate: 'clamp' });
   const bgParallaxY   = scrollY.interpolate({ inputRange: [0, 400], outputRange: [0, 20],  extrapolate: 'clamp' });
   // Quick-slot press depth
   const slotScale0 = useRef(new Animated.Value(1)).current;
@@ -544,7 +543,6 @@ export default function SanctuaryScreen() {
           styles.scroll,
           { paddingTop: topPad + 12, paddingBottom: botPad + 16 },
         ]}
-        scrollEnabled={!settingDate}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         onScroll={Animated.event(
@@ -607,7 +605,7 @@ export default function SanctuaryScreen() {
           {overrideHint && (
             <View style={{ position: 'absolute', top: 36, alignSelf: 'center', zIndex: 10 }}>
               <Text style={{ fontFamily: 'SpaceMono', fontSize: 9, letterSpacing: 1.5, color: `rgba(${accentRgb},0.6)` }}>
-                {darkOverride ? 'following circadian rhythm' : 'night mode on'}
+                {darkOverride ? 'circadian' : 'void mode'}
               </Text>
             </View>
           )}
@@ -628,7 +626,7 @@ export default function SanctuaryScreen() {
               backgroundColor: darkOverride ? `rgba(${accentRgb}, 0.08)` : 'transparent',
             }]}>
               <Text style={[styles.circadianPillText, { color: darkOverride ? `rgba(${accentRgb}, 0.9)` : theme.accent }]}>
-                {darkOverride ? '◗ night mode' : phaseConfig.displayName}
+                {darkOverride ? '◗ void' : phaseConfig.displayName}
               </Text>
             </View>
           </TouchableOpacity>
@@ -636,7 +634,7 @@ export default function SanctuaryScreen() {
         </View>
 
         {/* ── GHOST PULSE ORB + OUROBOROS RING — snake encircles butterfly ── */}
-        <Animated.View style={[styles.orbSection, { transform: [{ translateY: orbParallaxY }] }]}>
+        <View style={styles.orbSection}>
           <TouchableOpacity
             activeOpacity={is2am ? 0.7 : 1}
             onPress={is2am ? () => router.push('/cover') : undefined}
@@ -664,7 +662,7 @@ export default function SanctuaryScreen() {
               />
             </View>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* Timer */}
         {sobriety.startDate ? (
@@ -707,68 +705,11 @@ export default function SanctuaryScreen() {
               </Text>
             )}
 
-            <TouchableOpacity onPress={() => setSettingDate(v => !v)} style={styles.adjustBtn}>
+            <TouchableOpacity onPress={() => setSettingDate(true)} style={styles.adjustBtn}>
               <Text style={[styles.adjustText, { color: `${theme.textMuted}70` }]}>
-                {settingDate ? 'cancel' : 'adjust date'}
+                adjust date
               </Text>
             </TouchableOpacity>
-
-            {settingDate && (
-              <View style={styles.datePickerArea}>
-                {Platform.OS !== 'web' ? (
-                  <DateScrollPicker
-                    value={pickerDate}
-                    onChange={setPickerDate}
-                    accentRgb={accentRgb}
-                    phaseRgb={theme.phaseRgb ?? accentRgb}
-                    textMuted={theme.textMuted}
-                    bg={theme.bg}
-                  />
-                ) : (
-                  <View style={[styles.webDateCard, { backgroundColor: theme.surface, borderColor: `rgba(${accentRgb}, 0.2)` }]}>
-                    <Text style={[styles.webDateLabel, { color: theme.textMuted }]}>select date</Text>
-                    <input
-                      type="date"
-                      defaultValue={pickerDate.toISOString().split('T')[0]}
-                      max={new Date().toISOString().split('T')[0]}
-                      style={{
-                        background: 'transparent', border: 'none',
-                        color: theme.text, fontFamily: 'CourierPrime',
-                        fontSize: 16, width: '100%', outline: 'none', padding: '4px 0',
-                      }}
-                      onChange={(e) => {
-                        const d = new Date(e.target.value);
-                        if (!isNaN(d.getTime())) setPickerDate(d);
-                      }}
-                    />
-                  </View>
-                )}
-                {(Platform.OS === 'ios' || Platform.OS === 'web') && (
-                  <View style={styles.pickerFooter}>
-                    {Platform.OS === 'ios' && (
-                      <Text style={[styles.pickerSelected, { color: theme.textMuted }]}>
-                        {formatDate(pickerDate)}
-                      </Text>
-                    )}
-                    <TouchableOpacity
-                      style={[
-                        styles.confirmBtn,
-                        {
-                          borderColor: `rgba(${accentRgb}, 0.4)`,
-                          backgroundColor: `rgba(${accentRgb}, 0.1)`,
-                          flex: Platform.OS === 'ios' ? 0 : 1,
-                        },
-                      ]}
-                      onPress={handleConfirmDate}
-                    >
-                      <Text style={[styles.confirmBtnText, { color: `rgba(${accentRgb}, 0.9)` }]}>
-                        confirm
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            )}
           </View>
         ) : (
           // No date set — garden waiting state
@@ -779,73 +720,20 @@ export default function SanctuaryScreen() {
             <Text style={[styles.setupHint, { color: `${theme.textMuted}60` }]}>
               when you're ready, set your date below.
             </Text>
-            {!settingDate ? (
-              <TouchableOpacity
-                style={[
-                  styles.enterBtn,
-                  {
-                    borderColor: `rgba(${accentRgb}, 0.35)`,
-                    backgroundColor: `rgba(${accentRgb}, 0.08)`,
-                  },
-                ]}
-                onPress={() => setSettingDate(true)}
-              >
-                <Text style={[styles.enterBtnText, { color: `rgba(${accentRgb}, 0.85)` }]}>
-                  begin tracking
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.datePickerArea}>
-                {Platform.OS !== 'web' ? (
-                  <DateScrollPicker
-                    value={pickerDate}
-                    onChange={setPickerDate}
-                    accentRgb={accentRgb}
-                    phaseRgb={theme.phaseRgb ?? accentRgb}
-                    textMuted={theme.textMuted}
-                    bg={theme.bg}
-                  />
-                ) : (
-                  <View style={[styles.webDateCard, { backgroundColor: theme.surface, borderColor: `rgba(${accentRgb}, 0.2)` }]}>
-                    <Text style={[styles.webDateLabel, { color: theme.textMuted }]}>select date</Text>
-                    <input
-                      type="date"
-                      defaultValue={pickerDate.toISOString().split('T')[0]}
-                      max={new Date().toISOString().split('T')[0]}
-                      style={{
-                        background: 'transparent', border: 'none',
-                        color: theme.text, fontFamily: 'CourierPrime',
-                        fontSize: 16, width: '100%', outline: 'none', padding: '4px 0',
-                      }}
-                      onChange={(e) => {
-                        const d = new Date(e.target.value);
-                        if (!isNaN(d.getTime())) setPickerDate(d);
-                      }}
-                    />
-                  </View>
-                )}
-                <View style={styles.pickerFooter}>
-                  <TouchableOpacity
-                    style={[
-                      styles.confirmBtn,
-                      {
-                        borderColor: `rgba(${accentRgb}, 0.4)`,
-                        backgroundColor: `rgba(${accentRgb}, 0.1)`,
-                        flex: 1,
-                      },
-                    ]}
-                    onPress={handleConfirmDate}
-                  >
-                    <Text style={[styles.confirmBtnText, { color: `rgba(${accentRgb}, 0.9)` }]}>
-                      confirm
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity onPress={() => setSettingDate(false)}>
-                  <Text style={[styles.adjustText, { color: `${theme.textMuted}70` }]}>cancel</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            <TouchableOpacity
+              style={[
+                styles.enterBtn,
+                {
+                  borderColor: `rgba(${accentRgb}, 0.35)`,
+                  backgroundColor: `rgba(${accentRgb}, 0.08)`,
+                },
+              ]}
+              onPress={() => setSettingDate(true)}
+            >
+              <Text style={[styles.enterBtnText, { color: `rgba(${accentRgb}, 0.85)` }]}>
+                begin tracking
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -927,6 +815,73 @@ export default function SanctuaryScreen() {
         onClose={() => setShowGrounding(false)}
         theme={theme}
       />
+
+      {/* ── DATE PICKER MODAL — slides up from bottom ── */}
+      <Modal
+        visible={settingDate}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => setSettingDate(false)}
+      >
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity
+            style={styles.privacyBackdrop}
+            activeOpacity={1}
+            onPress={() => setSettingDate(false)}
+          />
+          <View style={[styles.datePickerSheet, { backgroundColor: theme.bg, borderColor: `rgba(${accentRgb}, 0.2)` }]}>
+            <View style={styles.sheetTopRow}>
+              <View style={[styles.sheetHandle, { backgroundColor: `rgba(${accentRgb}, 0.3)` }]} />
+              <TouchableOpacity onPress={() => setSettingDate(false)} hitSlop={12} style={styles.sheetCloseBtn}>
+                <Text style={[styles.sheetCloseText, { color: `${theme.textMuted}90` }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.datePickerTitle, { color: `rgba(${accentRgb}, 0.55)` }]}>
+              set your date
+            </Text>
+            <View style={{ paddingHorizontal: 24, paddingBottom: 32, gap: 16 }}>
+              {Platform.OS !== 'web' ? (
+                <DateScrollPicker
+                  value={pickerDate}
+                  onChange={setPickerDate}
+                  accentRgb={accentRgb}
+                  phaseRgb={theme.phaseRgb ?? accentRgb}
+                  textMuted={theme.textMuted}
+                  bg={theme.bg}
+                />
+              ) : (
+                <View style={[styles.webDateCard, { backgroundColor: theme.surface, borderColor: `rgba(${accentRgb}, 0.2)` }]}>
+                  <Text style={[styles.webDateLabel, { color: theme.textMuted }]}>select date</Text>
+                  <input
+                    type="date"
+                    defaultValue={pickerDate.toISOString().split('T')[0]}
+                    max={new Date().toISOString().split('T')[0]}
+                    style={{
+                      background: 'transparent', border: 'none',
+                      color: theme.text, fontFamily: 'CourierPrime',
+                      fontSize: 16, width: '100%', outline: 'none', padding: '4px 0',
+                    }}
+                    onChange={(e) => {
+                      const d = new Date(e.target.value);
+                      if (!isNaN(d.getTime())) setPickerDate(d);
+                    }}
+                  />
+                </View>
+              )}
+              <Text style={[styles.pickerSelected, { color: theme.textMuted, textAlign: 'center' }]}>
+                {formatDate(pickerDate)}
+              </Text>
+              <TouchableOpacity
+                style={[styles.confirmBtn, { borderColor: `rgba(${accentRgb}, 0.4)`, backgroundColor: `rgba(${accentRgb}, 0.1)` }]}
+                onPress={handleConfirmDate}
+              >
+                <Text style={[styles.confirmBtnText, { color: `rgba(${accentRgb}, 0.9)` }]}>confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── PRIVACY MODAL — slides up from bottom on kataleya tap ── */}
       <Modal
@@ -1095,6 +1050,20 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   // Privacy modal
+  datePickerSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    paddingTop: 12,
+  },
+  datePickerTitle: {
+    fontFamily: 'SpaceMono',
+    fontSize: 10,
+    letterSpacing: 3,
+    textTransform: 'lowercase',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
   privacyBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',

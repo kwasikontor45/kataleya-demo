@@ -10,7 +10,7 @@ export interface PhaseConfig {
 export const CIRCADIAN_PHASES: Record<CircadianPhase, PhaseConfig> = {
   dawn: {
     name: 'dawn',
-    displayName: 'morning',
+    displayName: 'dawn',
     ouroborosPhase: 'renewal',
     description: 'The signal returns. You chose to come back.',
   },

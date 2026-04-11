@@ -110,7 +110,7 @@ export function OuroborosRing({
         style={{
           width: size,
           height: size,
-          transform: [{ perspective: 800 }, { rotateY: '10deg' }, { scale: pulse }, { rotate: rotation }],
+          transform: [{ scale: pulse }, { rotate: rotation }],
         }}
       >
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
