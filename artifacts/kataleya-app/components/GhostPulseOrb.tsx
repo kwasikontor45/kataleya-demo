@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
+  Image,
   Animated,
   StyleSheet,
   Easing,
@@ -206,7 +207,19 @@ export function GhostPulseOrb({
             },
           ]}
         >
-          <Text style={[styles.glyph, { color: `rgba(${rgb}, 0.9)` }]}>⟡</Text>
+          <Animated.Image
+            source={require('../assets/images/butterfly-dna.gif')}
+            style={[
+              styles.butterfly,
+              {
+                width: coreSize * 0.72,
+                height: coreSize * 0.72,
+                opacity: coreOpacity,
+                tintColor: `rgba(${rgb}, 0.85)`,
+              },
+            ]}
+            resizeMode="contain"
+          />
         </Animated.View>
       </View>
 
@@ -243,9 +256,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderStyle: 'solid',
   },
-  glyph: {
-    fontSize: 24,
-    fontFamily: 'CourierPrime-Regular',
+  butterfly: {
+    borderRadius: 999,
   },
   stageText: {
     fontFamily: 'CourierPrime',
