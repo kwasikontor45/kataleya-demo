@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
 import { useCircadian } from '@/hooks/useCircadian';
 import { getCurrentPhase, getCurrentMinutes } from '@/constants/circadian';
 
