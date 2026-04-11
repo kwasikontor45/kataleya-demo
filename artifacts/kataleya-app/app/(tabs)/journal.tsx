@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';import {
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, Keyboard,
+  DeviceEventEmitter,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -264,6 +266,7 @@ export default function JournalScreen() {
     setSelectedMood(null);
     setMoodNote('');
     suppressReminderForToday();
+    DeviceEventEmitter.emit('moodLogged');
     await loadData();
   };
 
