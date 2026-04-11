@@ -206,18 +206,9 @@ export function GhostPulseOrb({
             },
           ]}
         >
-          <Image
-            source={require('../assets/images/butterfly-dna-t.gif')}
-            style={[
-              styles.butterfly,
-              {
-                width: coreSize * 0.68,
-                height: coreSize * 0.68,
-                mixBlendMode: 'screen',
-              } as any,
-            ]}
-            resizeMode="contain"
-          />
+          <Text style={[styles.glyph, { color: `rgba(${rgb}, 0.9)` }]}>
+  		..: :..
+	</Text>
         </Animated.View>
       </View>
 
