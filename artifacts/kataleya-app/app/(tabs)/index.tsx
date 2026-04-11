@@ -469,22 +469,6 @@ export default function SanctuaryScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 2am moment — void phase between midnight and 5am */}
-        {is2am && (
-          <TouchableOpacity
-            onPress={() => router.push('/cover')}
-            activeOpacity={0.7}
-            style={styles.amPromptWrap}
-          >
-            <Text style={[styles.amPromptText, { color: `rgba(${accentRgb},0.45)` }]}>
-              the garden is open
-            </Text>
-            <Text style={[styles.amPromptSub, { color: `rgba(${accentRgb},0.22)` }]}>
-              tap to enter
-            </Text>
-          </TouchableOpacity>
-        )}
-
         {/* Timer */}
         {sobriety.startDate ? (
           <View style={styles.timerSection}>
@@ -492,7 +476,7 @@ export default function SanctuaryScreen() {
               {sobriety.daysSober}
             </Animated.Text>
             <Text style={[styles.dayLabel, { color: `rgba(${accentRgb}, 0.45)` }]}>
-              days in sanctuary
+              {sobriety.daysSober === 1 ? 'day in sanctuary' : 'days in sanctuary'}
             </Text>
             <Text style={[styles.hmsCount, { color: `${theme.text}60` }]}>
               {pad(sobriety.hoursSober)}:{pad(sobriety.minutesSober)}:{pad(sobriety.secondsSober)}
@@ -702,6 +686,15 @@ export default function SanctuaryScreen() {
         {/* ── QUICK-SLOTS — Cyberpunk ── */}
         <View style={styles.quickSlotSection}>
           <View style={[styles.quickSlotRow, isStruggling && { opacity: 0.5 }]}>
+            <TouchableOpacity
+              style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.amber},0.22)`, backgroundColor: `rgba(${NEON_RGB.amber},0.04)` }]}
+              onPress={() => router.push('/cover')}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.amber},0.45)` }]}>◬</Text>
+              <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.amber},0.55)` }]}>sanctuary</Text>
+              <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.amber},0.25)` }]}>2am</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.quickSlot, { borderColor: `rgba(${NEON_RGB.cyan},0.22)`, backgroundColor: `rgba(${NEON_RGB.cyan},0.04)` }]}
               onPress={() => setShowBreathing(true)}
