@@ -607,6 +607,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: 1,
   },
+  dismissPill: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+  },
   dismiss: {
     paddingVertical: 12,
     paddingHorizontal: 32,
