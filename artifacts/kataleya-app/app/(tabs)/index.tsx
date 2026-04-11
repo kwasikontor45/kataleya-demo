@@ -33,8 +33,9 @@ import { BLOOM_THRESHOLDS } from '@/utils/hapticBloom';
 import { Surface, Sanctuary } from '@/utils/storage';
 import { useUserState } from '@/hooks/use-user-state';
 import { ScanlineLayer } from '@/components/scanline-layer';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-const SCREEN_W = Dimensions.get('window').width;
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const ORB_COMPOSITE = Math.min(SCREEN_W * 0.72, 260);
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -455,18 +456,6 @@ export default function SanctuaryScreen() {
 
   const accentRgb = darkOverride ? '138,95,224' : (theme.phaseRgb ?? phaseAccentRgb(phase));
 
-  // Phase directional light — one source per phase
-  const phaseLightStyle = (() => {
-    const p = darkOverride ? 'night' : phase;
-    const size = 300;
-    const cx = SCREEN_W / 2 - size / 2;
-    switch (p) {
-      case 'dawn':        return { top: -100, left: -80,  width: size, height: size } as const;
-      case 'goldenHour':  return { top: 100,  right: -80, width: size, height: size } as const;
-      case 'night':       return { bottom: 0, left: cx,   width: size, height: size } as const;
-      default:            return { top: -100, left: cx,   width: size, height: size } as const;
-    }
-  })();
   const hour = new Date().getHours();
   const is2am = phase === 'night' && hour >= 0 && hour < 5;
   const isStruggling = userState === 'struggling' || userState === 'rest';
@@ -474,49 +463,49 @@ export default function SanctuaryScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <ScanlineLayer />
-      {/* Ambient breathing glow — the environment is alive */}
+
+      {/* Atmosphere — single deep bloom centered on the orb, no zone bands */}
       <Animated.View
         pointerEvents="none"
         style={[
-          styles.ambientGlow,
+          styles.atmosBloom,
           {
             backgroundColor: ambientGlow.interpolate({
               inputRange:  [0, 1],
-              outputRange: [`rgba(${accentRgb}, 0.02)`, `rgba(${accentRgb}, 0.06)`],
+              outputRange: [`rgba(${accentRgb}, 0.0)`, `rgba(${accentRgb}, 0.06)`],
             }),
+            transform: [{ translateY: bgParallaxY }],
           },
         ]}
       />
-      {/* Deep radial — centered on orb, slower and wider */}
-      <Animated.View
+
+      {/* Vignette — radial dark at edges, pulls focus to center */}
+      <Svg
+        style={StyleSheet.absoluteFill}
+        width={SCREEN_W}
+        height={SCREEN_H}
         pointerEvents="none"
-        style={[
-          styles.ambientRadial,
-          {
-            opacity: ambientGlow.interpolate({
-              inputRange:  [0, 1],
-              outputRange: [0.0, 0.55],
-            }),
-            backgroundColor: `rgba(${accentRgb}, 0.04)`,
-            transform: [{ scaleY: 0.6 }, { translateY: bgParallaxY }],
-          },
-        ]}
-      />
-      {/* Phase directional light — dawn top-left, day top-center, golden-hour right, night from below */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.phaseLight,
-          phaseLightStyle,
-          {
-            backgroundColor: `rgba(${accentRgb}, 0.07)`,
-            opacity: ambientGlow.interpolate({
-              inputRange:  [0, 1],
-              outputRange: [0.3, 0.8],
-            }),
-          },
-        ]}
-      />
+      >
+        <Defs>
+          <RadialGradient
+            id="vig"
+            cx="50%"
+            cy="46%"
+            rx="56%"
+            ry="62%"
+            gradientUnits="userSpaceOnUse"
+            x1="0"
+            y1="0"
+            x2={SCREEN_W}
+            y2={SCREEN_H}
+          >
+            <Stop offset="0%" stopColor="#050508" stopOpacity={0} />
+            <Stop offset="68%" stopColor="#050508" stopOpacity={0.28} />
+            <Stop offset="100%" stopColor="#050508" stopOpacity={0.68} />
+          </RadialGradient>
+        </Defs>
+        <Rect x={0} y={0} width={SCREEN_W} height={SCREEN_H} fill="url(#vig)" />
+      </Svg>
 
       <ScrollView
         contentContainerStyle={[
@@ -971,21 +960,13 @@ export default function SanctuaryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  ambientRadial: {
+  atmosBloom: {
     position: 'absolute',
-    width: '160%',
-    aspectRatio: 1,
-    borderRadius: 9999,
-    top: '10%',
-    alignSelf: 'center',
-  },
-  phaseLight: {
-    position: 'absolute',
-    borderRadius: 9999,
-    transform: [{ scaleY: 0.55 }],
-  },
-  ambientGlow: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 320,
+    width: SCREEN_W * 2.0,
+    height: SCREEN_W * 2.0,
+    borderRadius: SCREEN_W,
+    top: SCREEN_H * 0.08,
+    left: -SCREEN_W * 0.5,
     pointerEvents: 'none',
   },
   scroll: { paddingHorizontal: 24, alignItems: 'center', flexGrow: 1 },
