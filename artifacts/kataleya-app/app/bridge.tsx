@@ -1,380 +1,259 @@
+// app/bridge.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// The bridge screen. First thing every session.
+// Not a loading screen — a moment of arrival.
+//
+// The OuroborosRing turns slowly. The phase declares itself.
+// One phrase from the garden. One action: enter.
+// The user lands before they do anything.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Easing,
-  TouchableOpacity,
-  Dimensions,
-  Platform,
+  View, Text, StyleSheet, Animated, Easing,
+  TouchableOpacity, Dimensions, Platform, Image,
 } from 'react-native';
-import Svg, { Circle, Path, G } from 'react-native-svg';
 import { useRouter } from 'expo-router';
-import { MidnightGarden } from '@/constants/theme';
-import { getCurrentPhase } from '@/constants/circadian';
-import { Surface, Sanctuary, Fortress } from '@/utils/storage';
+import { OuroborosRing } from '@/components/OuroborosRing';
+import { getCurrentPhase, getCurrentMinutes, CIRCADIAN_PHASES } from '@/constants/circadian';
+import { themeForPhase } from '@/constants/theme';
+import { Surface, Sanctuary } from '@/utils/storage';
 
-const WIN   = Dimensions.get('window');
-const THEME = MidnightGarden;
+const { width: W, height: H } = Dimensions.get('window');
+const RING_SIZE = Math.min(W * 0.72, 280);
 
-// ── Privacy rings — each represents a vault layer ─────────────────────────
-// Pulse inward toward the heart: Surface → Sanctuary → Fortress → heart beats
-// Colors match the vault color assignments
-const RING_COLORS = [
-  { rgb: '212,163,115', label: 'surface'   }, // terra/violet — outermost
-  { rgb: '135,168,120', label: 'sanctuary' }, // sage/cyan    — middle
-  { rgb: '129,178,154', label: 'fortress'  }, // safe/amber   — innermost
-];
+// ── One phrase per phase — garden language, knows what time it is ─────────────
+const BRIDGE_PHRASES: Record<string, string> = {
+  dawn:       'the garden wakes.\nso do you.',
+  day:        'you are present.\nthat is enough.',
+  goldenHour: 'the threshold.\nhold.',
+  night:      'the garden is open.\neven now.',
+};
 
-// ── Heart symbol — monarch/amber palette ─────────────────────────────────
-const HEART_SYMBOL = '..: :..';
-const HEART_COLOR  = '#d4956a';  // amber — monarch wing tone
-
-// ── Status messages — privacy-first, empowering ───────────────────────────
-const STATUS = [
-  'your data never leaves this device',
-  'no account. no cloud. no trace.',
-  'end-to-end encrypted',
-  'you are not your past',
-  'every day is a choice',
-  'sanctuary ready',
-];
+function getAccentRgb(phase: string): string {
+  if (phase === 'night')      return '138,95,224';
+  if (phase === 'goldenHour') return '255,107,53';
+  if (phase === 'dawn')       return '255,100,180';
+  return '0,212,170';
+}
 
 export default function BridgeScreen() {
   const router = useRouter();
-  const [onboarded, setOnboarded]       = useState<boolean | null>(null);
-  const [enterReady, setEnterReady]     = useState(false);
-  const [statusIdx, setStatusIdx]       = useState(0);
-  const [showContinue, setShowContinue] = useState(false);
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  const [enterReady, setEnterReady] = useState(false);
+  const [phase, setPhase] = useState<string>('night');
 
-  // Core anims
-  const fadeIn        = useRef(new Animated.Value(0)).current;
-  const breatheScale  = useRef(new Animated.Value(1.0)).current;
-  const breatheGlow   = useRef(new Animated.Value(0.0)).current;
-  const statusOpacity = useRef(new Animated.Value(1)).current;
-  const scanAnim      = useRef(new Animated.Value(0)).current;
-  const enterFade     = useRef(new Animated.Value(0)).current;
-  const wordmarkFade  = useRef(new Animated.Value(0)).current;
+  // Animated values
+  const fadeIn       = useRef(new Animated.Value(0)).current;
+  const phraseOpacity = useRef(new Animated.Value(0)).current;
+  const enterOpacity = useRef(new Animated.Value(0)).current;
+  const wordmarkOpacity = useRef(new Animated.Value(0)).current;
+  const orbOpacity   = useRef(new Animated.Value(0)).current;
 
-  // Three privacy rings — each gets its own scale + opacity
-  const ring1Scale   = useRef(new Animated.Value(0.6)).current;
-  const ring2Scale   = useRef(new Animated.Value(0.6)).current;
-  const ring3Scale   = useRef(new Animated.Value(0.6)).current;
-  const ring1Opacity = useRef(new Animated.Value(0)).current;
-  const ring2Opacity = useRef(new Animated.Value(0)).current;
-  const ring3Opacity = useRef(new Animated.Value(0)).current;
-
-  // ── Init ─────────────────────────────────────────────────────────────────
+  // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const phase = getCurrentPhase(new Date().getHours() * 60 + new Date().getMinutes());
+    const mins = getCurrentMinutes();
+    const p = getCurrentPhase(mins);
+    setPhase(p);
+
     if (Platform.OS !== 'web') {
-      Sanctuary.logCircadianEvent({ ts: Date.now(), phase, event: 'app_open' }).catch(() => {});
+      Sanctuary.logCircadianEvent({ ts: Date.now(), phase: p, event: 'app_open' }).catch(() => {});
     }
+
     const init = async () => {
-      try {
-        const tombstone = await Surface.getBurnTombstone();
-        if (tombstone) {
-          await Promise.all([
-            Sanctuary.wipeSQLiteData().catch(() => {}),
-            Fortress.clear().catch(() => {}),
-          ]);
-          await Surface.clearAll().catch(() => {});
-        }
-      } catch {}
       try {
         const done = await Surface.hasOnboarded();
         setOnboarded(done);
-        setEnterReady(true);
       } catch {
         setOnboarded(false);
-        setEnterReady(true);
       }
+      setEnterReady(true);
     };
     init();
   }, []);
 
-  // ── Fade in whole screen ──────────────────────────────────────────────────
+  // ── Animation sequence ────────────────────────────────────────────────────
   useEffect(() => {
-    Animated.timing(fadeIn, { toValue: 1, duration: 1000, useNativeDriver: true }).start();
-  }, []);
+    // Screen fades in
+    Animated.timing(fadeIn, {
+      toValue: 1, duration: 1200,
+      useNativeDriver: true,
+      easing: Easing.inOut(Easing.sin),
+    }).start();
 
-  // ── Privacy ring pulse sequence — Surface → Sanctuary → Fortress → heart ─
-  // Rings ripple inward in sequence, then the heart beats, then repeat
-  useEffect(() => {
-    const ringPulse = (
-      scale: Animated.Value,
-      opacity: Animated.Value,
-      size: number,
-    ) => Animated.sequence([
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 0.55, duration: 500, useNativeDriver: true }),
-        Animated.timing(scale,   { toValue: 1.0,  duration: 500, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      ]),
-      Animated.delay(300),
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 0,   duration: 700, useNativeDriver: true }),
-        Animated.timing(scale,   { toValue: 1.4, duration: 700, easing: Easing.in(Easing.quad), useNativeDriver: true }),
-      ]),
-      // Reset for next loop
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 0,   duration: 0, useNativeDriver: true }),
-        Animated.timing(scale,   { toValue: 0.6, duration: 0, useNativeDriver: true }),
-      ]),
-    ]);
+    // Orb fades in
+    Animated.timing(orbOpacity, {
+      toValue: 1, duration: 1800, delay: 400,
+      useNativeDriver: true,
+      easing: Easing.inOut(Easing.sin),
+    }).start();
 
-    const RING_GAP = 700; // ms between each ring firing
+    // Phrase fades in after orb
+    Animated.timing(phraseOpacity, {
+      toValue: 1, duration: 1200, delay: 1400,
+      useNativeDriver: true,
+      easing: Easing.inOut(Easing.sin),
+    }).start();
 
-    const runLoop = () => {
-      Animated.sequence([
-        // Ring 1 — Surface (outer)
-        ringPulse(ring1Scale, ring1Opacity, 1),
-        Animated.delay(RING_GAP - 1500),
-        // Ring 2 — Sanctuary (middle)
-        ringPulse(ring2Scale, ring2Opacity, 2),
-        Animated.delay(RING_GAP - 1500),
-        // Ring 3 — Fortress (inner)
-        ringPulse(ring3Scale, ring3Opacity, 3),
-        // Pause before repeat
-        Animated.delay(2800),
-      ]).start(({ finished }) => { if (finished) runLoop(); });
-    };
+    // Enter fades in last — user controls when they go
+    Animated.timing(enterOpacity, {
+      toValue: 1, duration: 1000, delay: 3200,
+      useNativeDriver: true,
+      easing: Easing.inOut(Easing.sin),
+    }).start();
 
-    const t = setTimeout(runLoop, 800);
-    return () => clearTimeout(t);
-  }, []);
-
-  // ── Heart breath — slow inhale / exhale loop ─────────────────────────────
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        // inhale — swell and glow
-        Animated.parallel([
-          Animated.timing(breatheScale, { toValue: 1.14, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(breatheGlow,  { toValue: 1.0,  duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        ]),
-        // exhale — settle back
-        Animated.parallel([
-          Animated.timing(breatheScale, { toValue: 1.0,  duration: 2800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(breatheGlow,  { toValue: 0.3,  duration: 2800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        ]),
-      ])
-    ).start();
-    return () => { breatheScale.stopAnimation(); breatheGlow.stopAnimation(); };
-  }, []);
-
-  // ── Status cycling ────────────────────────────────────────────────────────
-  useEffect(() => {
-    const cycle = () => {
-      Animated.timing(statusOpacity, { toValue: 0, duration: 380, useNativeDriver: true }).start(() => {
-        setStatusIdx(i => (i + 1) % STATUS.length);
-        Animated.timing(statusOpacity, { toValue: 1, duration: 480, useNativeDriver: true }).start();
-      });
-    };
-    const t  = setInterval(cycle, 2600);
-    const tc = setTimeout(() => {
-      setShowContinue(true);
-      Animated.timing(enterFade, { toValue: 1, duration: 600, useNativeDriver: true }).start();
-    }, 2600 * 2.5);
-    return () => { clearInterval(t); clearTimeout(tc); };
-  }, []);
-
-  // ── Wordmark fades in late and stays barely visible ───────────────────────
-  useEffect(() => {
-    setTimeout(() => {
-      Animated.timing(wordmarkFade, { toValue: 0.08, duration: 2000, useNativeDriver: true }).start();
-    }, 3000);
-  }, []);
-
-  // ── Scan line ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const run = () => {
-      scanAnim.setValue(-2);
-      Animated.timing(scanAnim, {
-        toValue: WIN.height + 2,
-        duration: 4500,
-        easing: Easing.linear,
-        useNativeDriver: Platform.OS !== 'web',
-      }).start(({ finished }) => { if (finished) run(); });
-    };
-    run();
-    return () => scanAnim.stopAnimation();
+    // Wordmark barely visible
+    Animated.timing(wordmarkOpacity, {
+      toValue: 0.12, duration: 2000, delay: 4000,
+      useNativeDriver: true,
+    }).start();
   }, []);
 
   const navigate = useCallback(() => {
-    router.replace('/onboarding'); // TEMP: force onboarding for testing — revert after
-  }, [onboarded, router]);
+    if (!enterReady) return;
+    router.replace(onboarded === false ? '/onboarding' : '/(tabs)');
+  }, [onboarded, enterReady, router]);
 
-  // Ring sizes — three concentric circles around the heart
-  const R1 = 110; // Surface — outermost
-  const R2 = 78;  // Sanctuary — middle
-  const R3 = 50;  // Fortress — innermost
+  const accentRgb = getAccentRgb(phase);
+  const theme = themeForPhase(phase as any);
+  const ouroborosPhase = phase === 'night' ? 'void'
+    : phase === 'goldenHour' ? 'desire'
+    : phase === 'dawn' ? 'renewal'
+    : 'choice';
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeIn }]}>
+    <Animated.View style={[styles.root, { backgroundColor: '#050508', opacity: fadeIn }]}>
 
-      {/* Scan line */}
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.scanLine, Platform.OS !== 'web'
-          ? { transform: [{ translateY: scanAnim }] }
-          : { top: scanAnim as any }]}
-      />
+      {/* Phase whisper — top center */}
+      <Text style={[styles.phaseWhisper, { color: `rgba(${accentRgb}, 0.18)` }]}>
+        {ouroborosPhase}
+      </Text>
 
-      {/* Subtle grid */}
-      <View style={styles.grid} pointerEvents="none">
-        {Array.from({ length: 16 }).map((_, i) => <View key={i} style={styles.gridRow}/>)}
-      </View>
+      {/* Central composition */}
+      <View style={styles.center}>
 
-      <View style={styles.inner}>
+        {/* OuroborosRing — turning, scarred, never closing */}
+        <Animated.View style={[styles.ringWrap, { opacity: orbOpacity }]} pointerEvents="none">
+          <OuroborosRing
+            size={RING_SIZE}
+            color={theme.accent}
+            cycleCount={0}
+            phase={phase as any}
+            breathing={true}
+            showDots={true}
+          />
+        </Animated.View>
 
-        {/* ── PRIVACY RINGS + HEART — the whole visual ── */}
-        <View style={styles.orbArea}>
-
-          {/* Ring 1 — Surface (outermost, terra) */}
-          <Animated.View style={[
-            styles.ring,
-            {
-              width: R1 * 2, height: R1 * 2, borderRadius: R1,
-              borderColor: `rgba(${RING_COLORS[0].rgb}, 0.6)`,
-              opacity: ring1Opacity,
-              transform: [{ scale: ring1Scale }],
-            },
-          ]}/>
-
-          {/* Ring 2 — Sanctuary (middle, sage) */}
-          <Animated.View style={[
-            styles.ring,
-            {
-              width: R2 * 2, height: R2 * 2, borderRadius: R2,
-              borderColor: `rgba(${RING_COLORS[1].rgb}, 0.65)`,
-              opacity: ring2Opacity,
-              transform: [{ scale: ring2Scale }],
-            },
-          ]}/>
-
-          {/* Ring 3 — Fortress (innermost, safe) */}
-          <Animated.View style={[
-            styles.ring,
-            {
-              width: R3 * 2, height: R3 * 2, borderRadius: R3,
-              borderColor: `rgba(${RING_COLORS[2].rgb}, 0.7)`,
-              opacity: ring3Opacity,
-              transform: [{ scale: ring3Scale }],
-            },
-          ]}/>
-
-          {/* The heart — breathes */}
-          <Animated.View style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            transform: [{ scale: breatheScale }],
-          }}>
-            {/* Amber glow ring behind the symbol */}
-            <Animated.View style={{
-              position: 'absolute',
-              width: 80, height: 80, borderRadius: 40,
-              backgroundColor: HEART_COLOR,
-              opacity: breatheGlow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.10] }),
-            }} />
-            <Animated.Text style={[
-              styles.heart,
-              { opacity: breatheGlow.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1.0] }) },
-            ]}>
-              {HEART_SYMBOL}
-            </Animated.Text>
-          </Animated.View>
-        </View>
-
-        {/* Status — privacy-first cycling messages */}
-        <Animated.Text style={[styles.status, { opacity: statusOpacity }]}>
-          {STATUS[statusIdx]}
-        </Animated.Text>
-
-        {/* Enter button */}
-        {showContinue && (
-          <Animated.View style={{ opacity: enterFade }}>
-            <TouchableOpacity style={styles.enterBtn} onPress={navigate} activeOpacity={0.7}>
-              <Text style={styles.enterText}>enter →</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
-
-        {/* Kataleya wordmark — barely there, fades in late */}
-        <Animated.Text style={[styles.wordmark, { opacity: wordmarkFade }]}>
-          kataleya
-        </Animated.Text>
+        {/* Butterfly at center — transformation */}
+        <Animated.View style={[styles.butterflyWrap, { opacity: orbOpacity }]}>
+          <Image
+            source={require('../assets/images/butterfly-dna-t.gif')}
+            style={{ width: RING_SIZE * 0.38, height: RING_SIZE * 0.38 }}
+            resizeMode="contain"
+          />
+        </Animated.View>
 
       </View>
+
+      {/* Garden phrase — one line, knows what time it is */}
+      <Animated.View style={[styles.phraseWrap, { opacity: phraseOpacity }]}>
+        <Text style={[styles.phrase, { color: `rgba(${accentRgb}, 0.72)` }]}>
+          {BRIDGE_PHRASES[phase] ?? BRIDGE_PHRASES.night}
+        </Text>
+      </Animated.View>
+
+      {/* Enter — one action, user controlled */}
+      <Animated.View style={[styles.enterWrap, { opacity: enterOpacity }]}>
+        <TouchableOpacity
+          onPress={navigate}
+          activeOpacity={0.7}
+          style={[styles.enterBtn, {
+            borderColor: `rgba(${accentRgb}, 0.28)`,
+            backgroundColor: `rgba(${accentRgb}, 0.05)`,
+          }]}
+        >
+          <Text style={[styles.enterText, { color: `rgba(${accentRgb}, 0.8)` }]}>
+            enter
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Wordmark — barely there */}
+      <Animated.Text style={[styles.wordmark, {
+        color: `rgba(${accentRgb}, 1)`,
+        opacity: wordmarkOpacity,
+      }]}>
+        kataleya
+      </Animated.Text>
+
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: THEME.bg },
-  scanLine: {
-    position: 'absolute', left: 0, right: 0, top: 0,
-    height: 1, backgroundColor: `${THEME.accent}14`, zIndex: 5,
-  },
-  grid: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    justifyContent: 'space-evenly', opacity: 0.02,
-  },
-  gridRow: { height: StyleSheet.hairlineWidth, backgroundColor: THEME.accent },
-  inner: {
+  root: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    gap: 36,
-  },
-  orbArea: {
-    width: 240,
-    height: 240,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ring: {
+  phaseWhisper: {
     position: 'absolute',
-    borderWidth: 1.5,
-  },
-  heart: {
+    top: Platform.OS === 'ios' ? 64 : 48,
     fontFamily: 'CourierPrime',
-    fontSize: 34,
-    color: HEART_COLOR,
-    letterSpacing: 6,
-    textAlign: 'center',
+    fontSize: 9,
+    letterSpacing: 4,
+    textTransform: 'uppercase',
   },
-  status: {
+  center: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringWrap: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  butterflyWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  phraseWrap: {
+    marginTop: 32,
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  phrase: {
     fontFamily: 'CourierPrime',
-    fontSize: 11,
-    color: `${THEME.accent}80`,
-    letterSpacing: 2,
+    fontSize: 16,
+    lineHeight: 26,
     textAlign: 'center',
-    textTransform: 'lowercase',
-    maxWidth: 260,
-    lineHeight: 18,
+    letterSpacing: 0.3,
+    fontStyle: 'italic',
+  },
+  enterWrap: {
+    marginTop: 40,
+    alignItems: 'center',
   },
   enterBtn: {
     borderWidth: 1,
-    borderColor: `${THEME.accent}45`,
-    borderRadius: 8,
-    paddingVertical: 13,
+    borderRadius: 6,
+    paddingVertical: 12,
     paddingHorizontal: 48,
   },
   enterText: {
     fontFamily: 'CourierPrime',
-    fontSize: 13,
-    color: THEME.accent,
-    letterSpacing: 2,
+    fontSize: 12,
+    letterSpacing: 3,
+    textTransform: 'lowercase',
   },
   wordmark: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 48 : 32,
     fontFamily: 'CourierPrime',
     fontSize: 11,
-    color: THEME.text,
-    letterSpacing: 8,
+    letterSpacing: 6,
     textTransform: 'lowercase',
-    position: 'absolute',
-    bottom: 48,
   },
 });
