@@ -68,7 +68,7 @@ function humanDuration(days: number): string | null {
 
 // ── Mercury line — the line itself is the mercury, rolling on glass ──────────
 const MERCURY_W  = SCREEN_W - 48;
-const MERCURY_LEN = 56; // length of the mercury slug
+const MERCURY_LEN = 44; // length of the mercury slug
 
 function MercuryLine({ accentRgb }: { accentRgb: string }) {
   const pos = useRef(new Animated.Value(0)).current;
@@ -399,7 +399,7 @@ export default function SanctuaryScreen() {
     return () => clearTimeout(t);
   }, [ecgAnim, reduceMotion]);
 
-  // Heart pill idle animation — slow breath. Animated.loop survives tab switches.
+  // Heart pill idle animation — Animated.loop with no deps so it never restarts mid-breath.
   useEffect(() => {
     if (reduceMotion) return;
     const loop = Animated.loop(
@@ -436,7 +436,7 @@ export default function SanctuaryScreen() {
     );
     loop.start();
     return () => loop.stop();
-  }, [pillPulse, pillGlow, reduceMotion]);
+  }, []); // empty deps — pill breath never interrupts itself
 
   // Wordmark pulse — breathes between dim and legible to signal interactivity
   useEffect(() => {
@@ -692,13 +692,13 @@ export default function SanctuaryScreen() {
             </Text>
           </View>
 
-          {/* Phosphor Noir toggle — temporary test button */}
+          {/* Phosphor Noir toggle */}
           <TouchableOpacity
             onPress={() => setPhosphorMode(true)}
-            hitSlop={12}
-            style={{ position: 'absolute', bottom: -22, alignSelf: 'center' }}
+            hitSlop={20}
+            style={{ position: 'absolute', bottom: -32, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 8 }}
           >
-            <Text style={{ fontFamily: 'CourierPrime', fontSize: 9, color: `rgba(${accentRgb}, 0.25)`, letterSpacing: 2 }}>
+            <Text style={{ fontFamily: 'CourierPrime', fontSize: 11, color: `rgba(${accentRgb}, 0.4)`, letterSpacing: 3 }}>
               ◈ noir
             </Text>
           </TouchableOpacity>
@@ -1275,20 +1275,20 @@ const styles = StyleSheet.create({
   },
   mercuryHalo: {
   position: 'absolute',
-  width: MERCURY_LEN + 8,  // slightly tighter around thin core
-  height: 6,               // was 10
-  borderRadius: 3,
+  width: MERCURY_LEN + 8,
+  height: 8,
+  borderRadius: 4,
   shadowOffset: { width: 0, height: 0 },
-  shadowOpacity: 0.4,      // slightly softer
-  shadowRadius: 8,         // tighter bloom for thin line
+  shadowOpacity: 0.4,
+  shadowRadius: 8,
   elevation: 2,
   opacity: 0.7,
   },
   mercuryCore: {
   position: 'absolute',
   width: MERCURY_LEN,
-  height: 1.2,             // was 2.5 — hairline mercury thread
-  borderRadius: 0.6,       // half of height (pill caps)
+  height: 1.8,
+  borderRadius: 0.9,
   borderWidth: 0.5,
   zIndex: 2,
   shadowOffset: { width: 0, height: 1 },

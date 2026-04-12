@@ -20,7 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { PHOSPHOR } from '@/constants/phosphor-noir';
 
 const { width: W, height: H } = Dimensions.get('window');
-const SCANLINE_COUNT = 80;
+const SCANLINE_COUNT = 120;
 const SCANLINE_SPACING = H / SCANLINE_COUNT;
 
 interface CRTScreenProps {
@@ -62,8 +62,8 @@ export function CRTScreen({ children, intensity = 'medium' }: CRTScreenProps) {
     transform: [{ translateY: rollY.value * H }],
   }));
 
-  const vignetteStrength = intensity === 'high' ? 0.9 : intensity === 'medium' ? 0.65 : 0.4;
-  const scanlineOpacity  = intensity === 'high' ? 0.5 : intensity === 'medium' ? 0.3 : 0.15;
+  const vignetteStrength = intensity === 'high' ? 0.6 : intensity === 'medium' ? 0.35 : 0.2;
+  const scanlineOpacity  = intensity === 'high' ? 0.2 : intensity === 'medium' ? 0.12 : 0.06;
 
   return (
     <View style={[styles.container, { backgroundColor: PHOSPHOR.bg }]}>
@@ -118,11 +118,11 @@ export function CRTScreen({ children, intensity = 'medium' }: CRTScreenProps) {
         pointerEvents="none"
       />
 
-      {/* Phosphor green ambient tint */}
+      {/* Phosphor green ambient tint — very subtle */}
       <View
         style={[
           StyleSheet.absoluteFill,
-          { backgroundColor: 'rgba(0,20,0,0.06)' },
+          { backgroundColor: 'rgba(0,15,0,0.03)' },
         ]}
         pointerEvents="none"
       />
@@ -146,8 +146,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: -H * 0.15,
-    height: H * 0.15,
-    backgroundColor: 'rgba(51,255,0,0.03)',
+    top: -H * 0.06,
+    height: H * 0.06,
+    backgroundColor: 'rgba(51,255,0,0.015)',
   },
 });

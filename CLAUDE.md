@@ -14,10 +14,51 @@ The one moment it exists for: someone at 2am reaches for the app instead of the 
 
 ---
 
+## origin — where this came from
+
+Kataleya began in March 2026 as a founder's vision of what a recovery app should feel like, not what it should track. The first working code was v2.1 — a complete TypeScript scaffold covering the three-vault storage architecture, the circadian engine, the responsive heart hook, and the burning ritual. That version used Expo SDK 52, `crypto-js` for encryption (since replaced with `react-native-quick-crypto`), and `zustand` for state (since removed — state is hook-local).
+
+**What survived from v2.1 intact:**
+- The three-vault names: Surface, Sanctuary, Fortress
+- The circadian four-phase structure: dawn, day, goldenHour, night
+- The `..: :..` heartbeat glyph as identity symbol
+- The BPM logic in `useResponsiveHeart` — mood score → base BPM, phase modifiers, restlessness modifiers
+- The burn ritual: hold gesture, irreversible, no reason required
+- The SQLite schema with `restlessness` column wired to accelerometer RMS
+- The privacy guarantee: health data never leaves the device
+
+**What was fixed before v2.2:**
+- `crypto-js` pure JavaScript weak entropy → replaced with native OpenSSL via `react-native-quick-crypto`
+- No SQLite migration system → `user_version` PRAGMA added in `utils/db.ts`
+- Sequential `await` in restore loop → batched SQLite transactions
+- PBKDF2 iteration count hardcoded → reads dynamically from blob (`blob.iters`)
+- `BurningRitual.tsx` missing `Fortress` import → fixed
+- Restlessness field always zero → wired to live accelerometer RMS from `useOrchidSway`
+- No offline check-in queue → added with `AppState` replay on foreground
+
+**What was added in v2.2:**
+- Blind relay server (Railway) — sees ciphertext only
+- End-to-end encrypted sponsor messages via NaCl (tweetnacl)
+- Water and light presence signals
+- `GhostPulseOrb` replacing static orchid
+- `OuroborosRing` — the never-closing ring, visual identity
+- `NeonCard` glassmorphism system
+- `TypewriterText` — the app choosing its words
+- Bridge screen as arrival ritual, cover screen as 2am panic response
+- Ouroboros Protocol color system replacing MorningBloom/MidnightGarden
+
+**The original `..: :..` description (from v2.1, still holds):**
+> Analog (chaos) → Threshold (held) → Digital (safe). Every opening = ritual of containment.
+
+**The privacy claim (board documents, March 2026, still holds):**
+> "Your mood logs, journal entries, and all health-sensitive data physically cannot leave this device." This is not a policy. It is an architecture constraint.
+
+---
+
 ## accounts and identifiers
 
 - GitHub private (source of truth): github.com/kwasikontor45/kataleya
-- GitHub public (demo): github.com/kwasikontor45/kataleya-demo
+- GitHub public (sanitized demo): github.com/kwasikontor45/kataleya-demo
 - Expo account: bleedin6ed6e
 - EAS project ID: 8c2a466b-748a-4eb5-a42e-4f0bdb9aa856
 - Project root: ~/kataleya/artifacts/kataleya-app
@@ -29,16 +70,13 @@ The one moment it exists for: someone at 2am reaches for the app instead of the 
 ## repo strategy
 
 Private repo (`kataleya`) is the sole source of truth. All work happens here.
-Public repo (`kataleya-demo`) is a sanitized UI snapshot — no crypto, no relay, no vault architecture.
+Public repo (`kataleya-demo`) is a sanitized demo — UI components only, no backend or crypto.
 
-Daily work: `git push origin main`
-Publish demo: `kataleya-publish` (script lives in ~/bin/, outside the repo)
-
-The script strips: `utils/crypto.ts`, `utils/db.ts`, `utils/backup.ts`, `utils/storage.ts`,
-`hooks/useSponsorChannel.ts`, `hooks/useResponsiveHeart.ts`, `server/`, `lib/`, `exports/`,
-`attached_assets/`, `.claude/`, `.env*`, `assets/audio/`
-A verification pass runs before every push — aborts if sensitive files are detected.
-One-way flow only — never merge demo back into private.
+Publishing: run `~/bin/kataleya-publish` from private repo root on `main`.
+The script strips: `utils/crypto.ts`, `utils/db.ts`, `utils/backup.ts`, `utils/storage.ts`, `hooks/useSponsorChannel.ts`, `server/`, `lib/`, `exports/`, `attached_assets/`, `.claude/`, `.env*`, audio assets.
+The `public` remote in the private repo points to `kataleya-demo`.
+A verification pass runs before every commit — aborts if sensitive files are detected.
+One-way flow only — never merge public back into private.
 
 ---
 

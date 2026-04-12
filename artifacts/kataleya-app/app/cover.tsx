@@ -328,17 +328,17 @@ export default function CoverScreen() {
         {/* Ambient glow — 3 concentric light pools, not borders */}
         <Animated.View pointerEvents="none" style={[styles.absolute, {
           width: ORB * 2.8, height: ORB * 2.8, borderRadius: ORB * 1.4,
-          backgroundColor: `rgba(${accentRgb}, 0.025)`,
+          backgroundColor: `rgba(${accentRgb}, ${0.025 * phaseMultiplier})`,
           transform: [{ scale: orbScale }],
         }]} />
         <Animated.View pointerEvents="none" style={[styles.absolute, {
           width: ORB * 2.0, height: ORB * 2.0, borderRadius: ORB * 1.0,
-          backgroundColor: `rgba(${accentRgb}, 0.04)`,
+          backgroundColor: `rgba(${accentRgb}, ${0.04 * phaseMultiplier})`,
           transform: [{ scale: orbScale }],
         }]} />
         <Animated.View pointerEvents="none" style={[styles.absolute, {
           width: ORB * 1.35, height: ORB * 1.35, borderRadius: ORB * 0.675,
-          backgroundColor: `rgba(${accentRgb}, 0.06)`,
+          backgroundColor: `rgba(${accentRgb}, ${0.06 * phaseMultiplier})`,
           transform: [{ scale: orbScale }],
         }]} />
 

@@ -1,14 +1,8 @@
 // components/TerminalNav.tsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Command palette navigation. Replaces the tab bar in Phosphor Noir mode.
-// User types commands; the terminal responds and routes. Cursor blinks at
-// classic 530ms. History scrolls up as commands accumulate.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, StyleSheet, ScrollView,
-  Pressable, Keyboard,
+  Pressable, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -18,30 +12,43 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { PHOSPHOR, COMMANDS, HELP_LINES } from '@/constants/phosphor-noir';
+import { PHOSPHOR, HELP_LINES } from '@/constants/phosphor-noir';
 
 interface HistoryLine {
   text: string;
   type: 'input' | 'response' | 'error' | 'system';
 }
 
+// Valid routes in the app
+const ROUTES: Record<string, string> = {
+  'garden':  '/(tabs)/index',
+  'cycles':  '/(tabs)/growth',
+  'journal': '/(tabs)/journal',
+  'vault':   '/(tabs)/vault',
+  'signal':  '/(tabs)/sponsor',
+  'burn':    '/burn',
+  'cover':   '/cover',
+};
+
 const BOOT_LINES: HistoryLine[] = [
   { text: 'kataleya_os v2.5', type: 'system' },
   { text: 'privacy engine: online', type: 'system' },
+  { text: 'blind relay: standing by', type: 'system' },
+  { text: '', type: 'system' },
   { text: 'type "help" for commands', type: 'system' },
 ];
 
 export function TerminalNav() {
   const [history, setHistory]   = useState<HistoryLine[]>(BOOT_LINES);
   const [input, setInput]       = useState('');
-  const [inputActive, setInputActive] = useState(false);
   const scrollRef  = useRef<ScrollView>(null);
   const inputRef   = useRef<TextInput>(null);
   const router     = useRouter();
+  const insets     = useSafeAreaInsets();
   const cursorAnim = useSharedValue(1);
 
-  // Cursor blink
   useEffect(() => {
     cursorAnim.value = withRepeat(
       withSequence(
@@ -51,6 +58,8 @@ export function TerminalNav() {
       -1,
       false,
     );
+    // Auto-focus on mount
+    setTimeout(() => inputRef.current?.focus(), 400);
   }, []);
 
   const cursorStyle = useAnimatedStyle(() => ({
@@ -59,146 +68,144 @@ export function TerminalNav() {
 
   const addLine = useCallback((line: HistoryLine) => {
     setHistory(prev => [...prev, line]);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
   }, []);
 
   const handleSubmit = useCallback(() => {
-    const cmd = input.trim().toLowerCase();
+    const raw = input.trim();
+    const cmd = raw.toLowerCase();
     if (!cmd) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    addLine({ text: `> ${input.trim()}`, type: 'input' });
+    addLine({ text: `> ${raw}`, type: 'input' });
     setInput('');
 
-    if (cmd === '__clear__' || cmd === 'clear') {
-      setHistory([{ text: 'terminal cleared', type: 'system' }]);
+    if (cmd === 'clear') {
+      setTimeout(() => setHistory([{ text: 'cleared.', type: 'system' }]), 100);
       return;
     }
 
-    if (cmd === '__help__' || cmd === 'help') {
+    if (cmd === 'help') {
       HELP_LINES.forEach((l, i) => {
-        setTimeout(() => addLine({ text: l, type: 'response' }), i * 60);
+        setTimeout(() => addLine({ text: l, type: 'response' }), i * 55);
       });
       return;
     }
 
-    const target = COMMANDS[cmd];
+    const target = ROUTES[cmd];
     if (target) {
-      addLine({ text: `navigating to ${cmd}...`, type: 'response' });
-      setTimeout(() => router.push(target as any), 300);
+      addLine({ text: `→ ${cmd}`, type: 'response' });
+      setTimeout(() => router.push(target as any), 280);
     } else {
-      addLine({ text: `unknown command: "${cmd}"`, type: 'error' });
-      addLine({ text: 'type "help" for commands', type: 'system' });
+      addLine({ text: `"${cmd}" not found`, type: 'error' });
+      addLine({ text: 'try: help', type: 'system' });
     }
   }, [input, addLine, router]);
 
   const lineColor = (type: HistoryLine['type']) => {
     switch (type) {
-      case 'input':    return PHOSPHOR.green;
-      case 'response': return PHOSPHOR.greenDim;
-      case 'error':    return PHOSPHOR.amber;
-      case 'system':   return PHOSPHOR.greenGhost;
+      case 'input':    return '#33ff00';
+      case 'response': return '#1aaa00';
+      case 'error':    return '#ffb000';
+      case 'system':   return '#0a5500';
     }
   };
 
   return (
-    <Pressable style={styles.container} onPress={() => inputRef.current?.focus()}>
-      {/* History */}
-      <ScrollView
-        ref={scrollRef}
-        style={styles.history}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <Pressable
+        style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 8 }]}
+        onPress={() => inputRef.current?.focus()}
       >
-        {history.map((line, i) => (
-          <Text
-            key={i}
-            style={[
-              styles.line,
-              {
-                color: lineColor(line.type),
-                textShadowColor: lineColor(line.type),
-                textShadowRadius: line.type === 'input' ? 3 : 1,
-                opacity: line.type === 'system' ? 0.5 : 1,
-              },
-            ]}
-          >
-            {line.text}
-          </Text>
-        ))}
-      </ScrollView>
+        {/* History */}
+        <ScrollView
+          ref={scrollRef}
+          style={styles.history}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+        >
+          {history.map((line, i) => (
+            <Text key={i} style={[styles.line, { color: lineColor(line.type) }]}>
+              {line.text}
+            </Text>
+          ))}
+        </ScrollView>
 
-      {/* Input row */}
-      <View style={styles.inputRow}>
-        <Text style={[styles.prompt, { color: PHOSPHOR.green, textShadowColor: PHOSPHOR.green }]}>
-          {'> '}
-        </Text>
-        <TextInput
-          ref={inputRef}
-          value={input}
-          onChangeText={setInput}
-          onSubmitEditing={handleSubmit}
-          onFocus={() => setInputActive(true)}
-          onBlur={() => setInputActive(false)}
-          style={[styles.input, { color: PHOSPHOR.green }]}
-          autoCapitalize="none"
-          autoCorrect={false}
-          spellCheck={false}
-          returnKeyType="go"
-          caretHidden
-          placeholderTextColor={PHOSPHOR.greenGhost}
-        />
-        {/* Block cursor */}
-        <Animated.View style={[styles.cursor, cursorStyle, { backgroundColor: PHOSPHOR.cursor }]} />
-      </View>
-    </Pressable>
+        {/* Input row */}
+        <View style={styles.inputRow}>
+          <Text style={styles.prompt}>{'> '}</Text>
+          <TextInput
+            ref={inputRef}
+            value={input}
+            onChangeText={setInput}
+            onSubmitEditing={handleSubmit}
+            style={styles.input}
+            autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+            returnKeyType="go"
+            caretHidden
+            placeholderTextColor="#0a5500"
+            placeholder="command"
+          />
+          <Animated.View style={[styles.cursor, cursorStyle]} />
+        </View>
+      </Pressable>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    paddingBottom: 12,
-    justifyContent: 'flex-end',
+    paddingHorizontal: 24,
+    backgroundColor: '#020802',
   },
   history: {
     flex: 1,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   line: {
     fontFamily: 'CourierPrime',
-    fontSize: 13,
-    letterSpacing: 0.4,
-    lineHeight: 20,
-    textShadowOffset: { width: 0, height: 0 },
+    fontSize: 14,
+    lineHeight: 22,
+    letterSpacing: 0.3,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: PHOSPHOR.greenGhost,
-    paddingTop: 10,
+    borderTopColor: '#0a5500',
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   prompt: {
     fontFamily: 'CourierPrime',
     fontSize: 14,
+    color: '#33ff00',
+    textShadowColor: '#33ff00',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 3,
+    textShadowRadius: 4,
   },
   input: {
     flex: 1,
     fontFamily: 'CourierPrime',
     fontSize: 14,
-    letterSpacing: 0.5,
+    color: '#33ff00',
+    letterSpacing: 0.3,
     padding: 0,
-    textShadowColor: PHOSPHOR.green,
+    textShadowColor: '#33ff00',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 2,
+    textShadowRadius: 3,
   },
   cursor: {
     width: 9,
-    height: 16,
-    marginLeft: 1,
+    height: 17,
+    marginLeft: 2,
+    backgroundColor: '#33ff00',
   },
 });
