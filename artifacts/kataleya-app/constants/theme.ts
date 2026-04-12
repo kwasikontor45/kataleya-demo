@@ -40,47 +40,6 @@ const BASE = {
   border:           '#1c1c28',
 };
 
-// ── DAWN (05:00–08:00) — systems coming online ────────────────────────────────
-// Choice Cyan. The moment of first light. Irreversible.
-export const DawnTheme: ThemeTokens = {
-  ...BASE,
-  gold:        '#00d4aa',
-  accent:      '#00d4aa',   // Choice Cyan
-  accentSoft:  '#007a62',
-  phaseRgb:    '0,212,170',
-};
-
-// ── DAY (08:00–17:00) — full presence, everything nominal ─────────────────────
-// Cyan at peak brightness. The sharpest the signal gets.
-export const DayTheme: ThemeTokens = {
-  ...BASE,
-  gold:        '#00ecc4',
-  accent:      '#00ecc4',   // brightest cyan — maximum clarity
-  accentSoft:  '#00d4aa',
-  phaseRgb:    '0,236,196',
-};
-
-// ── GOLDEN HOUR (17:00–20:00) — the threshold ────────────────────────────────
-// Craving Amber. Desire acknowledged, not suppressed.
-// The heaviest phase. Between one self and the next.
-export const GoldenHourTheme: ThemeTokens = {
-  ...BASE,
-  gold:        '#ff6b35',
-  accent:      '#ff6b35',   // Craving Amber
-  accentSoft:  '#cc4a1a',
-  phaseRgb:    '255,107,53',
-};
-
-// ── NIGHT (20:00–05:00) — cloaked, maximum awareness ─────────────────────────
-// Resolve Violet. The self that survives the cycle. Sharpened.
-export const NightTheme: ThemeTokens = {
-  ...BASE,
-  gold:        '#8a5fe0',
-  accent:      '#8a5fe0',   // Resolve Violet — pulled back, less saturated
-  accentSoft:  '#6b48b0',
-  phaseRgb:    '138,95,224',
-};
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 export type CircadianPhase = 'dawn' | 'day' | 'goldenHour' | 'night';
 
