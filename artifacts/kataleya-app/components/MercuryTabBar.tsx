@@ -161,6 +161,31 @@ export function MercuryTabBar({
   const n      = state.routes.length;
   const tabW   = W / n;
 
+  // Ambient shimmer — travels left→right through the thread, seamlessly loops.
+  // Starts off left edge, exits off right edge, instantly resets to left (off-screen),
+  // starts again. The reset is invisible because both endpoints are off-screen.
+  const shimmerX     = useRef(new Animated.Value(-50)).current;
+  const shimmerAlive = useRef(true);
+
+  useEffect(() => {
+    const runShimmer = () => {
+      shimmerX.setValue(-50);
+      Animated.timing(shimmerX, {
+        toValue:         W + 50,
+        duration:        2600,
+        easing:          Easing.linear,
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (finished && shimmerAlive.current) runShimmer();
+      });
+    };
+    runShimmer();
+    return () => {
+      shimmerAlive.current = false;
+      shimmerX.stopAnimation();
+    };
+  }, []);
+
   // Spring the droplet X to active tab center
   const dropX = useRef(new Animated.Value((state.index + 0.5) * tabW)).current;
 
@@ -218,6 +243,27 @@ export function MercuryTabBar({
         end={{ x: 1, y: 0.5 }}
         style={[styles.threadCore, { top: THREAD_Y }]}
       />
+
+      {/* ── Thread shimmer — liquid pulse traveling left→right, looping ── */}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position:     'absolute',
+          top:          THREAD_Y - 4,
+          left:         Animated.subtract(shimmerX, 20),
+          width:        40,
+          height:       8,
+          borderRadius: 4,
+          overflow:     'hidden',
+        }}
+      >
+        <LinearGradient
+          colors={['transparent', `rgba(${accentRgb},0.72)`, 'transparent']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
 
       {/* ── Inactive beads ─────────────────────────────────────────────── */}
       {state.routes.map((route, i) => {
