@@ -33,7 +33,7 @@ import { BLOOM_THRESHOLDS } from '@/utils/hapticBloom';
 import { Surface, Sanctuary } from '@/utils/storage';
 import { useUserState } from '@/hooks/use-user-state';
 import { ScanlineLayer } from '@/components/scanline-layer';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Defs, RadialGradient, Rect, Stop, Path, Line, Text as SvgText } from 'react-native-svg';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const ORB_COMPOSITE = Math.min(SCREEN_W * 0.72, 260);
@@ -65,8 +65,29 @@ function humanDuration(days: number): string | null {
 }
 
 // ── Mercury line — the line itself is the mercury, rolling on glass ──────────
-const MERCURY_W  = SCREEN_W - 48;
+const MERCURY_W   = SCREEN_W - 48;
 const MERCURY_LEN = 44; // length of the mercury slug
+
+// ── Caduceus geometry — pre-computed once at module load ──────────────────────
+// Two intertwining sine paths (the twin serpents of Mercury, god of knowledge).
+// Period = MERCURY_W/2 → two full cycles visible → crossings at 25%, 50%, 75%.
+const CAD_H      = 20;                  // SVG canvas height
+const CAD_CY     = CAD_H / 2;          // center Y axis (the staff)
+const CAD_AMP    = 3.5;                 // serpent amplitude
+const CAD_PERIOD = MERCURY_W / 2;       // two full cycles
+
+function _buildSine(phase: number): string {
+  const pts: string[] = [];
+  for (let x = 0; x <= MERCURY_W; x += 3) {
+    const y = CAD_CY + CAD_AMP * Math.sin((2 * Math.PI * x) / CAD_PERIOD + phase);
+    pts.push(`${x === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(2)}`);
+  }
+  return pts.join(' ');
+}
+const SERPENT_A = _buildSine(0);
+const SERPENT_B = _buildSine(Math.PI);
+// ☿ symbols sit at the three crossing points: 25%, 50%, 75% of track width
+const CADUCEUS_MARKS = [0.25, 0.5, 0.75].map(p => p * MERCURY_W);
 
 function MercuryLine({ accentRgb }: { accentRgb: string }) {
   const pos = useRef(new Animated.Value(0)).current;
@@ -98,29 +119,45 @@ function MercuryLine({ accentRgb }: { accentRgb: string }) {
 
   return (
     <View style={styles.mercuryWrap}>
-      {/* Rolling capsule — halo + core move as one */}
+
+      {/* ── Caduceus — the staff and twin serpents of Mercury ──────────── */}
+      <Svg
+        width={MERCURY_W}
+        height={CAD_H}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      >
+        {/* Staff — the center axis */}
+        <Line
+          x1={0} y1={CAD_CY} x2={MERCURY_W} y2={CAD_CY}
+          stroke={`rgba(${accentRgb}, 0.07)`}
+          strokeWidth={0.5}
+        />
+        {/* Serpent A */}
+        <Path d={SERPENT_A} stroke={`rgba(${accentRgb}, 0.20)`} strokeWidth={0.8} fill="none" />
+        {/* Serpent B */}
+        <Path d={SERPENT_B} stroke={`rgba(${accentRgb}, 0.20)`} strokeWidth={0.8} fill="none" />
+        {/* ☿ at crossing points — god of knowledge, not the element */}
+        {CADUCEUS_MARKS.map((x, i) => (
+          <SvgText
+            key={i}
+            x={x}
+            y={CAD_CY + 3.2}
+            textAnchor="middle"
+            fontSize={7}
+            fill={`rgba(${accentRgb}, 0.38)`}
+          >
+            ☿
+          </SvgText>
+        ))}
+      </Svg>
+
+      {/* Rolling slug — rides the caduceus track */}
       <Animated.View style={[styles.mercuryCapsule, { transform: [{ translateX: tx }] }]}>
-        {/* ① Diffuse halo — liquid light bleeding out */}
-        <View
-          style={[
-            styles.mercuryHalo,
-            {
-              backgroundColor: `rgba(${accentRgb}, 0.12)`,
-              shadowColor: `rgb(${accentRgb})`,
-            },
-          ]}
-        />
-        {/* ② Bright core — the actual mercury slug with wet surface tension */}
-        <View
-          style={[
-            styles.mercuryCore,
-            {
-              backgroundColor: `rgba(${accentRgb}, 0.95)`,
-              borderColor: `rgba(255,255,255,0.35)`, // specular highlight
-            },
-          ]}
-        />
+        <View style={[styles.mercuryHalo, { backgroundColor: `rgba(${accentRgb}, 0.12)`, shadowColor: `rgb(${accentRgb})` }]} />
+        <View style={[styles.mercuryCore, { backgroundColor: `rgba(${accentRgb}, 0.95)`, borderColor: 'rgba(255,255,255,0.35)' }]} />
       </Animated.View>
+
     </View>
   );
 }
@@ -379,10 +416,10 @@ export default function SanctuaryScreen() {
     const sweep = () => {
       ecgAnim.setValue(-1);
       Animated.timing(ecgAnim, {
-        toValue: 8,
-        duration: 300,          // sharp, fast front
-        easing: Easing.linear,  // uniform sweep — no acceleration
-        useNativeDriver: false,
+        toValue:         8,
+        duration:        300,
+        easing:          Easing.linear,
+        useNativeDriver: true,  // drives opacity via interpolation — native safe
       }).start(({ finished }) => {
         if (finished) setTimeout(sweep, 2700); // long silence between beats
       });
@@ -403,16 +440,16 @@ export default function SanctuaryScreen() {
         Animated.loop(
           Animated.sequence([
             Animated.timing(anim, {
-              toValue: 1,
-              duration: PERIOD / 2,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: false,
+              toValue:         1,
+              duration:        PERIOD / 2,
+              easing:          Easing.inOut(Easing.sin),
+              useNativeDriver: true,   // opacity → native thread, keeps JS free for touch
             }),
             Animated.timing(anim, {
-              toValue: 0,
-              duration: PERIOD / 2,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: false,
+              toValue:         0,
+              duration:        PERIOD / 2,
+              easing:          Easing.inOut(Easing.sin),
+              useNativeDriver: true,
             }),
           ])
         ).start();
@@ -1253,7 +1290,7 @@ const styles = StyleSheet.create({
   },
   mercuryWrap: {
   width: MERCURY_W,
-  height: 12,        // was 18
+  height: CAD_H,
   justifyContent: 'center',
   marginTop: 4,
   },

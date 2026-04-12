@@ -9,9 +9,6 @@ import React, { useEffect, useRef } from 'react';
 import { View, Animated, Easing } from 'react-native';
 import Svg, { Circle, Path, G } from 'react-native-svg';
 
-// Gap markers need JS-driver animation (drives SVG strokeOpacity, not a native prop)
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
 type OuroborosPhase = 'dawn' | 'day' | 'goldenHour' | 'night';
 
 interface OuroborosRingProps {
@@ -38,12 +35,8 @@ export function OuroborosRing({
   phase,
   breathing = true,
 }: OuroborosRingProps) {
-  const pulse    = useRef(new Animated.Value(1)).current;
-  const rotate   = useRef(new Animated.Value(0)).current;
-  // Third independent rhythm — the gap breathes on its own cycle.
-  // 6 s, completely decoupled from ring rotation (22 s night → 8 s desire).
-  // Two rhythms superimposed = perceived metabolism.
-  const gapPulse = useRef(new Animated.Value(0)).current;
+  const pulse  = useRef(new Animated.Value(1)).current;
+  const rotate = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Breathing
@@ -77,29 +70,9 @@ export function OuroborosRing({
       })
     ).start();
 
-    // Gap breath — independent 6 s cycle, JS driver (SVG prop)
-    gapPulse.setValue(0);
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(gapPulse, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
-        }),
-        Animated.timing(gapPulse, {
-          toValue: 0,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
-        }),
-      ])
-    ).start();
-
     return () => {
       pulse.stopAnimation();
       rotate.stopAnimation();
-      gapPulse.stopAnimation();
     };
   }, [phase, breathing]);
 
@@ -113,11 +86,6 @@ export function OuroborosRing({
   const radius = R - strokeW - 3;
   const circ = 2 * Math.PI * radius;
 
-  // Gap marker opacity breathes between 0.28 (dim exhale) and 0.88 (bright inhale)
-  const gapMarkerOpacity = gapPulse.interpolate({
-    inputRange:  [0, 1],
-    outputRange: [0.28, 0.88],
-  });
 
   // Gap = 8% of circumference — the ouroboros never closes
   const gapFraction = 0.14;
@@ -170,27 +138,24 @@ export function OuroborosRing({
             rotation={-90}
             origin={`${R}, ${R}`}
           />
-          {/* Gap edges — two short bright marks flanking the break.
-              strokeOpacity driven by gapPulse: they breathe on a 6 s cycle,
-              completely independent of the ring's rotation speed.
-              That interference is what reads as metabolism. */}
-          <AnimatedCircle
+          {/* Gap edges — two bright marks flanking the break, static opacity */}
+          <Circle
             cx={R} cy={R} r={radius}
             fill="none"
             stroke={color}
             strokeWidth={strokeW * 3.5}
-            strokeOpacity={gapMarkerOpacity}
+            strokeOpacity={0.72}
             strokeDasharray={`2.5 ${circ - 2.5}`}
             strokeLinecap="round"
             rotation={-90}
             origin={`${R}, ${R}`}
           />
-          <AnimatedCircle
+          <Circle
             cx={R} cy={R} r={radius}
             fill="none"
             stroke={color}
             strokeWidth={strokeW * 3.5}
-            strokeOpacity={gapMarkerOpacity}
+            strokeOpacity={0.72}
             strokeDasharray={`2.5 ${circ - 2.5}`}
             strokeLinecap="round"
             rotation={`${-90 + (1 - gapFraction) * 360}`}

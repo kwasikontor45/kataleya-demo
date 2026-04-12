@@ -25,7 +25,7 @@ export default function BreatheScreen() {
       >
         <Text style={[styles.backText, { color: `rgba(${accentRgb}, 0.4)` }]}>← back</Text>
       </TouchableOpacity>
-      <BreathingExercise onClose={() => router.back()} />
+      <BreathingExercise visible={true} onClose={() => router.back()} onDismiss={() => router.back()} />
     </View>
   );
 }

@@ -172,7 +172,7 @@ export function MercuryTabBar({
       shimmerX.setValue(-50);
       Animated.timing(shimmerX, {
         toValue:         W + 50,
-        duration:        2600,
+        duration:        5200,
         easing:          Easing.linear,
         useNativeDriver: false,
       }).start(({ finished }) => {
