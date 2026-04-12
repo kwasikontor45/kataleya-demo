@@ -87,9 +87,20 @@ export function OuroborosRing({
   const circ = 2 * Math.PI * radius;
 
 
-  // Gap = 8% of circumference — the ouroboros never closes
+  // Gap = 14% of circumference — the ouroboros never closes
   const gapFraction = 0.14;
   const arcLength = circ * (1 - gapFraction);
+
+  // Head and tail positions — fixed in SVG space, rotate with the whole ring
+  // Arc starts at -90° (top), goes clockwise for (1 - gapFraction) * 360°
+  // Tail: where the arc starts (trailing end of gap)
+  // Head: where the arc ends (leading end of gap, approaching the tail)
+  const tailAngle = -Math.PI / 2;
+  const headAngle = ((-90 + (1 - gapFraction) * 360) * Math.PI) / 180;
+  const tailX = R + radius * Math.cos(tailAngle);
+  const tailY = R + radius * Math.sin(tailAngle);
+  const headX = R + radius * Math.cos(headAngle);
+  const headY = R + radius * Math.sin(headAngle);
 
   // Scar marks — survived cycles (max 12 visible)
   const visibleScars = Math.min(Math.floor(cycleCount / 3), 12);
@@ -138,28 +149,24 @@ export function OuroborosRing({
             rotation={-90}
             origin={`${R}, ${R}`}
           />
-          {/* Gap edges — two bright marks flanking the break, static opacity */}
+          {/* Tail — small dim circle, the trailing end */}
           <Circle
-            cx={R} cy={R} r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth={strokeW * 3.5}
-            strokeOpacity={0.72}
-            strokeDasharray={`2.5 ${circ - 2.5}`}
-            strokeLinecap="round"
-            rotation={-90}
-            origin={`${R}, ${R}`}
+            cx={tailX} cy={tailY} r={strokeW * 1.4}
+            fill={color}
+            opacity={0.38}
           />
+
+          {/* Head — larger bright filled circle, the leading end */}
           <Circle
-            cx={R} cy={R} r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth={strokeW * 3.5}
-            strokeOpacity={0.72}
-            strokeDasharray={`2.5 ${circ - 2.5}`}
-            strokeLinecap="round"
-            rotation={`${-90 + (1 - gapFraction) * 360}`}
-            origin={`${R}, ${R}`}
+            cx={headX} cy={headY} r={strokeW * 3.2}
+            fill={color}
+            opacity={0.92}
+          />
+          {/* Head inner gleam — the eye */}
+          <Circle
+            cx={headX - strokeW * 0.6} cy={headY - strokeW * 0.6} r={strokeW * 0.9}
+            fill="rgba(255,255,255,0.55)"
+            opacity={0.9}
           />
 
           {/* Scar marks — proof of survived cycles */}
