@@ -1,17 +1,17 @@
 // components/NeonCard.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Glassmorphism foundation — replaces the border-only NeonCard.
-// Retains the same API so no screen changes are needed.
-// Adds: noise texture overlay, subtle shimmer, scar wear from cycleCount.
+// Glassmorphism card. Noise texture, shimmer, scar marks, shadow stack.
+// When tapped: press-depth animation (card pushes into surface, springs back).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useRef, useEffect } from 'react';
 import {
-  View, StyleSheet, TouchableOpacity, Animated,
-  Easing, ViewStyle, Platform,
+  View, StyleSheet, Pressable, Animated,
+  Easing, ViewStyle,
 } from 'react-native';
 import Svg, { Rect, Filter, FeTurbulence, FeColorMatrix, Defs } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useDepthPress } from '@/hooks/useDepthPress';
 
 export const NEON_RGB = {
   cyan:   '0,212,170',
@@ -31,8 +31,8 @@ interface NeonCardProps {
   borderIntensity?: number;
   onPress?: () => void;
   style?: ViewStyle;
-  cycleCount?: number; // scar wear level — 0 = pristine
-  depth?: 'low' | 'mid' | 'high'; // physical shadow depth — default mid
+  cycleCount?: number;
+  depth?: 'low' | 'mid' | 'high';
 }
 
 const GLOW_MAP: Record<GlowColor, string> = {
@@ -42,7 +42,6 @@ const GLOW_MAP: Record<GlowColor, string> = {
   pink:   NEON_RGB.pink,
 };
 
-// Seeded deterministic RNG for consistent scar positions
 class SeededRandom {
   private s: number;
   constructor(seed: number) { this.s = seed; }
@@ -55,43 +54,36 @@ export function NeonCard({
   theme,
   accentRgb,
   glowColor,
-  fillIntensity = 0.05,
+  fillIntensity   = 0.05,
   borderIntensity = 0.18,
   onPress,
   style,
-  cycleCount = 0,
-  depth = 'mid',
+  cycleCount      = 0,
+  depth           = 'mid',
 }: NeonCardProps) {
-  const rgb = accentRgb ?? (glowColor ? GLOW_MAP[glowColor] : NEON_RGB.cyan);
+  const rgb     = accentRgb ?? (glowColor ? GLOW_MAP[glowColor] : NEON_RGB.cyan);
   const shimmer = useRef(new Animated.Value(0)).current;
   const [dims, setDims] = React.useState({ w: 0, h: 0 });
 
-  // Physical depth config — shadow intensity scales with depth level
   const DEPTH_CONFIG = {
     low:  { shadowRadius: 10, shadowOpacity: 0.10, elevation: 4,  yOffset: 2 },
     mid:  { shadowRadius: 20, shadowOpacity: 0.15, elevation: 8,  yOffset: 4 },
     high: { shadowRadius: 32, shadowOpacity: 0.22, elevation: 14, yOffset: 6 },
   };
   const dCfg = DEPTH_CONFIG[depth];
-
-  // Top edge highlight intensity — light catching the rim
   const topEdgeBrightness = Math.min(borderIntensity * 1.8, 0.45);
 
-  // Subtle shimmer — light catching worn surface
+  // Shimmer
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
         Animated.timing(shimmer, {
-          toValue: 1,
-          duration: 9000 + Math.random() * 4000,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.sin),
+          toValue: 1, duration: 9000 + Math.random() * 4000,
+          useNativeDriver: true, easing: Easing.inOut(Easing.sin),
         }),
         Animated.timing(shimmer, {
-          toValue: 0,
-          duration: 9000 + Math.random() * 4000,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.sin),
+          toValue: 0, duration: 9000 + Math.random() * 4000,
+          useNativeDriver: true, easing: Easing.inOut(Easing.sin),
         }),
       ])
     ).start();
@@ -99,50 +91,49 @@ export function NeonCard({
   }, []);
 
   const shimmerOpacity = shimmer.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.0, 0.04],
+    inputRange: [0, 1], outputRange: [0.0, 0.04],
   });
 
-  // Generate scar marks from cycle count
+  // Scar marks
   const scarCount = Math.min(Math.floor(cycleCount / 3), 8);
   const rng = new SeededRandom(cycleCount * 1337);
   const scars = Array.from({ length: scarCount }, () => ({
-    x1: rng.range(0.1, 0.9),
-    y1: rng.range(0.1, 0.9),
-    len: rng.range(0.05, 0.2),
-    angle: rng.range(0, Math.PI),
+    x1: rng.range(0.1, 0.9), y1: rng.range(0.1, 0.9),
+    len: rng.range(0.05, 0.2), angle: rng.range(0, Math.PI),
     opacity: rng.range(0.04, 0.10),
   }));
-
   const noiseSeed = (cycleCount % 100) + 42;
 
-  const Container = onPress ? TouchableOpacity : View;
-  const containerProps = onPress ? { onPress, activeOpacity: 0.82 } : {};
+  // Press depth — only active when onPress is provided
+  const { handlers, depthStyle } = useDepthPress({
+    pressedScale:         0.965,
+    pressedShadowOpacity: 0.05,
+  });
 
-  return (
-    <Container
-      {...containerProps}
+  // The inner card body — same whether interactive or not
+  const inner = (
+    <Animated.View
       style={[
         styles.card,
         {
           backgroundColor: `rgba(${rgb},${fillIntensity})`,
-          borderColor: `rgba(${rgb},${borderIntensity})`,
-          borderTopColor: `rgba(${rgb},${topEdgeBrightness})`,
-          // Physical shadow — the glass sits above the surface
-          shadowColor: `rgb(${rgb})`,
-          shadowOffset: { width: 0, height: dCfg.yOffset },
-          shadowOpacity: dCfg.shadowOpacity,
-          shadowRadius: dCfg.shadowRadius,
-          elevation: dCfg.elevation,
+          borderColor:     `rgba(${rgb},${borderIntensity})`,
+          borderTopColor:  `rgba(${rgb},${topEdgeBrightness})`,
+          shadowColor:     `rgb(${rgb})`,
+          shadowOffset:    { width: 0, height: dCfg.yOffset },
+          shadowOpacity:   dCfg.shadowOpacity,
+          shadowRadius:    dCfg.shadowRadius,
+          elevation:       dCfg.elevation,
         },
         style,
+        onPress ? depthStyle : undefined,
       ]}
       onLayout={e => {
         const { width, height } = e.nativeEvent.layout;
         setDims({ w: Math.round(width), h: Math.round(height) });
       }}
     >
-      {/* Noise texture via SVG feTurbulence */}
+      {/* Noise texture */}
       {dims.w > 0 && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <Svg width={dims.w} height={dims.h}>
@@ -161,12 +152,9 @@ export function NeonCard({
                   in="noise"
                   result="coloredNoise"
                 />
-                
               </Filter>
             </Defs>
-            <Rect
-              x={0} y={0}
-              width={dims.w} height={dims.h}
+            <Rect x={0} y={0} width={dims.w} height={dims.h}
               fill={`rgba(${rgb},0.015)`}
               filter={`url(#noise-${noiseSeed})`}
             />
@@ -174,32 +162,25 @@ export function NeonCard({
         </View>
       )}
 
-      {/* Inner glow — liquid light behind glass, catches from top edge */}
+      {/* Inner glow — liquid light from top edge */}
       <LinearGradient
-        colors={[
-          `rgba(${rgb},0.07)`,
-          `rgba(${rgb},0.01)`,
-          'transparent',
-        ]}
+        colors={[`rgba(${rgb},0.07)`, `rgba(${rgb},0.01)`, 'transparent']}
         locations={[0, 0.35, 1]}
         style={[StyleSheet.absoluteFill, styles.innerGlow]}
         pointerEvents="none"
       />
 
-      {/* Shimmer — light on worn surface */}
+      {/* Shimmer */}
       <Animated.View
         pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          {
-            backgroundColor: `rgba(${rgb},1)`,
-            opacity: shimmerOpacity,
-            borderRadius: 14,
-          },
-        ]}
+        style={[StyleSheet.absoluteFill, {
+          backgroundColor: `rgba(${rgb},1)`,
+          opacity: shimmerOpacity,
+          borderRadius: 14,
+        }]}
       />
 
-      {/* Scar marks — proof of survived cycles */}
+      {/* Scar marks */}
       {scars.length > 0 && dims.w > 0 && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <Svg width={dims.w} height={dims.h}>
@@ -211,10 +192,8 @@ export function NeonCard({
               return (
                 <Rect
                   key={i}
-                  x={Math.min(x1, x2)}
-                  y={Math.min(y1, y2)}
-                  width={Math.abs(x2 - x1) + 0.5}
-                  height={0.5}
+                  x={Math.min(x1, x2)} y={Math.min(y1, y2)}
+                  width={Math.abs(x2 - x1) + 0.5} height={0.5}
                   fill={`rgba(138,138,158,${scar.opacity})`}
                   transform={`rotate(${scar.angle * 180 / Math.PI},${x1},${y1})`}
                 />
@@ -224,23 +203,29 @@ export function NeonCard({
         </View>
       )}
 
-      {/* Content */}
-      <View style={styles.content}>
-        {children}
-      </View>
-    </Container>
+      <View style={styles.content}>{children}</View>
+    </Animated.View>
   );
+
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} {...handlers}>
+        {inner}
+      </Pressable>
+    );
+  }
+  return inner;
 }
 
 const styles = StyleSheet.create({
   card: {
     borderRadius: 14,
-    borderWidth: 1,
-    overflow: 'hidden',
+    borderWidth:  1,
+    overflow:     'hidden',
   },
   innerGlow: {
     borderRadius: 14,
-    zIndex: 0,
+    zIndex:       0,
   },
   content: {
     zIndex: 1,
