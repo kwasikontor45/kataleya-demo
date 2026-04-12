@@ -73,8 +73,8 @@ Private repo (`kataleya`) is the sole source of truth. All work happens here.
 Public repo (`kataleya-demo`) is a sanitized demo — UI components only, no backend or crypto.
 
 Publishing: run `~/bin/kataleya-publish` from private repo root on `main`.
-The script strips: `utils/crypto.ts`, `utils/db.ts`, `utils/backup.ts`, `utils/storage.ts`, `hooks/useSponsorChannel.ts`, `server/`, `lib/`, `exports/`, `attached_assets/`, `.claude/`, `.env*`, audio assets.
-The `public` remote in the private repo points to `kataleya-demo`.
+The script strips: `utils/crypto.ts`, `utils/db.ts`, `utils/backup.ts`, `utils/storage.ts`, `hooks/useSponsorChannel.ts`, `server/`, `lib/`, `exports/`, `attached_assets/`, `.claude/`, `CLAUDE.md`, `.env*`, audio assets.
+The `demo` remote in the private repo points to `kataleya-demo`.
 A verification pass runs before every commit — aborts if sensitive files are detected.
 One-way flow only — never merge public back into private.
 
@@ -127,6 +127,11 @@ One-way flow only — never merge public back into private.
     HoldToConfirm.tsx   — reusable hold gesture
     typewriter-text.tsx — app choosing its words, character by character
     GlyphIcon.tsx       — SVG icon system
+    CRTScreen.tsx       — CRT monitor wrapper (scanlines, flicker, vignette) — Phosphor Noir
+    TerminalNav.tsx     — command palette navigation — Phosphor Noir
+    PhosphorText.tsx    — phosphor decay typewriter — Phosphor Noir
+  constants/
+    phosphor-noir.ts    — Phosphor Noir palette, COMMANDS map, HELP_LINES
   hooks/
     use-user-state.ts   — adaptive engine, four states
     useCircadian.ts     — phase, theme, darkOverride
@@ -327,7 +332,7 @@ Narration: "the garden is always open. / return whenever you need."
 
 ## known issues / pending fixes
 
-- Golden hour amber too aggressive — calibration pass needed on NeonCard fillIntensity and borderIntensity during goldenHour phase
+- Golden hour amber — phaseMultiplier (0.55) applied to cover screen and glow rings ✅. NeonCard goldenHour calibration still pending.
 - NeonCard glass effect may need higher shadowOpacity on dark backgrounds — mid depth at 0.15 is subtle
 - "1 days" plural — fix applied, verify on device
 - BreathingExercise hasStarted ref — may need useState for beginHint visibility
@@ -345,7 +350,7 @@ Narration: "the garden is always open. / return whenever you need."
 3. ~~Sponsor tab first impression~~ ✅ done — role first, typed question for recovery user only, name carries forward
 4. ~~GhostPulse ← mood score~~ ✅ done — loop closed via mood-event.ts
 5. ~~NeonCard glass depth~~ ✅ done — shadow stack, top edge highlight, inner glow
-6. Mercury tab bar — next
+6. Mercury tab bar — in progress (mercury line done, full tab bar replacement pending)
 7. Railway fresh deploy
 8. EAS build Android first
 9. EAS build iOS
