@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { useCircadian } from '@/hooks/useCircadian';
 import { useOrchidSway } from '@/hooks/useOrchidSway';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
-import { Sanctuary, MoodLog, JournalEntry } from '@/utils/storage';
+import { Sanctuary, MoodLog, JournalEntry, UrgeLog } from '@/utils/storage';
 import { moodEvents } from '@/utils/mood-event';
 import { suppressReminderForToday } from '@/hooks/useNotifications';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
@@ -199,6 +199,43 @@ function KbDismiss({ accentRgb }: { accentRgb: string }) {
   );
 }
 
+// ── Urge surfing — rotating question pools ────────────────────────────────────
+// Five fields, four variants each. Stored index prevents repeating the same
+// question on consecutive entries. Pool advances by 1 on each save.
+
+const URGE_Q_INTENSITY = [
+  'how strong did it feel, from 1 to 10?',
+  'rate the pull — 1 quiet, 10 overwhelming',
+  'how loud was it? (1 = whisper, 10 = roar)',
+  'intensity, honestly — 1 to 10',
+];
+
+const URGE_Q_TRIGGER = [
+  'what was in the room with you',
+  'where were you when it arrived',
+  'what had just happened',
+  'what was the feeling underneath it',
+];
+
+const URGE_Q_RESPONSE = [
+  'what did you do instead',
+  'how did you move through it',
+  'what did you reach for',
+  'what kept you here',
+];
+
+const URGE_Q_PASSED = [
+  'did it pass?',
+  'is it quieter now?',
+  'did the wave settle?',
+  'did you get through it?',
+];
+
+function nextQ(pool: string[], currentIndex: number): { text: string; index: number } {
+  const next = (currentIndex + 1) % pool.length;
+  return { text: pool[next], index: next };
+}
+
 export default function JournalScreen() {
   const insets = useSafeAreaInsets();
   const { theme, phase } = useCircadian();
@@ -223,15 +260,29 @@ export default function JournalScreen() {
   const [promptVisible, setPromptVisible] = useState(true);
   const lastPromptRef = useRef<string | null>(null);
 
-  const keyboardVisible = moodNoteFocused || journalFocused;
+  // ── Urge surfing state ────────────────────────────────────────────────────
+  const [urgeLogs, setUrgeLogs] = useState<UrgeLog[]>([]);
+  const [urgeLogsExpanded, setUrgeLogsExpanded] = useState(false);
+  const [urgeIntensity, setUrgeIntensity] = useState<number | null>(null);
+  const [urgeTrigger, setUrgeTrigger] = useState('');
+  const [urgeResponse, setUrgeResponse] = useState('');
+  const [urgePassed, setUrgePassed] = useState<boolean | null>(null);
+  const [urgeTriggerFocused, setUrgeTriggerFocused] = useState(false);
+  const [urgeResponseFocused, setUrgeResponseFocused] = useState(false);
+  // Track which question variant to show next — advances on each save
+  const urgeQIndexRef = useRef({ trigger: 0, response: 0, passed: 0 });
+
+  const keyboardVisible = moodNoteFocused || journalFocused || urgeTriggerFocused || urgeResponseFocused;
 
   const loadData = useCallback(async () => {
-    const [logs, journal] = await Promise.all([
+    const [logs, journal, urges] = await Promise.all([
       Sanctuary.getMoodLogs(),
       Sanctuary.getJournalEntries(),
+      Sanctuary.getUrgeLogs(),
     ]);
     setMoodLogs(logs);
     setEntries(journal);
+    setUrgeLogs(urges);
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -281,6 +332,41 @@ export default function JournalScreen() {
   const handleDeleteEntry = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Sanctuary.deleteJournalEntry(id).then(loadData);
+  };
+
+  // ── Urge surfing record ───────────────────────────────────────────────────
+  const handleSaveUrge = async () => {
+    if (urgeIntensity === null || urgePassed === null) return;
+    Keyboard.dismiss();
+    const qi = urgeQIndexRef.current;
+    await Sanctuary.saveUrgeLog({
+      ts: Date.now(),
+      intensity: urgeIntensity,
+      triggerQ: qi.trigger,
+      trigger: urgeTrigger.trim() || undefined,
+      responseQ: qi.response,
+      response: urgeResponse.trim() || undefined,
+      passedQ: qi.passed,
+      passed: urgePassed,
+      circadianPhase: phase,
+    });
+    // Advance question variants for next entry
+    urgeQIndexRef.current = {
+      trigger:  (qi.trigger  + 1) % URGE_Q_TRIGGER.length,
+      response: (qi.response + 1) % URGE_Q_RESPONSE.length,
+      passed:   (qi.passed   + 1) % URGE_Q_PASSED.length,
+    };
+    setUrgeIntensity(null);
+    setUrgeTrigger('');
+    setUrgeResponse('');
+    setUrgePassed(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await loadData();
+  };
+
+  const handleDeleteUrge = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Sanctuary.deleteUrgeLog(id).then(loadData);
   };
 
   const visibleLogs    = moodLogsExpanded ? moodLogs : moodLogs.slice(0, 5);
@@ -595,6 +681,182 @@ export default function JournalScreen() {
             </NeonCard>
           )}
 
+          {/* ── Urge surfing section ── */}
+          <Text style={[styles.sectionLabel, { color: `rgba(${NEON_RGB.amber},0.5)`, marginTop: 24 }]}>
+            urge surfing
+          </Text>
+
+          <NeonCard theme={theme} accentRgb={NEON_RGB.amber} style={styles.card}>
+            <View style={styles.cardInner}>
+
+              {/* Intensity — 1–10 pill row */}
+              <Text style={[styles.urgeQuestion, { color: `rgba(${NEON_RGB.amber},0.7)` }]}>
+                {URGE_Q_INTENSITY[urgeQIndexRef.current.trigger % URGE_Q_INTENSITY.length]}
+              </Text>
+              <View style={styles.intensityRow}>
+                {[1,2,3,4,5,6,7,8,9,10].map(n => {
+                  const sel = urgeIntensity === n;
+                  const heat = n <= 3 ? NEON_RGB.cyan : n <= 6 ? NEON_RGB.amber : '255,107,107';
+                  return (
+                    <TouchableOpacity
+                      key={n}
+                      style={[styles.intensityPill, {
+                        borderColor: `rgba(${heat},${sel ? 0.8 : 0.2})`,
+                        backgroundColor: sel ? `rgba(${heat},0.18)` : `rgba(${heat},0.04)`,
+                      }]}
+                      onPress={() => {
+                        setUrgeIntensity(sel ? null : n);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={[styles.intensityNum, { color: `rgba(${heat},${sel ? 1 : 0.5})` }]}>
+                        {n}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Trigger */}
+              <Text style={[styles.urgeQuestion, { color: `rgba(${NEON_RGB.amber},0.7)`, marginTop: 12 }]}>
+                {URGE_Q_TRIGGER[urgeQIndexRef.current.trigger % URGE_Q_TRIGGER.length]}
+              </Text>
+              <TextInput
+                value={urgeTrigger}
+                onChangeText={setUrgeTrigger}
+                onFocus={() => setUrgeTriggerFocused(true)}
+                onBlur={() => setUrgeTriggerFocused(false)}
+                placeholder="optional..."
+                placeholderTextColor={`rgba(${NEON_RGB.amber},0.2)`}
+                multiline
+                maxLength={280}
+                style={[styles.urgeInput, {
+                  color: theme.text,
+                  borderColor: `rgba(${NEON_RGB.amber},${urgeTriggerFocused ? 0.35 : 0.1})`,
+                  backgroundColor: `rgba(${NEON_RGB.amber},0.03)`,
+                }]}
+              />
+
+              {/* Response */}
+              <Text style={[styles.urgeQuestion, { color: `rgba(${NEON_RGB.amber},0.7)`, marginTop: 12 }]}>
+                {URGE_Q_RESPONSE[urgeQIndexRef.current.response % URGE_Q_RESPONSE.length]}
+              </Text>
+              <TextInput
+                value={urgeResponse}
+                onChangeText={setUrgeResponse}
+                onFocus={() => setUrgeResponseFocused(true)}
+                onBlur={() => setUrgeResponseFocused(false)}
+                placeholder="optional..."
+                placeholderTextColor={`rgba(${NEON_RGB.amber},0.2)`}
+                multiline
+                maxLength={280}
+                style={[styles.urgeInput, {
+                  color: theme.text,
+                  borderColor: `rgba(${NEON_RGB.amber},${urgeResponseFocused ? 0.35 : 0.1})`,
+                  backgroundColor: `rgba(${NEON_RGB.amber},0.03)`,
+                }]}
+              />
+
+              {/* Did it pass */}
+              <Text style={[styles.urgeQuestion, { color: `rgba(${NEON_RGB.amber},0.7)`, marginTop: 12 }]}>
+                {URGE_Q_PASSED[urgeQIndexRef.current.passed % URGE_Q_PASSED.length]}
+              </Text>
+              <View style={styles.passedRow}>
+                {([true, false] as const).map(v => {
+                  const sel = urgePassed === v;
+                  const rgb = v ? NEON_RGB.cyan : '255,107,107';
+                  const label = v ? 'it passed' : 'still with me';
+                  return (
+                    <TouchableOpacity
+                      key={String(v)}
+                      style={[styles.passedBtn, {
+                        borderColor: `rgba(${rgb},${sel ? 0.7 : 0.18})`,
+                        backgroundColor: sel ? `rgba(${rgb},0.12)` : `rgba(${rgb},0.03)`,
+                        flex: 1,
+                      }]}
+                      onPress={() => {
+                        setUrgePassed(sel ? null : v);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={[styles.passedLabel, { color: `rgba(${rgb},${sel ? 1 : 0.5})` }]}>
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <HoldToConfirm
+                label={urgeIntensity !== null && urgePassed !== null ? 'record urge' : 'select intensity and outcome above'}
+                holdingLabel="recording..."
+                accentRgb={NEON_RGB.amber}
+                duration={900}
+                disabled={urgeIntensity === null || urgePassed === null}
+                onConfirm={handleSaveUrge}
+              />
+            </View>
+          </NeonCard>
+
+          {/* Urge log history */}
+          {urgeLogs.length > 0 && (() => {
+            const visible = urgeLogsExpanded ? urgeLogs : urgeLogs.slice(0, 3);
+            return (
+              <NeonCard theme={theme} accentRgb={NEON_RGB.amber} fillIntensity={0.03} borderIntensity={0.1}>
+                {visible.map((log, i) => {
+                  const heat = log.intensity <= 3 ? NEON_RGB.cyan : log.intensity <= 6 ? NEON_RGB.amber : '255,107,107';
+                  return (
+                    <View
+                      key={log.id}
+                      style={[
+                        styles.logRow,
+                        i < visible.length - 1 && { borderBottomWidth: 1, borderBottomColor: `rgba(${NEON_RGB.amber},0.08)` },
+                      ]}
+                    >
+                      <View style={styles.urgeLogMeta}>
+                        <View style={[styles.moodBadge, {
+                          backgroundColor: `rgba(${heat},0.15)`,
+                          borderColor: `rgba(${heat},0.4)`,
+                        }]}>
+                          <Text style={[styles.moodBadgeLabel, { color: `rgba(${heat},0.95)` }]}>
+                            {log.intensity}/10
+                          </Text>
+                        </View>
+                        <Text style={[styles.moodBadgeLabel, {
+                          color: log.passed ? `rgba(${NEON_RGB.cyan},0.8)` : `rgba(255,107,107,0.7)`,
+                          marginLeft: 6,
+                        }]}>
+                          {log.passed ? '· passed' : '· held on'}
+                        </Text>
+                        <Text style={[styles.logTime, { color: `${theme.textMuted}55`, marginLeft: 'auto' as any }]}>
+                          {formatTs(log.ts)}
+                        </Text>
+                        <TouchableOpacity onPress={() => handleDeleteUrge(log.id)} hitSlop={8}>
+                          <Text style={[styles.deleteBtn, { color: 'rgba(255,100,100,0.4)' }]}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {log.trigger ? (
+                        <Text style={[styles.logNote, { color: `${theme.textMuted}70` }]} numberOfLines={2}>
+                          {log.trigger}
+                        </Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+                {urgeLogs.length > 3 && (
+                  <TouchableOpacity
+                    style={[styles.expandBtn, { borderTopColor: `rgba(${NEON_RGB.amber},0.1)` }]}
+                    onPress={() => setUrgeLogsExpanded(e => !e)}
+                  >
+                    <Text style={[styles.expandText, { color: `rgba(${NEON_RGB.amber},0.5)` }]}>
+                      {urgeLogsExpanded ? '↑ show less' : `↓ ${urgeLogs.length - 3} more`}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </NeonCard>
+            );
+          })()}
+
           <View style={[styles.privacyNote, { borderColor: `rgba(${accentRgb},0.1)` }]}>
             <Text style={[styles.privacyText, { color: `${theme.textMuted}45` }]}>
               Sanctuary · stored locally · never leaves this device
@@ -761,4 +1023,63 @@ const styles = StyleSheet.create({
   // ── Privacy note ──
   privacyNote: { borderTopWidth: 1, paddingTop: 16, marginTop: 8, alignItems: 'center' },
   privacyText: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1, textAlign: 'center', lineHeight: 16 },
+
+  // ── Urge surfing ──────────────────────────────────────────────────────────
+  urgeQuestion: {
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    letterSpacing: 0.3,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  intensityRow: {
+    flexDirection: 'row',
+    gap: 4,
+    flexWrap: 'wrap',
+  },
+  intensityPill: {
+    borderWidth: 1,
+    borderRadius: 6,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  intensityNum: {
+    fontFamily: 'CourierPrime',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  urgeInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontFamily: 'CourierPrime',
+    fontSize: 13,
+    lineHeight: 20,
+    minHeight: 48,
+    textAlignVertical: 'top',
+  },
+  passedRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  passedBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  passedLabel: {
+    fontFamily: 'CourierPrime',
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  urgeLogMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
 });

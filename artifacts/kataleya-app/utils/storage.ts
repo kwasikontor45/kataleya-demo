@@ -97,6 +97,19 @@ export interface JournalEntry {
   circadianPhase: string;
 }
 
+export interface UrgeLog {
+  id: string;
+  ts: number;
+  intensity: number;        // 1–10
+  triggerQ: number;         // which question variant was shown
+  trigger?: string;         // user answer
+  responseQ: number;
+  response?: string;
+  passedQ: number;
+  passed: boolean;          // did the urge pass without acting?
+  circadianPhase: string;
+}
+
 export interface CircadianEvent {
   ts: number;
   phase: string;
@@ -326,6 +339,58 @@ export const Sanctuary = {
     getDb().runSync(`DELETE FROM journal_entries WHERE id = ?`, [id]);
   },
 
+  // ── Urge surfing log ───────────────────────────────────────────────────────
+  async saveUrgeLog(
+    entry: Omit<UrgeLog, 'id'>
+  ): Promise<UrgeLog> {
+    const e: UrgeLog = { ...entry, id: uid() };
+    if (Platform.OS === 'web') return e;
+    const { getDb } = await import('./db');
+    getDb().runSync(
+      `INSERT INTO urge_log
+         (id, ts, intensity, trigger_q, trigger, response_q, response, passed_q, passed, circadian_phase)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        e.id, e.ts, e.intensity,
+        e.triggerQ, e.trigger ?? null,
+        e.responseQ, e.response ?? null,
+        e.passedQ, e.passed ? 1 : 0,
+        e.circadianPhase,
+      ]
+    );
+    return e;
+  },
+
+  async getUrgeLogs(limit = 100): Promise<UrgeLog[]> {
+    if (Platform.OS === 'web') return [];
+    const { getDb } = await import('./db');
+    const rows = getDb().getAllSync<{
+      id: string; ts: number; intensity: number;
+      trigger_q: number; trigger: string | null;
+      response_q: number; response: string | null;
+      passed_q: number; passed: number;
+      circadian_phase: string;
+    }>(
+      `SELECT id, ts, intensity, trigger_q, trigger, response_q, response,
+              passed_q, passed, circadian_phase
+       FROM urge_log ORDER BY ts DESC LIMIT ?`,
+      [limit]
+    );
+    return rows.map(r => ({
+      id: r.id, ts: r.ts, intensity: r.intensity,
+      triggerQ: r.trigger_q, trigger: r.trigger ?? undefined,
+      responseQ: r.response_q, response: r.response ?? undefined,
+      passedQ: r.passed_q, passed: r.passed === 1,
+      circadianPhase: r.circadian_phase,
+    }));
+  },
+
+  async deleteUrgeLog(id: string): Promise<void> {
+    if (Platform.OS === 'web') return;
+    const { getDb } = await import('./db');
+    getDb().runSync(`DELETE FROM urge_log WHERE id = ?`, [id]);
+  },
+
   // ── Batch restore (used by backup restore — transactional for performance) ─
   // Inserts thousands of rows in a single SQLite transaction instead of one
   // await per row. Prevents OS killing the app mid-restore when backgrounded.
@@ -402,6 +467,7 @@ export const Sanctuary = {
       const db = getDb();
       db.runSync(`DELETE FROM mood_logs`);
       db.runSync(`DELETE FROM journal_entries`);
+      db.runSync(`DELETE FROM urge_log`);
       db.runSync(`DELETE FROM circadian_log`);
     } else {
       await AsyncStorage.multiRemove([WEB_MOOD_KEY, WEB_JOURNAL_KEY]);

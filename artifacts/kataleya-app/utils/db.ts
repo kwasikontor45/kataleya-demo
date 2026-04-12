@@ -5,7 +5,7 @@ let _db: SQLiteDatabase | null = null;
 
 // Bump this integer whenever the schema changes.
 // Each migration block runs exactly once per install.
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export function getDb(): SQLiteDatabase {
   if (_db) return _db;
@@ -57,9 +57,28 @@ function migrate(db: SQLiteDatabase): void {
     db.runSync(`PRAGMA user_version = 1`);
   }
 
-  // ── v2 (example): add tags column to journal_entries ──────────────────────
-  // if (version < 2) {
-  //   db.runSync(`ALTER TABLE journal_entries ADD COLUMN tags TEXT`);
-  //   db.runSync(`PRAGMA user_version = 2`);
-  // }
-}
+  // ── v2: urge surfing log ───────────────────────────────────────────────────
+  // Separate table — urge logs are a different shape from mood logs.
+  // intensity: 1–10 peak intensity of the urge
+  // trigger_q / response_q / passed_q: which question variant was shown (0-indexed)
+  //   — stored so rotating pools don't repeat the same question on the same entry
+  // trigger / response / passed: user's answers
+  // circadian_phase: phase at time of logging
+  if (version < 2) {
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS urge_log (
+        id               TEXT PRIMARY KEY NOT NULL,
+        ts               INTEGER NOT NULL,
+        intensity        INTEGER NOT NULL CHECK (intensity BETWEEN 1 AND 10),
+        trigger_q        INTEGER NOT NULL DEFAULT 0,
+        trigger          TEXT,
+        response_q       INTEGER NOT NULL DEFAULT 0,
+        response         TEXT,
+        passed_q         INTEGER NOT NULL DEFAULT 0,
+        passed           INTEGER NOT NULL DEFAULT 0 CHECK (passed IN (0, 1)),
+        circadian_phase  TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_urge_ts ON urge_log (ts DESC);
+    `);
+    db.runSync(`PRAGMA user_version = 2`);
+  }
