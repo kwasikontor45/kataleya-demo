@@ -478,7 +478,7 @@ export default function SanctuaryScreen() {
             toValue: 0.52,
             duration: 2000,
             easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
+            useNativeDriver: false,  // borderColor — JS driver only
           }),
         ]),
         Animated.parallel([
@@ -492,7 +492,7 @@ export default function SanctuaryScreen() {
             toValue: 0.4,
             duration: 3500,
             easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
+            useNativeDriver: false,  // borderColor — JS driver only
           }),
         ]),
       ])

@@ -1,112 +1,141 @@
 // app/cover.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// The 2am screen. Darkness, rain, the ring breathing.
-// No text. No menu. No timer. Just presence.
+// Your own quiet space. Always. Darkness with depth.
+// Gentle rain — three layers, near to far. Something is here with you.
+// It sees you. You both know. Neither speaks.
 // Tap anywhere to return.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useRef, useEffect } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Animated,
-  Easing, Dimensions, StatusBar,
+  Easing, Dimensions, StatusBar, Text,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useCircadian } from '@/hooks/useCircadian';
 import { OuroborosRing } from '@/components/OuroborosRing';
 import { useSobriety } from '@/hooks/useSobriety';
 
 const { width: W, height: H } = Dimensions.get('window');
-const ORB      = Math.min(W * 0.48, 200);
-const RING_SIZE = ORB * 1.5;
+const RING_SIZE = Math.min(W * 0.72, 300);
 
-// ── Rain — same as before, void only ─────────────────────────────────────────
-function RainLayer({ accentRgb, count, maxOpacity }: {
-  accentRgb: string; count: number; maxOpacity: number;
+// Rain drop color — cool near-white mist
+const MIST = '195,215,235';
+// Presence color — faintest violet warmth at center
+const PRESENCE = '90,70,160';
+
+// ── Rain plane — soft oval drops, one depth layer ─────────────────────────────
+// Drops start at random times through their cycle so the screen is
+// already alive when you arrive — no waiting for drops to appear.
+function RainPlane({
+  count, minH, maxH, lineW, minOp, maxOp, minDur, maxDur,
+}: {
+  count: number;
+  minH: number; maxH: number;
+  lineW: number;
+  minOp: number; maxOp: number;
+  minDur: number; maxDur: number;
 }) {
-  const anims = useRef(
-    Array.from({ length: count }, () => new Animated.Value(Math.random()))
+  const drops = useRef(
+    Array.from({ length: count }, () => ({
+      anim:  new Animated.Value(0),
+      x:     Math.random() * W,
+      h:     minH + Math.random() * (maxH - minH),
+      op:    minOp + Math.random() * (maxOp - minOp),
+      dur:   minDur + Math.random() * (maxDur - minDur),
+    }))
   ).current;
 
   useEffect(() => {
-    anims.forEach((anim, i) => {
-      const drift = () => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    drops.forEach(({ anim, dur }, i) => {
+      const fall = () => {
         anim.setValue(0);
         Animated.timing(anim, {
           toValue:         1,
-          duration:        8000 + Math.random() * 10000,
-          useNativeDriver: true,
+          duration:        dur,
           easing:          Easing.linear,
-          delay:           i * 280,
-        }).start(({ finished }) => { if (finished) drift(); });
+          useNativeDriver: true,
+        }).start(({ finished }) => { if (finished) fall(); });
       };
-      drift();
+
+      // Stagger across a full cycle so drops are spread on first render
+      const t = setTimeout(fall, Math.random() * dur);
+      timers.push(t);
     });
-    return () => anims.forEach(a => a.stopAnimation());
+
+    return () => {
+      timers.forEach(clearTimeout);
+      drops.forEach(({ anim }) => anim.stopAnimation());
+    };
   }, []);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {anims.map((anim, i) => {
-        const x     = (i / count) * W + (W / (count * 2));
-        const lineH = 24 + Math.random() * 80;
-        const op    = (0.3 + Math.random() * 0.7) * maxOpacity;
-        return (
-          <Animated.View
-            key={i}
-            style={{
-              position:        'absolute',
-              left:            x,
-              width:           0.6,
-              height:          lineH,
-              backgroundColor: `rgba(${accentRgb}, ${op})`,
-              transform:       [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-lineH, H + lineH] }) }],
-            }}
-          />
-        );
-      })}
+      {drops.map(({ anim, x, h, op }, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            position:        'absolute',
+            left:            x,
+            width:           lineW,
+            height:          h,
+            borderRadius:    lineW * 0.7,
+            backgroundColor: `rgba(${MIST}, ${op})`,
+            transform:       [{
+              translateY: anim.interpolate({
+                inputRange:  [0, 1],
+                outputRange: [-h, H + h],
+              }),
+            }],
+          }}
+        />
+      ))}
     </View>
   );
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function CoverScreen() {
-  const router  = useRouter();
-  const { theme, phase } = useCircadian();
+  const router       = useRouter();
   const { sobriety } = useSobriety();
 
-  const accentRgb = phase === 'night'      ? '138,95,224'
-                  : phase === 'goldenHour' ? '255,107,53'
-                  : '0,212,170';
-
-  const phaseMultiplier = phase === 'goldenHour' ? 0.55 : 1.0;
-
-  // Single orb scale — everything breathes together, no chaos
-  const orbScale = useRef(new Animated.Value(1)).current;
-  // Single glyph opacity — gentle, unified, native driver safe
-  const glyphAnim = useRef(new Animated.Value(0.28)).current;
-
-  // ..: :..
-  const GLYPH_CHARS = ['.', '.', ':', ' ', ':', '.', '.'];
+  // Presence — slow pulse, barely there, native-safe via opacity
+  const presenceOp = useRef(new Animated.Value(0.4)).current;
+  // Glyph — slow breath, very soft
+  const glyphOp    = useRef(new Animated.Value(0.06)).current;
+  // Ring — barely breathing
+  const ringScale  = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Both on native driver — clean, no JS thread load
+    // Presence: 14s cycle — the space breathes around you
     Animated.loop(
       Animated.sequence([
-        Animated.timing(orbScale, { toValue: 1.055, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(orbScale, { toValue: 1.000, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(presenceOp, { toValue: 1.0, duration: 7000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(presenceOp, { toValue: 0.4, duration: 7000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     ).start();
 
+    // Glyph: 10s cycle — a quiet acknowledgement
     Animated.loop(
       Animated.sequence([
-        Animated.timing(glyphAnim, { toValue: 0.82, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(glyphAnim, { toValue: 0.22, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(glyphOp, { toValue: 0.28, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(glyphOp, { toValue: 0.06, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+
+    // Ring: 16s cycle — almost still
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(ringScale, { toValue: 1.03, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(ringScale, { toValue: 1.00, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     ).start();
 
     return () => {
-      orbScale.stopAnimation();
-      glyphAnim.stopAnimation();
+      presenceOp.stopAnimation();
+      glyphOp.stopAnimation();
+      ringScale.stopAnimation();
     };
   }, []);
 
@@ -118,66 +147,67 @@ export default function CoverScreen() {
     >
       <StatusBar barStyle="light-content" backgroundColor="#050508" />
 
-      {/* Rain — intensity by phase */}
-      {phase === 'night'      && <RainLayer accentRgb={accentRgb} count={18} maxOpacity={0.065} />}
-      {phase === 'goldenHour' && <RainLayer accentRgb={accentRgb} count={8}  maxOpacity={0.025} />}
-      {phase === 'dawn'       && <RainLayer accentRgb={accentRgb} count={4}  maxOpacity={0.018} />}
+      {/* ── Rain — three depth planes ──────────────────────────────────── */}
 
-      {/* Central composition */}
+      {/* Far — distant mist, very slow, barely there */}
+      <RainPlane
+        count={32}
+        minH={5}  maxH={11}
+        lineW={0.7}
+        minOp={0.012} maxOp={0.030}
+        minDur={28000} maxDur={42000}
+      />
+
+      {/* Mid — the main presence of rain */}
+      <RainPlane
+        count={16}
+        minH={9}  maxH={18}
+        lineW={1.0}
+        minOp={0.028} maxOp={0.055}
+        minDur={18000} maxDur={28000}
+      />
+
+      {/* Near — closest drops, most present */}
+      <RainPlane
+        count={6}
+        minH={14} maxH={26}
+        lineW={1.4}
+        minOp={0.05} maxOp={0.09}
+        minDur={12000} maxDur={18000}
+      />
+
+      {/* ── Center — what is here with you ────────────────────────────── */}
       <View style={styles.center} pointerEvents="none">
 
-        {/* Ambient glow — barely there, breathes with scale */}
+        {/* Presence — warmth in the dark, barely visible */}
         <Animated.View style={[styles.absolute, {
-          width:           RING_SIZE * 1.1,
-          height:          RING_SIZE * 1.1,
-          borderRadius:    RING_SIZE * 0.55,
-          backgroundColor: `rgba(${accentRgb}, ${0.018 * phaseMultiplier})`,
-          transform:       [{ scale: orbScale }],
+          width:           RING_SIZE * 1.5,
+          height:          RING_SIZE * 1.5,
+          borderRadius:    RING_SIZE * 0.75,
+          backgroundColor: `rgba(${PRESENCE}, 0.06)`,
+          opacity:         presenceOp,
         }]} />
 
-        {/* OuroborosRing — the snake, halo in space */}
-        <View style={[styles.absolute, {
+        {/* OuroborosRing — at the edge of seeing */}
+        <Animated.View style={[styles.absolute, {
           width:     RING_SIZE,
           height:    RING_SIZE,
-          transform: [{ perspective: 600 }, { rotateX: '-12deg' }],
+          opacity:   0.08,
+          transform: [{ scale: ringScale }],
         }]}>
           <OuroborosRing
             size={RING_SIZE}
-            color={theme.accent}
+            color="#8a5fe0"
             cycleCount={sobriety.daysSober}
-            phase={phase as any}
+            phase="night"
             breathing={false}
           />
-        </View>
-
-        {/* Dark hollow — the void inside the ring */}
-        <Animated.View style={[styles.absolute, {
-          width:           ORB * 0.78,
-          height:          ORB * 0.78,
-          borderRadius:    ORB * 0.39,
-          backgroundColor: 'rgba(2,3,5,0.92)',
-          transform:       [{ scale: orbScale }],
-        }]} />
-
-        {/* ..: :.. — breathing, not performing */}
-        <Animated.View style={[styles.absolute, { transform: [{ scale: orbScale }] }]}>
-          <View style={styles.glyphRow}>
-            {GLYPH_CHARS.map((ch, i) => (
-              <Animated.Text
-                key={i}
-                style={[
-                  styles.glyphChar,
-                  {
-                    color:   `rgba(${accentRgb}, 1)`,
-                    opacity: i === 3 ? 0.06 : glyphAnim,
-                  },
-                ]}
-              >
-                {ch}
-              </Animated.Text>
-            ))}
-          </View>
         </Animated.View>
+
+        {/* ..: :.. — you are acknowledged */}
+        <Animated.Text style={[styles.glyph, { opacity: glyphOp }]}>
+          ..: :..
+        </Animated.Text>
 
       </View>
     </TouchableOpacity>
@@ -198,18 +228,15 @@ const styles = StyleSheet.create({
     justifyContent:  'center',
   },
   absolute: {
-    position:        'absolute',
-    alignItems:      'center',
-    justifyContent:  'center',
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  glyphRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           2,
-  },
-  glyphChar: {
+  glyph: {
+    position:      'absolute',
     fontFamily:    'SpaceMono',
-    fontSize:      26,
-    letterSpacing: 3,
+    fontSize:      20,
+    letterSpacing: 5,
+    color:         `rgba(${MIST}, 0.9)`,
   },
 });
