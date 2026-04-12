@@ -269,7 +269,13 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
     isDone.current = false;
     Animated.timing(labelOpacity, { toValue: 1, duration: 600, useNativeDriver: true }).start();
 
-    const startTimer = setTimeout(() => {}, 0); // no autostart — user taps to begin
+    // Auto-start after screen settles — user pressed the button, they're ready
+    const startTimer = setTimeout(() => {
+      if (isMounted.current && !hasStarted.current) {
+        hasStarted.current = true;
+        runCycle();
+      }
+    }, 700);
 
     return () => {
       isMounted.current = false;
@@ -281,8 +287,7 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
     };
   }, [visible]);
 
-  // ── Dismiss ──────────────────────────────────────────────────────────────────
-  // Called after 2 cycles — show "you did well", keep orb breathing gently
+  // ── Dismiss — clean session end after 2 cycles ───────────────────────────────
   const handleDismiss = useCallback(() => {
     if (isDone.current) return;
     isMounted.current = false;
@@ -293,31 +298,20 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
     isDone.current = true;
     setLabel('done');
 
-    // Fade countdown and rings — keep core breathing slowly
+    // Everything fades down — session is over, don't keep it moving
     Animated.parallel([
       Animated.timing(countOpacity, { toValue: 0,    duration: 300,  useNativeDriver: true }),
-      Animated.timing(r1Opacity,    { toValue: 0,    duration: 1000, useNativeDriver: true }),
-      Animated.timing(r2Opacity,    { toValue: 0,    duration: 800,  useNativeDriver: true }),
-      Animated.timing(r3Opacity,    { toValue: 0,    duration: 600,  useNativeDriver: true }),
-      Animated.timing(coreGlow,     { toValue: 0,    duration: 1000, useNativeDriver: true }),
-    ]).start(() => {
-      // Start slow ambient breath — orb keeps moving until x is tapped
-      Animated.loop(
-        Animated.sequence([
-          Animated.parallel([
-            Animated.timing(coreScale,   { toValue: 1.08, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-            Animated.timing(coreOpacity, { toValue: 0.55, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          ]),
-          Animated.parallel([
-            Animated.timing(coreScale,   { toValue: 0.92, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-            Animated.timing(coreOpacity, { toValue: 0.25, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          ]),
-        ])
-      ).start();
-    });
+      Animated.timing(r1Opacity,    { toValue: 0,    duration: 800,  useNativeDriver: true }),
+      Animated.timing(r2Opacity,    { toValue: 0,    duration: 600,  useNativeDriver: true }),
+      Animated.timing(r3Opacity,    { toValue: 0,    duration: 400,  useNativeDriver: true }),
+      Animated.timing(coreGlow,     { toValue: 0,    duration: 800,  useNativeDriver: true }),
+      Animated.timing(coreOpacity,  { toValue: 0.18, duration: 1200, useNativeDriver: true }),
+      Animated.timing(coreScale,    { toValue: 0.8,  duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]).start();
 
-    Animated.timing(dismissOpacity, { toValue: 1, duration: 800, useNativeDriver: true }).start();
-  }, [setLabel, countOpacity, coreScale, coreOpacity]);
+    // Show completion — "you did well" + done button
+    Animated.timing(dismissOpacity, { toValue: 1, duration: 800, delay: 400, useNativeDriver: true }).start();
+  }, [setLabel, countOpacity, coreScale, coreOpacity, r1Opacity, r2Opacity, r3Opacity, coreGlow]);
 
   // Called when user taps anywhere after done state
   const handleFinalClose = useCallback(() => {
@@ -511,9 +505,19 @@ export function BreathingExercise({ onDismiss, onClose, visible }: Props) {
 
       {/* ── Dismiss — only after 2 cycles, no play/pause ────────────────── */}
       <Animated.View style={[styles.dismiss, { opacity: dismissOpacity }]}>
-        <Text style={[styles.dismissText, { color: `rgba(${phaseRgb}, 0.75)`, fontFamily: 'CourierPrime' }]}>
+        <Text style={[styles.dismissText, { color: `rgba(${phaseRgb}, 0.55)`, fontFamily: 'CourierPrime' }]}>
           you did well
         </Text>
+        <TouchableOpacity
+          onPress={handleFinalClose}
+          style={[styles.doneBtn, { borderColor: `rgba(${phaseRgb}, 0.28)` }]}
+          hitSlop={16}
+          activeOpacity={0.6}
+        >
+          <Text style={[styles.doneBtnText, { color: `rgba(${phaseRgb}, 0.75)`, fontFamily: 'CourierPrime' }]}>
+            done
+          </Text>
+        </TouchableOpacity>
       </Animated.View>
 
     </TouchableOpacity>
@@ -620,11 +624,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: '22%',
     alignSelf: 'center',
+    alignItems: 'center',
+    gap: 20,
   },
   dismissText: {
     fontSize: 11,
     letterSpacing: 2,
     textTransform: 'lowercase',
-    opacity: 0.5,
+  },
+  doneBtn: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 36,
+  },
+  doneBtnText: {
+    fontSize: 12,
+    letterSpacing: 3,
+    textTransform: 'lowercase',
   },
 });
