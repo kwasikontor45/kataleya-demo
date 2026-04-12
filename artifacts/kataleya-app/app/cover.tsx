@@ -1,10 +1,12 @@
 // app/cover.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// The 2am screen. Someone is already here.
+// The 2am screen. The panic screen. The meditation space.
 //
-// Almost nothing. Orb breathing in the dark.
-// One line already present — like a light left on.
-// Tap for a phrase. Return when ready.
+// Someone is already here — presence line fades in, already waiting.
+// The orb breathes. The ring turns slowly. Rain falls in the void.
+// Phase words cycle — a word to hold during meditation.
+// Tap the orb for a phrase. Stay as long as needed.
+// Return when ready.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -12,26 +14,31 @@ import {
   View, Text, Image, StyleSheet, TouchableOpacity, Animated,
   Easing, Dimensions, Platform, StatusBar,
 } from 'react-native';
+import Svg, { Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { ScanlineLayer } from '@/components/scanline-layer';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useCircadian } from '@/hooks/useCircadian';
+import { TypewriterText } from '@/components/typewriter-text';
+import { OuroborosRing } from '@/components/OuroborosRing';
 import { useSobriety } from '@/hooks/useSobriety';
 
 const { width: W, height: H } = Dimensions.get('window');
 const ORB = Math.min(W * 0.48, 200);
 const RING_SIZE = ORB * 1.5;
 
-// ── Presence lines — already there when they arrive, like a light left on ─────
-// One line per phase. Not typed. Not triggered. Just present.
-const PRESENCE: Record<string, string> = {
-  void:    'someone is already here.',
-  desire:  'someone is already here.',
-  renewal: 'someone is already here.',
-  choice:  'someone is already here.',
+// ── Presence line — already there when they arrive ────────────────────────────
+const PRESENCE = 'someone is already here.';
+
+// ── Meditation words — a word to hold, cycles slowly ─────────────────────────
+const PHASE_WORDS: Record<string, string[]> = {
+  void:    ['hold.', 'rest.', 'breathe.', 'stay.'],
+  desire:  ['hold.', 'outlast.', 'breathe.', 'wait.'],
+  renewal: ['begin.', 'breathe.', 'continue.', 'stay.'],
+  choice:  ['breathe.', 'choose.', 'continue.', 'hold.'],
 };
 
-// ── Tap phrases — only appear after first tap, garden language ────────────────
+// ── Tap phrases — garden language, revealed on tap ───────────────────────────
 const PHRASES: Record<string, string[]> = {
   void: [
     'the garden doesn\u2019t judge the winter.',
@@ -74,11 +81,9 @@ function getPhrase(phase: string, lastIdx: number): { text: string; index: numbe
   return { text: pool[idx], index: idx };
 }
 
-// ── Rain layer — Blade Runner vertical drifts, intensity follows circadian ────
+// ── Rain — Blade Runner vertical drifts ──────────────────────────────────────
 function RainLayer({ accentRgb, count, maxOpacity }: {
-  accentRgb: string;
-  count: number;
-  maxOpacity: number;
+  accentRgb: string; count: number; maxOpacity: number;
 }) {
   const anims = useRef(
     Array.from({ length: count }, () => new Animated.Value(Math.random()))
@@ -116,16 +121,43 @@ function RainLayer({ accentRgb, count, maxOpacity }: {
               width: 0.6,
               height: lineH,
               backgroundColor: `rgba(${accentRgb}, ${op})`,
-              transform: [{
-                translateY: anim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-lineH, H + lineH],
-                }),
-              }],
+              transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-lineH, H + lineH] }) }],
             }}
           />
         );
       })}
+    </View>
+  );
+}
+
+// ── Neon bleed — phase color at edges ────────────────────────────────────────
+function NeonBleed({ accentRgb, multiplier }: { accentRgb: string; multiplier: number }) {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id="bT" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={`rgb(${accentRgb})`} stopOpacity={String(0.06 * multiplier)} />
+            <Stop offset="0.28" stopColor={`rgb(${accentRgb})`} stopOpacity="0" />
+          </LinearGradient>
+          <LinearGradient id="bB" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0.72" stopColor={`rgb(${accentRgb})`} stopOpacity="0" />
+            <Stop offset="1" stopColor={`rgb(${accentRgb})`} stopOpacity={String(0.05 * multiplier)} />
+          </LinearGradient>
+          <LinearGradient id="bL" x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor={`rgb(${accentRgb})`} stopOpacity={String(0.05 * multiplier)} />
+            <Stop offset="0.22" stopColor={`rgb(${accentRgb})`} stopOpacity="0" />
+          </LinearGradient>
+          <LinearGradient id="bR" x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0.78" stopColor={`rgb(${accentRgb})`} stopOpacity="0" />
+            <Stop offset="1" stopColor={`rgb(${accentRgb})`} stopOpacity={String(0.05 * multiplier)} />
+          </LinearGradient>
+        </Defs>
+        <Rect x={0} y={0} width={W} height={H * 0.32} fill="url(#bT)" />
+        <Rect x={0} y={H * 0.68} width={W} height={H * 0.32} fill="url(#bB)" />
+        <Rect x={0} y={0} width={W * 0.22} height={H} fill="url(#bL)" />
+        <Rect x={W * 0.78} y={0} width={W * 0.22} height={H} fill="url(#bR)" />
+      </Svg>
     </View>
   );
 }
@@ -140,50 +172,76 @@ export default function CoverScreen() {
                   : phase === 'goldenHour' ? '255,107,53'
                   : '0,212,170';
 
+  // Amber is intense — pull back during golden hour
   const phaseMultiplier = phase === 'goldenHour' ? 0.55 : 1.0;
   const ouroborosPhase  = getOuroborosPhase(phase);
 
   const orbScale        = useRef(new Animated.Value(1)).current;
+  const bgGlow          = useRef(new Animated.Value(0)).current;
   const presenceOpacity = useRef(new Animated.Value(0)).current;
   const phraseOpacity   = useRef(new Animated.Value(0)).current;
   const returnOpacity   = useRef(new Animated.Value(0)).current;
+  const wordOpacity     = useRef(new Animated.Value(1)).current;
 
   const [tapPhrase, setTapPhrase]   = useState<string | null>(null);
   const [tapVisible, setTapVisible] = useState(false);
+  const [wordIdx, setWordIdx]       = useState(0);
   const lastPhraseIdx = useRef(-1);
   const phraseTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const words = PHASE_WORDS[ouroborosPhase];
 
   useEffect(() => {
-    // Orb breathing — slow, like someone already asleep and waiting
+    // Orb + background breathing
     Animated.loop(
       Animated.sequence([
-        Animated.timing(orbScale, { toValue: 1.055, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(orbScale, { toValue: 1.000, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.parallel([
+          Animated.timing(orbScale, { toValue: 1.06, duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(bgGlow,   { toValue: 1,    duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(orbScale, { toValue: 1.00, duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(bgGlow,   { toValue: 0,    duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ]),
       ])
     ).start();
 
-    // Presence line — fades in after 1.2s, already there, like a light left on
+    // Presence line — fades in after 1.2s, already there
     const presenceTimer = setTimeout(() => {
       Animated.timing(presenceOpacity, {
         toValue: 1, duration: 2200,
-        useNativeDriver: true,
-        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true, easing: Easing.inOut(Easing.sin),
       }).start();
     }, 1200);
 
-    // Return — fades in after 10s
+    // Return — after 10s
     const returnTimer = setTimeout(() => {
       Animated.timing(returnOpacity, {
         toValue: 1, duration: 1800,
-        useNativeDriver: true,
-        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true, easing: Easing.inOut(Easing.sin),
       }).start();
     }, 10000);
+
+    // Meditation word cycle — slow, every 4s
+    const cycleWord = () => {
+      Animated.timing(wordOpacity, {
+        toValue: 0, duration: 700,
+        useNativeDriver: true, easing: Easing.inOut(Easing.sin),
+      }).start(() => {
+        setWordIdx(prev => (prev + 1) % words.length);
+        Animated.timing(wordOpacity, {
+          toValue: 1, duration: 700,
+          useNativeDriver: true, easing: Easing.inOut(Easing.sin),
+        }).start();
+      });
+    };
+    const wordInterval = setInterval(cycleWord, 4000);
 
     return () => {
       clearTimeout(presenceTimer);
       clearTimeout(returnTimer);
+      clearInterval(wordInterval);
       orbScale.stopAnimation();
+      bgGlow.stopAnimation();
     };
   }, []);
 
@@ -196,8 +254,7 @@ export default function CoverScreen() {
     phraseOpacity.setValue(0);
     Animated.timing(phraseOpacity, {
       toValue: 1, duration: 1000,
-      useNativeDriver: true,
-      easing: Easing.inOut(Easing.sin),
+      useNativeDriver: true, easing: Easing.inOut(Easing.sin),
     }).start();
     setTapVisible(true);
 
@@ -205,8 +262,7 @@ export default function CoverScreen() {
     phraseTimer.current = setTimeout(() => {
       Animated.timing(phraseOpacity, {
         toValue: 0, duration: 2000,
-        useNativeDriver: true,
-        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true, easing: Easing.inOut(Easing.sin),
       }).start(() => { setTapVisible(false); setTapPhrase(null); });
     }, 5000);
   }, [phase, tapVisible]);
@@ -216,71 +272,121 @@ export default function CoverScreen() {
     router.back();
   };
 
-
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#050508" />
 
-      {/* Rain — void only, very quiet */}
-      {phase === 'night' && <RainLayer accentRgb={accentRgb} count={14} maxOpacity={0.05} />}
+      {/* Ambient glow breath */}
+      <Animated.View pointerEvents="none"
+        style={[StyleSheet.absoluteFill, {
+          backgroundColor: `rgba(${accentRgb}, ${0.04 * phaseMultiplier})`,
+          opacity: bgGlow,
+        }]}
+      />
 
-      {/* Scanlines — barely there */}
+      {/* Neon bleed — edges breathe with phase color */}
+      <NeonBleed accentRgb={accentRgb} multiplier={phaseMultiplier} />
+
+      {/* Scanlines */}
       <ScanlineLayer />
 
-      {/* Central orb — tap for a phrase */}
-      <TouchableOpacity onPress={handleTap} activeOpacity={1} hitSlop={40} style={styles.center}>
+      {/* Rain — circadian intensity */}
+      {phase === 'night'      && <RainLayer accentRgb={accentRgb} count={18} maxOpacity={0.06} />}
+      {phase === 'goldenHour' && <RainLayer accentRgb={accentRgb} count={10} maxOpacity={0.03} />}
+      {phase === 'dawn'       && <RainLayer accentRgb={accentRgb} count={5}  maxOpacity={0.02} />}
 
-        {/* Single soft glow pool — the warmth behind the light */}
+      {/* Meditation word — cycles slowly, something to hold */}
+      <Animated.Text style={[styles.meditationWord, {
+        color: `rgba(${accentRgb}, ${0.16 * phaseMultiplier})`,
+        opacity: wordOpacity,
+      }]}>
+        {words[wordIdx]}
+      </Animated.Text>
+
+      {/* Central composition */}
+      <View style={styles.center}>
+
+        {/* OuroborosRing — tilted, halo in space */}
+        <View style={[styles.absolute, {
+          width: RING_SIZE, height: RING_SIZE,
+          transform: [{ perspective: 600 }, { rotateX: '-12deg' }],
+        }]} pointerEvents="none">
+          <OuroborosRing
+            size={RING_SIZE}
+            color={theme.accent}
+            cycleCount={sobriety.daysSober}
+            phase={phase as any}
+            breathing={false}
+          />
+        </View>
+
+        {/* Glow pools — concentric, breathing */}
         <Animated.View pointerEvents="none" style={[styles.absolute, {
-          width: ORB * 2.6, height: ORB * 2.6, borderRadius: ORB * 1.3,
-          backgroundColor: `rgba(${accentRgb}, ${0.03 * phaseMultiplier})`,
+          width: ORB * 2.8, height: ORB * 2.8, borderRadius: ORB * 1.4,
+          backgroundColor: `rgba(${accentRgb}, ${0.02 * phaseMultiplier})`,
+          transform: [{ scale: orbScale }],
+        }]} />
+        <Animated.View pointerEvents="none" style={[styles.absolute, {
+          width: ORB * 2.0, height: ORB * 2.0, borderRadius: ORB * 1.0,
+          backgroundColor: `rgba(${accentRgb}, ${0.035 * phaseMultiplier})`,
+          transform: [{ scale: orbScale }],
+        }]} />
+        <Animated.View pointerEvents="none" style={[styles.absolute, {
+          width: ORB * 1.35, height: ORB * 1.35, borderRadius: ORB * 0.675,
+          backgroundColor: `rgba(${accentRgb}, ${0.05 * phaseMultiplier})`,
           transform: [{ scale: orbScale }],
         }]} />
 
-        {/* Orb */}
-        <Animated.View style={[styles.orb, {
-          width: ORB, height: ORB,
-          borderRadius: ORB / 2,
-          borderColor: `rgba(${accentRgb}, 0.22)`,
-          backgroundColor: `rgba(${accentRgb}, 0.03)`,
-          transform: [{ scale: orbScale }],
-        }]}>
-          <Image
-            source={require('../assets/images/butterfly-dna-t.gif')}
-            style={{ width: ORB * 0.62, height: ORB * 0.62, opacity: 0.82 }}
-            resizeMode="contain"
-          />
-        </Animated.View>
+        {/* Core orb — tap for a phrase */}
+        <TouchableOpacity onPress={handleTap} activeOpacity={1} hitSlop={32}>
+          <Animated.View style={[styles.orb, {
+            width: ORB, height: ORB,
+            borderRadius: ORB / 2,
+            borderColor: `rgba(${accentRgb}, ${0.3 * phaseMultiplier})`,
+            backgroundColor: `rgba(${accentRgb}, 0.03)`,
+            transform: [{ scale: orbScale }],
+          }]}>
+            {/* Butterfly — own opacity, not inheriting orb animation */}
+            <Image
+              source={require('../assets/images/butterfly-dna-t.gif')}
+              style={{ width: ORB * 0.62, height: ORB * 0.62, opacity: 0.85 }}
+              resizeMode="contain"
+            />
+          </Animated.View>
+        </TouchableOpacity>
 
-      </TouchableOpacity>
+      </View>
 
-      {/* Presence line — already there. like a light left on. */}
+      {/* Presence line — already there when they arrive */}
       <Animated.Text style={[styles.presenceLine, {
-        color: `rgba(${accentRgb}, ${0.72 * phaseMultiplier})`,
+        color: `rgba(${accentRgb}, ${0.7 * phaseMultiplier})`,
         opacity: presenceOpacity,
       }]}>
-        {PRESENCE[ouroborosPhase]}
+        {PRESENCE}
       </Animated.Text>
 
-      {/* Tap phrase — fades in on tap, fades out after 5s */}
+      {/* Tap phrase — TypewriterText, fades out after 5s */}
       <Animated.View style={[styles.phraseWrap, { opacity: phraseOpacity }]}>
         {tapPhrase && (
-          <Text style={[styles.phraseText, { color: `rgba(${accentRgb}, ${0.55 * phaseMultiplier})` }]}>
-            {tapPhrase}
-          </Text>
+          <TypewriterText
+            text={tapPhrase}
+            speed={18}
+            jitter={8}
+            style={[styles.phraseText, { color: `rgba(${accentRgb}, ${0.75 * phaseMultiplier})` }]}
+          />
         )}
       </Animated.View>
 
-      {/* Return — appears after 10s */}
+      {/* Return */}
       <Animated.View style={[styles.returnWrap, { opacity: returnOpacity }]}>
         <TouchableOpacity onPress={handleReturn} hitSlop={16}>
-          <Text style={[styles.returnText, { color: `rgba(${accentRgb}, ${0.22 * phaseMultiplier})` }]}>
+          <Text style={[styles.returnText, { color: `rgba(${accentRgb}, ${0.25 * phaseMultiplier})` }]}>
             return when ready
           </Text>
         </TouchableOpacity>
       </Animated.View>
 
-      {/* Wordmark — barely visible */}
+      {/* Wordmark */}
       <Text style={[styles.wordmark, { color: `rgba(${accentRgb}, 0.05)` }]}>
         kataleya
       </Text>
@@ -294,6 +400,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#050508',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  meditationWord: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 64 : 48,
+    fontFamily: 'CourierPrime',
+    fontSize: 10,
+    letterSpacing: 5,
+    textTransform: 'lowercase',
   },
   presenceLine: {
     position: 'absolute',
