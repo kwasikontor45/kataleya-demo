@@ -34,6 +34,8 @@ const SK = {
   PRESENCE_LOG:           'kataleya.surface.presence_log',
   DARK_OVERRIDE:          'kataleya.surface.dark_override',
   PALETTE:                'kataleya.surface.palette',
+  // Weekly review — one entry per ISO week: kataleya.surface.weekly_review_YYYY-WW
+  WEEKLY_REVIEW_PREFIX:   'kataleya.surface.weekly_review_',
 } as const;
 
 // ── Canonical Fortress keys ─────────────────────────────────────────────────
@@ -54,6 +56,20 @@ function uid(): string {
   const b = Math.random().toString(36).slice(2, 9);
   const c = Math.random().toString(36).slice(2, 6);
   return `${a}-${b}-${c}`;
+}
+
+// ── ISO week key — 'YYYY-WW' ─────────────────────────────────────────────────
+// offset: 0 = current week, -1 = last week
+export function getISOWeekKey(offset = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offset * 7);
+  // ISO week: Thursday determines the year
+  const thursday = new Date(d);
+  thursday.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 3);
+  const year = thursday.getFullYear();
+  const jan4 = new Date(year, 0, 4);
+  const week = Math.ceil(((thursday.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
+  return `${year}-${String(week).padStart(2, '0')}`;
 }
 
 // ── Fortress helpers (SecureStore, web-safe) ─────────────────────────────────
@@ -108,6 +124,22 @@ export interface UrgeLog {
   passedQ: number;
   passed: boolean;          // did the urge pass without acting?
   circadianPhase: string;
+}
+
+export interface WeeklyReview {
+  weekKey: string;           // ISO week: 'YYYY-WW'
+  ts: number;                // timestamp of last save
+  scores: {
+    sobriety:   number | null;   // 1–10
+    mood:       number | null;
+    sleep:      number | null;
+    physical:   number | null;
+    connection: number | null;
+    treatment:  number | null;
+    schedule:   number | null;
+  };
+  win: string;               // biggest win this week
+  adjustment: string;        // one thing to adjust next week
 }
 
 export interface CircadianEvent {
@@ -238,8 +270,34 @@ export const Surface = {
     return (await AsyncStorage.getItem(SK.PALETTE)) ?? 'ouroboros';
   },
 
+  // ── Weekly review ──────────────────────────────────────────────────────────
+  // Key format: kataleya.surface.weekly_review_YYYY-WW
+  // Stores one review per ISO week. Burns with clearAll().
+  async saveWeeklyReview(review: WeeklyReview): Promise<void> {
+    const key = SK.WEEKLY_REVIEW_PREFIX + review.weekKey;
+    await AsyncStorage.setItem(key, JSON.stringify(review));
+  },
+
+  async getWeeklyReview(weekKey: string): Promise<WeeklyReview | null> {
+    const key = SK.WEEKLY_REVIEW_PREFIX + weekKey;
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  },
+
+  // Returns the most recent completed review (previous week), or null.
+  async getLastWeeklyReview(): Promise<WeeklyReview | null> {
+    const lastKey = getISOWeekKey(-1);
+    return Surface.getWeeklyReview(lastKey);
+  },
+
   async clearAll(): Promise<void> {
-    await AsyncStorage.multiRemove(Object.values(SK));
+    // Clear fixed keys
+    await AsyncStorage.multiRemove(Object.values(SK).filter(k => !k.endsWith('_')));
+    // Clear dynamic weekly review keys
+    const all = await AsyncStorage.getAllKeys();
+    const reviewKeys = all.filter(k => k.startsWith(SK.WEEKLY_REVIEW_PREFIX));
+    if (reviewKeys.length > 0) await AsyncStorage.multiRemove(reviewKeys as string[]);
   },
 };
 
