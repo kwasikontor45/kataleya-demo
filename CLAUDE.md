@@ -16,12 +16,29 @@ The one moment it exists for: someone at 2am reaches for the app instead of the 
 
 ## accounts and identifiers
 
-- GitHub: github.com/kwasikontor45/kataleya
+- GitHub private (source of truth): github.com/kwasikontor45/kataleya
+- GitHub public (demo): github.com/kwasikontor45/kataleya-demo
 - Expo account: bleedin6ed6e
 - EAS project ID: 8c2a466b-748a-4eb5-a42e-4f0bdb9aa856
 - Project root: ~/kataleya/artifacts/kataleya-app
 - Package manager: pnpm
 - Base44 prototype: https://kataleya-9011e6eb.base44.app (reference only)
+
+---
+
+## repo strategy
+
+Private repo (`kataleya`) is the sole source of truth. All work happens here.
+Public repo (`kataleya-demo`) is a sanitized UI snapshot — no crypto, no relay, no vault architecture.
+
+Daily work: `git push origin main`
+Publish demo: `kataleya-publish` (script lives in ~/bin/, outside the repo)
+
+The script strips: `utils/crypto.ts`, `utils/db.ts`, `utils/backup.ts`, `utils/storage.ts`,
+`hooks/useSponsorChannel.ts`, `hooks/useResponsiveHeart.ts`, `server/`, `lib/`, `exports/`,
+`attached_assets/`, `.claude/`, `.env*`, `assets/audio/`
+A verification pass runs before every push — aborts if sensitive files are detected.
+One-way flow only — never merge demo back into private.
 
 ---
 
@@ -33,6 +50,7 @@ The one moment it exists for: someone at 2am reaches for the app instead of the 
 - expo-secure-store
 - AsyncStorage
 - react-native-quick-crypto (NitroModules — EAS only, expected warning in Expo Go)
+- expo-linear-gradient (used in NeonCard inner glow)
 - pnpm workspace
 
 ---
@@ -54,17 +72,17 @@ The one moment it exists for: someone at 2am reaches for the app instead of the 
   app/
     bridge.tsx          — arrival screen (every session)
     cover.tsx           — 2am / panic screen
-    onboarding.tsx      — 7-step onboarding
+    onboarding.tsx      — 7-step onboarding, exit step: "three things, always here"
     burn.tsx            — burn ritual wrapper
     (tabs)/
       index.tsx         — home screen (sanctuary)
-      journal.tsx       — mood + journal
+      journal.tsx       — mood + journal, emits moodEvents on save
       vault.tsx         — privacy, export, burn
-      sponsor.tsx       — sponsor connection
+      sponsor.tsx       — sponsor connection, role-first flow
   components/
     GhostPulseOrb.tsx   — central orb, BPM engine, ..: :.. glyph
     OuroborosRing.tsx   — never-closing ring, scar marks, segment ticks
-    NeonCard.tsx        — glassmorphism card, noise texture, scar wear
+    NeonCard.tsx        — glass depth card — shadow stack, top edge highlight, inner glow
     BreathingExercise.tsx — 4-7-8, tap to begin, you did well
     GroundingExercise.tsx — 5-4-3-2-1
     BurningRitual.tsx   — hold to ignite, one step
@@ -76,7 +94,7 @@ The one moment it exists for: someone at 2am reaches for the app instead of the 
     useCircadian.ts     — phase, theme, darkOverride
     useSobriety.ts      — daysSober, milestones, progress
     useOrchidSway.ts    — accelerometer restlessness score
-    useResponsiveHeart.ts — BPM calculation
+    useResponsiveHeart.ts — BPM calculation, subscribes to moodEvents
   constants/
     theme.ts            — Ouroboros Protocol palette
     circadian.ts        — phase config, timing functions
@@ -90,6 +108,7 @@ The one moment it exists for: someone at 2am reaches for the app instead of the 
   utils/
     storage.ts          — Surface / Sanctuary / Fortress APIs
     backup.ts           — AES-256 encrypt/decrypt (EAS only)
+    mood-event.ts       — pub/sub for mood-logged signal across tabs (no dependencies)
 ```
 
 ---
@@ -136,6 +155,8 @@ Phase mapping (internal → user-facing):
 - renewal = morning / dawn
 - choice = afternoon / day
 
+**Known issue:** golden hour amber feels too aggressive at current intensity. Needs calibration pass — pull back fill and border intensity during goldenHour phase.
+
 ---
 
 ## components — key behaviours
@@ -157,17 +178,22 @@ Phase mapping (internal → user-facing):
 - showDots prop — false on cover screen, true on home
 - Breathing scale animation
 
-### NeonCard
-- Glassmorphism with SVG feTurbulence noise texture
+### NeonCard ✅ glass depth update applied
+- Shadow stack — three depth levels: low / mid (default) / high
+- Shadow color pulls from card accent — cyan card casts cyan shadow
+- Top edge highlight — borderTopColor at 1.8× border intensity, light catching the rim
+- Inner glow — LinearGradient from top, 7% accent → transparent by 35% card height
+- Noise texture — SVG feTurbulence, seeded per cycleCount
 - Ambient shimmer loop
 - Scar marks from cycleCount prop
-- Same API as before — drop-in replacement
+- API unchanged — drop-in, no screen changes needed
+- New prop: depth ('low' | 'mid' | 'high') — defaults to 'mid'
 
 ### TypewriterText
 - Reusable component — app choosing its words
 - Character by character, irregular timing
 - Punctuation adds pause (. = 140ms extra, , = 80ms)
-- Used on: bridge phrase, cover phrase
+- Used on: bridge phrase, cover phrase, sponsor first impression
 - Props: text, speed (default 45ms), jitter (default 28ms), startDelay, onComplete, style
 
 ### BreathingExercise
@@ -227,22 +253,44 @@ Wired into home screen — is2am detection, orb tappable at void, quick-slots fa
 
 ---
 
-## GhostPulse — biofeedback layer
+## GhostPulse — biofeedback layer ✅ loop closed
 
 The ghost heartbeat. BPM derived from:
 - Circadian phase (night slower, day slightly elevated)
 - Restlessness score from accelerometer (useOrchidSway)
-- Mood score (partially implemented — close the loop)
+- Mood score — fully wired
 
 BPM range: 45–78. Drives orb ring pulse speed and breathing exercise timing.
 When dormant: fixed slow rate. When active: mirrors and regulates internal state.
 
-**Gap to close:** mood avg → BPM calculation. Once wired, mood logged → state updated → BPM shifts → orb responds → breathing exercise inherits rhythm.
+**Loop closed:** mood logged → `moodEvents.emit()` in journal.tsx → `useResponsiveHeart` subscribes via `mood-event.ts` → recalculates BPM immediately → orb responds. No delay. 5-minute interval remains as background fallback only.
+
+---
+
+## sponsor tab — connection flow ✅ updated
+
+Role choice comes first — no warmth, just clarity. Two paths:
+
+- **i am in recovery** → typed question appears via TypewriterText: "who do you reach for at 2am?" → name input (component state only, never stored, never transmitted) → name carries into proximity card title as "invite [name]" → invite flow continues
+- **i am the sponsor** → straight to code entry. Typed question never appears.
+
+First impression state is component-local. Resets on unmount. Already-connected users skip it entirely.
+
+---
+
+## onboarding — exit step ✅ updated
+
+Final step (id: 'enter') now shows "three things, always here" instead of "the cycle begins".
+Three ambient rows — breathe / check in / reach sponsor — with CourierPrime glyphs (~ / + / ::).
+No interaction on the rows, informational only. The "enter" button still fires completeOnboarding().
+Narration: "the garden is always open. / return whenever you need."
 
 ---
 
 ## known issues / pending fixes
 
+- Golden hour amber too aggressive — calibration pass needed on NeonCard fillIntensity and borderIntensity during goldenHour phase
+- NeonCard glass effect may need higher shadowOpacity on dark backgrounds — mid depth at 0.15 is subtle
 - "1 days" plural — fix applied, verify on device
 - BreathingExercise hasStarted ref — may need useState for beginHint visibility
 - OuroborosRing gap — 14%, verify reads as open on device
@@ -255,25 +303,49 @@ When dormant: fixed slow rate. When active: mirrors and regulates internal state
 ## build order (immediate)
 
 1. ~~Bridge screen~~ ✅ done
-2. Onboarding exit screen — three things: breathe / check in / reach sponsor
-3. Sponsor tab first impression — "your sponsor is one tap away"
-4. GhostPulse ← mood score — close the feedback loop
-5. 3D depth full pass (see below)
-6. Railway fresh deploy
-7. EAS build Android first
-8. EAS build iOS
-9. Store listings
+2. ~~Onboarding exit screen~~ ✅ done — "three things, always here"
+3. ~~Sponsor tab first impression~~ ✅ done — role first, typed question for recovery user only, name carries forward
+4. ~~GhostPulse ← mood score~~ ✅ done — loop closed via mood-event.ts
+5. ~~NeonCard glass depth~~ ✅ done — shadow stack, top edge highlight, inner glow
+6. Mercury tab bar — next
+7. Railway fresh deploy
+8. EAS build Android first
+9. EAS build iOS
+10. Store listings
 
 ---
 
-## 3D depth layer (full pass — priority feature)
+## 3D depth layer (in progress)
 
+### NeonCard ✅ done
+Shadow stack, top edge highlight, inner glow gradient.
+
+### Mercury tab bar — next
+One continuous thread that splits into four droplets. Active tab is the droplet pulled upward by surface tension. Nearly invisible when idle, brightens on interaction.
+
+### Remaining depth work
 - **Parallax** — orb 30% slower than scroll, background 10% slower than orb
-- **Light sourcing** — one source per phase. Dawn = top left. Void = from below. Desire = warm side amber. Orb gets phase-directional gradient.
+- **Light sourcing** — one source per phase. Dawn = top left. Void = from below. Desire = warm side amber.
 - **Press depth** — quick-slots push away on tap (scale down + dim), spring back on release
 - **OuroborosRing perspective tilt** — subtle rotateY, reads as halo in space not flat circle
 - **Z-depth opacity** — ambient 40%, orb 75%, quick-slots 90%, text 100%
 - **Reactive depth** — every interactive element comes toward you on tap
+- **Drag resistance** — interface becomes more viscous when restlessness score is high. Wire into orb interaction and breathing exercise first, navigation later.
+
+---
+
+## v2.5 — Ouroboros Navigator (deferred, design locked)
+
+Replaces tab navigation with a sphere-based inhabitable space. Design decisions locked:
+
+- User stays centered — interface moves around them, not the other way
+- Orb is stationary anchor — screens orbit it, it never travels
+- 2am mode becomes viscous — heavier, slower, dreamlike — not stark
+- Paths reveal on pause — quadrants breathe into visibility when user is still, recede when moving
+- Depth axis is a sphere — no hierarchy, every direction equidistant from center
+- Drag resistance tied to restlessness score (useOrchidSway)
+
+Do not build until mercury tab bar and Railway deploy are complete.
 
 ---
 
@@ -305,12 +377,15 @@ When dormant: fixed slow rate. When active: mirrors and regulates internal state
 - kebab-case file names always, no exceptions
 - snake_case only when platform forces it
 - Never generic emojis in UI — CourierPrime glyphs only
+- Never use plain English abbreviations in comments or docs — write it out in full
 - Never transmit user health data to any server
 - Blind relay only — server sees ciphertext, nothing else
 - PAYWALL_ACTIVE=false — do not enable
 - butterfly-dna.gif and butterfly-dna-t.gif — do NOT touch
 - expo-av and expo-audio broken in Expo Go SDK 54 — audio deferred to EAS
 - react-native-quick-crypto NitroModules warning in Expo Go — expected, not a crash
+- Start dev server with: pnpm expo start --tunnel --clear
+- Never use npx expo or npm directly — always pnpm
 
 ---
 
