@@ -344,11 +344,11 @@ export default function Onboarding() {
       {/* Narration — terminal comment style, fades in after label */}
       {NARRATION[id] && (
         <Animated.View style={[styles.narrationWrap, { opacity: narrationOpacity }]}>
-          <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.32)` }]}>
+          <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.58)` }]}>
             {NARRATION[id].line1}
           </Text>
           {NARRATION[id].line2 && (
-            <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.22)` }]}>
+            <Text style={[styles.narrationLine, { color: `rgba(${phaseRgb},0.42)` }]}>
               {NARRATION[id].line2}
             </Text>
           )}

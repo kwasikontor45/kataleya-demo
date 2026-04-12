@@ -10,13 +10,6 @@ import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { GlyphIcon, milestoneGlyph } from '@/components/GlyphIcon';
 import { ScanlineLayer } from '@/components/scanline-layer';
 
-function phaseAccentRgb(phase: string): string {
-  if (phase === 'goldenHour') return NEON_RGB.amber;
-  if (phase === 'night')      return NEON_RGB.violet;
-  if (phase === 'dawn')       return NEON_RGB.pink;
-  return NEON_RGB.cyan;
-}
-
 // Confidence → glow intensity for insight cards
 function confidenceToIntensity(confidence: number): number {
   return 0.04 + confidence * 0.1;
@@ -28,7 +21,7 @@ export default function GrowthScreen() {
   const { theme, phase } = useCircadian();
   const { sobriety } = useSobriety();
   const { insights, loading: insightsLoading, dataAgeDays, hasEnoughData } = useInsights();
-  const accentRgb = phaseAccentRgb(phase);
+  const accentRgb = theme.phaseRgb;
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
