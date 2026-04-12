@@ -34,8 +34,6 @@ import { Surface, Sanctuary } from '@/utils/storage';
 import { useUserState } from '@/hooks/use-user-state';
 import { ScanlineLayer } from '@/components/scanline-layer';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { CRTScreen } from '@/components/CRTScreen';
-import { TerminalNav } from '@/components/TerminalNav';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const ORB_COMPOSITE = Math.min(SCREEN_W * 0.72, 260);
@@ -339,7 +337,6 @@ export default function SanctuaryScreen() {
   const [showGrounding, setShowGrounding] = useState(false);
   const [overrideHint, setOverrideHint] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const [phosphorMode, setPhosphorMode] = useState(false);
   const overrideHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
@@ -537,23 +534,6 @@ export default function SanctuaryScreen() {
   const is2am = phase === 'night' && hour >= 0 && hour < 5;
   const isStruggling = userState === 'struggling' || userState === 'rest';
 
-  if (phosphorMode) {
-    return (
-      <CRTScreen intensity="medium">
-        <TerminalNav />
-        <TouchableOpacity
-          onPress={() => setPhosphorMode(false)}
-          style={{ position: 'absolute', top: 52, right: 20, zIndex: 100 }}
-          hitSlop={16}
-        >
-          <Text style={{ fontFamily: 'CourierPrime', fontSize: 11, color: 'rgba(51,255,0,0.5)', letterSpacing: 1 }}>
-            [exit]
-          </Text>
-        </TouchableOpacity>
-      </CRTScreen>
-    );
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <ScanlineLayer />
@@ -691,17 +671,6 @@ export default function SanctuaryScreen() {
               {darkOverride ? `${phaseConfig.displayName} ◗` : phaseConfig.displayName}
             </Text>
           </View>
-
-          {/* Phosphor Noir toggle */}
-          <TouchableOpacity
-            onPress={() => setPhosphorMode(true)}
-            hitSlop={20}
-            style={{ position: 'absolute', bottom: -32, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 8 }}
-          >
-            <Text style={{ fontFamily: 'CourierPrime', fontSize: 11, color: `rgba(${accentRgb}, 0.4)`, letterSpacing: 3 }}>
-              ◈ noir
-            </Text>
-          </TouchableOpacity>
 
         </View>
 
