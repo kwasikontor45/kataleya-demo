@@ -187,13 +187,6 @@ function moodLabel(score: number): string {
   return MOOD_PILL_LABELS.find(s => s.score === score)?.label ?? String(score);
 }
 
-function phaseAccentRgb(phase: string): string {
-  if (phase === 'goldenHour') return NEON_RGB.amber;
-  if (phase === 'night')      return NEON_RGB.violet;
-  if (phase === 'dawn')       return NEON_RGB.pink;
-  return NEON_RGB.cyan;
-}
-
 function KbDismiss({ accentRgb }: { accentRgb: string }) {
   return (
     <TouchableOpacity
@@ -211,7 +204,7 @@ export default function JournalScreen() {
   const { theme, phase } = useCircadian();
   const { restlessnessScore } = useOrchidSway();
   const scrollRef = useRef<ScrollView>(null);
-  const accentRgb = phaseAccentRgb(phase);
+  const accentRgb = theme.phaseRgb;
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
 

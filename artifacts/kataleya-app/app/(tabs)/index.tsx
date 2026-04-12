@@ -125,13 +125,6 @@ function MercuryLine({ accentRgb }: { accentRgb: string }) {
   );
 }
 
-// Circadian accent RGB — matches GhostPulseOrb color logic
-function phaseAccentRgb(phase: string): string {
-  if (phase === 'goldenHour') return NEON_RGB.amber;
-  if (phase === 'night')      return NEON_RGB.violet;
-  if (phase === 'dawn')       return NEON_RGB.cyan;
-  return NEON_RGB.cyan;
-}
 
 // Predictive suggestion — reads recent mood to surface a contextual nudge.
 // Fully local: queries Sanctuary, no network.
@@ -348,7 +341,6 @@ export default function SanctuaryScreen() {
   const pillGlow   = useRef(new Animated.Value(0.4)).current;
   const ecgAnim    = useRef(new Animated.Value(0)).current;
   const orbHint      = useRef(new Animated.Value(0)).current;
-  const wordmarkPulse = useRef(new Animated.Value(0.3)).current;
   const ambientGlow   = useRef(new Animated.Value(0)).current;
   // Scroll parallax
   const scrollY       = useRef(new Animated.Value(0)).current;
@@ -435,27 +427,6 @@ export default function SanctuaryScreen() {
     return () => loop.stop();
   }, []); // empty deps — pill breath never interrupts itself
 
-  // Wordmark pulse — breathes between dim and legible to signal interactivity
-  useEffect(() => {
-    const pulse = () => {
-      Animated.sequence([
-        Animated.timing(wordmarkPulse, {
-          toValue: 0.55,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
-        }),
-        Animated.timing(wordmarkPulse, {
-          toValue: 0.22,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
-        }),
-      ]).start(({ finished }) => { if (finished) pulse(); });
-    };
-    const t = setTimeout(pulse, 3000);
-    return () => clearTimeout(t);
-  }, [wordmarkPulse]);
 
   // Ambient glow — 12s breath cycle, behind everything
   // Slower than the orb. The environment breathes, not performs.
@@ -528,7 +499,7 @@ export default function SanctuaryScreen() {
     setSettingDate(false);
   };
 
-  const accentRgb = darkOverride ? '138,95,224' : (theme.phaseRgb ?? phaseAccentRgb(phase));
+  const accentRgb = theme.phaseRgb;
 
   const hour = new Date().getHours();
   const is2am = phase === 'night' && hour >= 0 && hour < 5;
@@ -815,9 +786,9 @@ export default function SanctuaryScreen() {
                 shadowColor: `rgb(${NEON_RGB.amber})`,
                 transform: [{ scale: slotScale0 }],
               }]}>
-                <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.amber},0.45)` }]}>◬</Text>
-                <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.amber},0.55)` }]}>sanctuary</Text>
-                <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.amber},0.25)` }]}>2am</Text>
+                <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.amber},0.65)` }]}>◬</Text>
+                <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.amber},0.75)` }]}>sanctuary</Text>
+                <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.amber},0.32)` }]}>2am</Text>
               </Animated.View>
             </TouchableOpacity>
 
@@ -835,9 +806,9 @@ export default function SanctuaryScreen() {
                 shadowColor: `rgb(${NEON_RGB.cyan})`,
                 transform: [{ scale: slotScale1 }],
               }]}>
-                <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.cyan},0.45)` }]}>◎</Text>
-                <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.cyan},0.55)` }]}>breathe</Text>
-                <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.cyan},0.25)` }]}>4·7·8</Text>
+                <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.cyan},0.65)` }]}>◎</Text>
+                <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.cyan},0.75)` }]}>breathe</Text>
+                <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.cyan},0.32)` }]}>4·7·8</Text>
               </Animated.View>
             </TouchableOpacity>
 
@@ -855,16 +826,35 @@ export default function SanctuaryScreen() {
                 shadowColor: `rgb(${NEON_RGB.violet})`,
                 transform: [{ scale: slotScale2 }],
               }]}>
-                <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.violet},0.45)` }]}>⟡</Text>
-                <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.violet},0.55)` }]}>ground</Text>
-                <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.violet},0.25)` }]}>5·4·3·2·1</Text>
+                <Text style={[styles.quickSlotGlyph, { color: `rgba(${NEON_RGB.violet},0.65)` }]}>⟡</Text>
+                <Text style={[styles.quickSlotLabel, { color: `rgba(${NEON_RGB.violet},0.75)` }]}>ground</Text>
+                <Text style={[styles.quickSlotSub, { color: `rgba(${NEON_RGB.violet},0.32)` }]}>5·4·3·2·1</Text>
               </Animated.View>
             </TouchableOpacity>
           </View>
+          {/* Wordmark — ECG sweep through letters, reuses ecgAnim already running */}
           <TouchableOpacity onPress={() => setShowPrivacy(true)} hitSlop={16} activeOpacity={0.7}>
-            <Animated.Text style={[styles.wordmark, { color: theme.textMuted, opacity: wordmarkPulse }]}>
-              kataleya
-            </Animated.Text>
+            <View style={[styles.wordmark, { flexDirection: 'row', alignSelf: 'center' }]}>
+              {'kataleya'.split('').map((ch, i) => (
+                <Animated.Text
+                  key={i}
+                  style={{
+                    fontFamily:    'SpaceMono',
+                    fontSize:      11,
+                    letterSpacing: 8,
+                    textTransform: 'lowercase',
+                    color: theme.textMuted,
+                    opacity: ecgAnim.interpolate({
+                      inputRange:  [i - 1.5, i - 0.3, i, i + 0.3, i + 1.5],
+                      outputRange: [0.18,    0.55,    0.88, 0.55,   0.18],
+                      extrapolate: 'clamp',
+                    }),
+                  }}
+                >
+                  {ch}
+                </Animated.Text>
+              ))}
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -1176,10 +1166,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5, textAlign: 'center', marginTop: 16,
   },
   wordmark: {
-    fontFamily: 'SpaceMono',
-    fontSize: 11,
-    letterSpacing: 8,
-    textTransform: 'lowercase',
     marginTop: 8,
   },
   orbSection: {
