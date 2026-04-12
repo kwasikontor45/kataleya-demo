@@ -102,6 +102,10 @@ export function OuroborosRing({
   const headX = R + radius * Math.cos(headAngle);
   const headY = R + radius * Math.sin(headAngle);
 
+  // Head/tail sizes scale with ring radius — consistent proportion at any size
+  const headR = Math.max(strokeW * 3.2, radius * 0.042);
+  const tailR = Math.max(strokeW * 1.4, radius * 0.016);
+
   // Scar marks — survived cycles (max 12 visible)
   const visibleScars = Math.min(Math.floor(cycleCount / 3), 12);
   const scarArcs = Array.from({ length: visibleScars }, (_, i) => {
@@ -151,21 +155,21 @@ export function OuroborosRing({
           />
           {/* Tail — small dim circle, the trailing end */}
           <Circle
-            cx={tailX} cy={tailY} r={strokeW * 1.4}
+            cx={tailX} cy={tailY} r={tailR}
             fill={color}
             opacity={0.38}
           />
 
           {/* Head — larger bright filled circle, the leading end */}
           <Circle
-            cx={headX} cy={headY} r={strokeW * 3.2}
+            cx={headX} cy={headY} r={headR}
             fill={color}
             opacity={0.92}
           />
           {/* Head inner gleam — the eye */}
           <Circle
-            cx={headX - strokeW * 0.6} cy={headY - strokeW * 0.6} r={strokeW * 0.9}
-            fill="rgba(255,255,255,0.55)"
+            cx={headX - headR * 0.38} cy={headY - headR * 0.38} r={headR * 0.32}
+            fill="rgba(255,255,255,0.60)"
             opacity={0.9}
           />
 
