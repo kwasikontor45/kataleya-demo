@@ -1,6 +1,6 @@
 # CLAUDE.md — Kataleya
 # Lead Developer context. Read this before touching anything.
-# Last updated: April 11 2026
+# Last updated: April 12 2026
 
 ---
 
@@ -57,8 +57,7 @@ Kataleya began in March 2026 as a founder's vision of what a recovery app should
 
 ## accounts and identifiers
 
-- GitHub private (source of truth): github.com/kwasikontor45/kataleya
-- GitHub public (sanitized demo): github.com/kwasikontor45/kataleya-demo
+- GitHub (public, single repo): github.com/kwasikontor45/kataleya
 - Expo account: bleedin6ed6e
 - EAS project ID: 8c2a466b-748a-4eb5-a42e-4f0bdb9aa856
 - Project root: ~/kataleya/artifacts/kataleya-app
@@ -69,14 +68,8 @@ Kataleya began in March 2026 as a founder's vision of what a recovery app should
 
 ## repo strategy
 
-Private repo (`kataleya`) is the sole source of truth. All work happens here.
-Public repo (`kataleya-demo`) is a sanitized demo — UI components only, no backend or crypto.
-
-Publishing: run `~/bin/kataleya-publish` from private repo root on `main`.
-The script strips: `utils/crypto.ts`, `utils/db.ts`, `utils/backup.ts`, `utils/storage.ts`, `hooks/useSponsorChannel.ts`, `server/`, `lib/`, `exports/`, `attached_assets/`, `.claude/`, `.env*`, audio assets.
-The `public` remote in the private repo points to `kataleya-demo`.
-A verification pass runs before every commit — aborts if sensitive files are detected.
-One-way flow only — never merge public back into private.
+One repo. Everything public. github.com/kwasikontor45/kataleya is the single source of truth.
+No publish script. No sanitized demo. No two-way sync. Just push to main.
 
 ---
 
