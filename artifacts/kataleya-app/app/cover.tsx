@@ -182,8 +182,11 @@ export default function CoverScreen() {
 
   const accentRgb = phase === 'night'      ? '138,95,224'
                   : phase === 'goldenHour' ? '255,107,53'
-                  : phase === 'dawn'       ? '255,100,180'
+                  : phase === 'dawn'       ? '0,212,170'
                   : '0,212,170';
+
+  // Amber is intense — pull back opacity during golden hour so it doesn't drown the screen
+  const phaseMultiplier = phase === 'goldenHour' ? 0.55 : 1.0;
 
   const orbScale   = useRef(new Animated.Value(1)).current;
   const orbOpacity = useRef(new Animated.Value(0.22)).current;
@@ -284,7 +287,7 @@ export default function CoverScreen() {
 
       {/* Ambient glow — opacity on fixed color, native driver safe */}
       <Animated.View pointerEvents="none"
-        style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(${accentRgb}, 0.05)`, opacity: bgGlow }]} />
+        style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(${accentRgb}, ${0.05 * phaseMultiplier})`, opacity: bgGlow }]} />
 
       {/* Neon bleed */}
       <NeonBleed accentRgb={accentRgb} />
@@ -339,20 +342,19 @@ export default function CoverScreen() {
           transform: [{ scale: orbScale }],
         }]} />
 
-        {/* Core orb — tap target, butterfly inside */}
+        {/* Core orb — tap target */}
         <TouchableOpacity onPress={handleTap} activeOpacity={1} hitSlop={32}>
           <Animated.View style={[styles.orb, {
             width: ORB, height: ORB,
             borderRadius: ORB / 2,
-            borderColor: `rgba(${accentRgb}, 1)`,
-            backgroundColor: `rgba(${accentRgb}, 0.05)`,
+            borderColor: `rgba(${accentRgb}, 0.4)`,
+            backgroundColor: `rgba(${accentRgb}, 0.04)`,
             transform: [{ scale: orbScale }],
-            opacity: orbOpacity,
           }]}>
-            {/* Butterfly — perfectly centered, own colors */}
+            {/* Butterfly — own opacity, not inheriting orb fade */}
             <Image
               source={require('../assets/images/butterfly-dna-t.gif')}
-              style={{ width: ORB * 0.62, height: ORB * 0.62 }}
+              style={{ width: ORB * 0.62, height: ORB * 0.62, opacity: 0.88 }}
               resizeMode="contain"
             />
           </Animated.View>
@@ -368,7 +370,7 @@ export default function CoverScreen() {
             speed={8}
             jitter={0}
             onComplete={handlePhraseComplete}
-            style={[styles.phraseText, { color: `rgba(${accentRgb}, 0.88)` }]}
+            style={[styles.phraseText, { color: `rgba(${accentRgb}, ${0.88 * phaseMultiplier})` }]}
           />
         )}
       </Animated.View>
@@ -376,7 +378,7 @@ export default function CoverScreen() {
       {/* Return */}
       <Animated.View style={[styles.returnWrap, { opacity: returnOpacity }]}>
         <TouchableOpacity onPress={handleReturn} hitSlop={16}>
-          <Text style={[styles.returnText, { color: `rgba(${accentRgb}, 0.28)` }]}>
+          <Text style={[styles.returnText, { color: `rgba(${accentRgb}, ${0.28 * phaseMultiplier})` }]}>
             return when ready
           </Text>
         </TouchableOpacity>

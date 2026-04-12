@@ -1,10 +1,13 @@
 import { Tabs } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Platform, View } from 'react-native';
-import React from 'react';
+import { StyleSheet, Platform, View, Pressable } from 'react-native';
+import React, { useState } from 'react';
 import { useCircadian } from '@/hooks/useCircadian';
 import { GlyphIcon } from '@/components/GlyphIcon';
+import { CRTScreen } from '@/components/CRTScreen';
+import { TerminalNav } from '@/components/TerminalNav';
+import * as Haptics from 'expo-haptics';
 
 function TabIcon({ name, color, size, focused, phaseRgb }: {
   name: string; color: string; size: number; focused: boolean; phaseRgb: string;
@@ -26,14 +29,35 @@ function TabIcon({ name, color, size, focused, phaseRgb }: {
 }
 
 export default function TabLayout() {
-  const { theme } = useCircadian();
-  const isIOS    = Platform.OS === 'ios';
-  const isWeb    = Platform.OS === 'web';
-  const isAndroid = Platform.OS === 'android';
+  const { theme }   = useCircadian();
+  const isIOS       = Platform.OS === 'ios';
+  const isWeb       = Platform.OS === 'web';
+  const isAndroid   = Platform.OS === 'android';
+  const [phosphor, setPhosphor] = useState(false);
 
-  // Active = phase accent with glow. Inactive = near-invisible — present not competing.
   const tabActive   = theme.accent;
   const tabInactive = 'rgba(138,138,158,0.35)';
+
+  // Long press tab bar border to toggle Phosphor Noir
+  const togglePhosphor = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setPhosphor(p => !p);
+  };
+
+  if (phosphor) {
+    return (
+      <CRTScreen intensity="medium">
+        <StatusBar style="light" hidden />
+        <TerminalNav />
+        {/* Exit hint — long press bottom edge to return */}
+        <Pressable
+          onLongPress={togglePhosphor}
+          style={styles.phosphorExit}
+          hitSlop={20}
+        />
+      </CRTScreen>
+    );
+  }
 
   return (
     <>
@@ -46,7 +70,6 @@ export default function TabLayout() {
           tabBarStyle: {
             position: 'absolute',
             backgroundColor: isIOS ? 'transparent' : '#050508',
-            // Phase-colored top border — the signal line
             borderTopColor: `rgba(${theme.phaseRgb}, 0.5)`,
             borderTopWidth: 1,
             elevation: 0,
@@ -79,6 +102,15 @@ export default function TabLayout() {
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: '#050508' }]} />
               )
             : undefined,
+          // Long press the tab bar border line to enter Phosphor Noir
+          tabBarButton: (props) => (
+            <Pressable
+              {...props}
+              onLongPress={(e) => {
+                if (props.onLongPress) props.onLongPress(e);
+              }}
+            />
+          ),
         }}
       >
         <Tabs.Screen
@@ -127,6 +159,31 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
+      {/* Invisible long-press zone over the tab bar border to enter Phosphor Noir */}
+      <Pressable
+        onLongPress={togglePhosphor}
+        style={styles.phosphorTrigger}
+        hitSlop={10}
+      />
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  phosphorTrigger: {
+    position: 'absolute',
+    bottom: 58,
+    left: 0,
+    right: 0,
+    height: 4,
+    zIndex: 200,
+  },
+  phosphorExit: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 40,
+    zIndex: 200,
+  },
+});

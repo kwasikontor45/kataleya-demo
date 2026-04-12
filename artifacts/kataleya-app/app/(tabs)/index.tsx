@@ -34,6 +34,8 @@ import { Surface, Sanctuary } from '@/utils/storage';
 import { useUserState } from '@/hooks/use-user-state';
 import { ScanlineLayer } from '@/components/scanline-layer';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { CRTScreen } from '@/components/CRTScreen';
+import { TerminalNav } from '@/components/TerminalNav';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const ORB_COMPOSITE = Math.min(SCREEN_W * 0.72, 260);
@@ -337,6 +339,7 @@ export default function SanctuaryScreen() {
   const [showGrounding, setShowGrounding] = useState(false);
   const [overrideHint, setOverrideHint] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [phosphorMode, setPhosphorMode] = useState(false);
   const overrideHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
@@ -396,10 +399,10 @@ export default function SanctuaryScreen() {
     return () => clearTimeout(t);
   }, [ecgAnim, reduceMotion]);
 
-  // Heart pill idle animation — slow breath. Skipped on reduce motion.
+  // Heart pill idle animation — slow breath. Animated.loop survives tab switches.
   useEffect(() => {
     if (reduceMotion) return;
-    const idlePulse = () => {
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.parallel([
           Animated.timing(pillPulse, {
@@ -429,10 +432,10 @@ export default function SanctuaryScreen() {
             useNativeDriver: true,
           }),
         ]),
-      ]).start(({ finished }) => { if (finished) idlePulse(); });
-    };
-    idlePulse();
-    return () => { pillPulse.stopAnimation(); pillGlow.stopAnimation(); };
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
   }, [pillPulse, pillGlow, reduceMotion]);
 
   // Wordmark pulse — breathes between dim and legible to signal interactivity
@@ -533,6 +536,23 @@ export default function SanctuaryScreen() {
   const hour = new Date().getHours();
   const is2am = phase === 'night' && hour >= 0 && hour < 5;
   const isStruggling = userState === 'struggling' || userState === 'rest';
+
+  if (phosphorMode) {
+    return (
+      <CRTScreen intensity="medium">
+        <TerminalNav />
+        <TouchableOpacity
+          onPress={() => setPhosphorMode(false)}
+          style={{ position: 'absolute', top: 52, right: 20, zIndex: 100 }}
+          hitSlop={16}
+        >
+          <Text style={{ fontFamily: 'CourierPrime', fontSize: 11, color: 'rgba(51,255,0,0.5)', letterSpacing: 1 }}>
+            [exit]
+          </Text>
+        </TouchableOpacity>
+      </CRTScreen>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -671,6 +691,17 @@ export default function SanctuaryScreen() {
               {darkOverride ? `${phaseConfig.displayName} ◗` : phaseConfig.displayName}
             </Text>
           </View>
+
+          {/* Phosphor Noir toggle — temporary test button */}
+          <TouchableOpacity
+            onPress={() => setPhosphorMode(true)}
+            hitSlop={12}
+            style={{ position: 'absolute', bottom: -22, alignSelf: 'center' }}
+          >
+            <Text style={{ fontFamily: 'CourierPrime', fontSize: 9, color: `rgba(${accentRgb}, 0.25)`, letterSpacing: 2 }}>
+              ◈ noir
+            </Text>
+          </TouchableOpacity>
 
         </View>
 
