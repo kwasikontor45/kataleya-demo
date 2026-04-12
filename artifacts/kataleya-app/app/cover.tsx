@@ -192,7 +192,7 @@ export default function CoverScreen() {
         <Animated.View style={[styles.absolute, {
           width:     RING_SIZE,
           height:    RING_SIZE,
-          opacity:   0.08,
+          opacity:   0.22,
           transform: [{ scale: ringScale }],
         }]}>
           <OuroborosRing
