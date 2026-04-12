@@ -373,9 +373,8 @@ export default function SanctuaryScreen() {
 
   // Day count pulse — gentle breath at BPM rate
   const dayPulse  = useRef(new Animated.Value(1)).current;
-  // Heart pill — idle breath + panic intensify
+  // Heart pill — idle breath
   const pillPulse  = useRef(new Animated.Value(1)).current;
-  const pillGlow   = useRef(new Animated.Value(0.4)).current;
   const ecgAnim    = useRef(new Animated.Value(0)).current;
   // Blood pressure wave — 8 individual values, one per letter in the pill
   const waveAnims  = useRef('kataleya'.split('').map(() => new Animated.Value(0))).current;
@@ -467,34 +466,18 @@ export default function SanctuaryScreen() {
     if (reduceMotion) return;
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.parallel([
-          Animated.timing(pillPulse, {
-            toValue: 1.025,
-            duration: 2000,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(pillGlow, {
-            toValue: 0.52,
-            duration: 2000,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: false,  // borderColor — JS driver only
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(pillPulse, {
-            toValue: 1.0,
-            duration: 3500,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(pillGlow, {
-            toValue: 0.4,
-            duration: 3500,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: false,  // borderColor — JS driver only
-          }),
-        ]),
+        Animated.timing(pillPulse, {
+          toValue: 1.025,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pillPulse, {
+          toValue: 1.0,
+          duration: 3500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
       ])
     );
     loop.start();
@@ -660,10 +643,7 @@ export default function SanctuaryScreen() {
             <Animated.View style={[
               styles.heartPill,
               {
-                borderColor: pillGlow.interpolate({
-                  inputRange: [0.4, 1.0],
-                  outputRange: [`rgba(${accentRgb}, 0.32)`, `rgba(${accentRgb}, 0.7)`],
-                }),
+                borderColor: `rgba(${accentRgb}, 0.45)`,
                 shadowColor: `rgb(${accentRgb})`,
                 transform: [{ scale: pillPulse }],
               },
