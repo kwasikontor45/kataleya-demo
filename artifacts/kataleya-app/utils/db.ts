@@ -82,3 +82,4 @@ function migrate(db: SQLiteDatabase): void {
     `);
     db.runSync(`PRAGMA user_version = 2`);
   }
+}
