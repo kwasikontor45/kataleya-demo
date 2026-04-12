@@ -1,6 +1,6 @@
 # CLAUDE.md — Kataleya
 # Lead Developer context. Read this before touching anything.
-# Last updated: April 12 2026
+# Last updated: April 11 2026
 
 ---
 
@@ -73,8 +73,8 @@ Private repo (`kataleya`) is the sole source of truth. All work happens here.
 Public repo (`kataleya-demo`) is a sanitized demo — UI components only, no backend or crypto.
 
 Publishing: run `~/bin/kataleya-publish` from private repo root on `main`.
-The script strips: `utils/crypto.ts`, `utils/db.ts`, `utils/backup.ts`, `utils/storage.ts`, `hooks/useSponsorChannel.ts`, `server/`, `lib/`, `exports/`, `attached_assets/`, `.claude/`, `CLAUDE.md`, `.env*`, audio assets.
-The `demo` remote in the private repo points to `kataleya-demo`.
+The script strips: `utils/crypto.ts`, `utils/db.ts`, `utils/backup.ts`, `utils/storage.ts`, `hooks/useSponsorChannel.ts`, `server/`, `lib/`, `exports/`, `attached_assets/`, `.claude/`, `.env*`, audio assets.
+The `public` remote in the private repo points to `kataleya-demo`.
 A verification pass runs before every commit — aborts if sensitive files are detected.
 One-way flow only — never merge public back into private.
 
@@ -114,7 +114,7 @@ One-way flow only — never merge public back into private.
     burn.tsx            — burn ritual wrapper
     (tabs)/
       index.tsx         — home screen (sanctuary)
-      journal.tsx       — mood + journal, emits moodEvents on save
+      journal.tsx       — mood + journal + urge surfing, emits moodEvents on save
       vault.tsx         — privacy, export, burn
       sponsor.tsx       — sponsor connection, role-first flow
   components/
@@ -127,11 +127,6 @@ One-way flow only — never merge public back into private.
     HoldToConfirm.tsx   — reusable hold gesture
     typewriter-text.tsx — app choosing its words, character by character
     GlyphIcon.tsx       — SVG icon system
-    CRTScreen.tsx       — CRT monitor wrapper (scanlines, flicker, vignette) — Phosphor Noir
-    TerminalNav.tsx     — command palette navigation — Phosphor Noir
-    PhosphorText.tsx    — phosphor decay typewriter — Phosphor Noir
-  constants/
-    phosphor-noir.ts    — Phosphor Noir palette, COMMANDS map, HELP_LINES
   hooks/
     use-user-state.ts   — adaptive engine, four states
     useCircadian.ts     — phase, theme, darkOverride
@@ -152,6 +147,12 @@ One-way flow only — never merge public back into private.
     storage.ts          — Surface / Sanctuary / Fortress APIs
     backup.ts           — AES-256 encrypt/decrypt (EAS only)
     mood-event.ts       — pub/sub for mood-logged signal across tabs (no dependencies)
+
+  db schema (current — SCHEMA_VERSION 2):
+    mood_logs           — v1 — mood score, restlessness, circadian phase
+    journal_entries     — v1 — body, optional mood score, circadian phase
+    circadian_log       — v1 — phase events (app_open, mood_log, etc.)
+    urge_log            — v2 — intensity 1-10, trigger/response/passed, rotating question index
 ```
 
 ---
@@ -236,17 +237,16 @@ Phase mapping (internal → user-facing):
 - Reusable component — app choosing its words
 - Character by character, irregular timing
 - Punctuation adds pause (. = 140ms extra, , = 80ms)
-- Used on: bridge phrase, sponsor first impression (cover screen no longer uses TypewriterText)
+- Used on: bridge phrase, cover phrase, sponsor first impression
 - Props: text, speed (default 45ms), jitter (default 28ms), startDelay, onComplete, style
 
 ### BreathingExercise
 - 4-7-8 true timing (4 inhale / 7 hold / 8 exhale)
-- Auto-starts 700ms after modal opens — user pressed the button, they are ready
-- After 2 cycles: "you did well" + explicit "done" pill button fades in
-- Session ends cleanly: all rings fade to zero, orb dims to 0.18 opacity, does not keep breathing
-- "done" button closes via handleFinalClose — fades orb + labels out then calls onDismiss/onClose
-- ✕ always visible — closes immediately without waiting for cycles
-- Also reachable from terminal via `/breathe` route (app/breathe.tsx, visible={true})
+- Tap orb core to begin — no autostart
+- "you did well" appears after 2 cycles — ambient text, not button
+- Orb keeps slow ambient breath after completion
+- ✕ always visible — closes immediately
+- No auto-dismiss timer
 
 ### BurningRitual
 - One step — hold to ignite, done
@@ -265,10 +265,8 @@ OuroborosRing turning, phase whisper, butterfly at center, garden phrase types i
 Orb at center, quick-slots below, timer and milestone progress, everything returns to home.
 
 **Mode 3 — 2am (cover)**
-Reached via: kataleya pill long press, orb tap at void phase, sanctuary quick-slot. Also via terminal command `cover`.
-Pure darkness. Rain by phase intensity. OuroborosRing + ..: :.. glyph breathing together on a unified 5 s native-driver cycle.
-No text. No phrases. No buttons. No neon bleed. Tap anywhere = router.back().
-The glyph no longer does chaos → containment animation (removed — was contaminating home screen JS thread on return).
+Reached via: kataleya pill long press, orb tap at void phase, sanctuary quick-slot.
+Orb breathing, butterfly in dark, rain (void only), neon edge bleeds, phrase types on tap.
 
 ---
 
@@ -313,17 +311,6 @@ When dormant: fixed slow rate. When active: mirrors and regulates internal state
 
 ---
 
-## MercuryLine — home screen timer decoration ✅ updated
-
-Sits below the sobriety counter. Was a plain rolling mercury slug on a gradient wire.
-Now: caduceus. Two intertwining sine-wave paths (twin serpents of Mercury, god of knowledge/travel).
-Staff = center axis line. Three ☿ symbols at crossing points: 25%, 50%, 75% of track width.
-Mercury slug still rolls on the track (10.4 s back-and-forth, Easing.inOut(Easing.sin)).
-Paths pre-computed at module load — no runtime math.
-**Note:** ☿ is the planetary/deity symbol, not the element (Hg). Intentional.
-
----
-
 ## sponsor tab — connection flow ✅ updated
 
 Role choice comes first — no warmth, just clarity. Two paths:
@@ -335,7 +322,41 @@ First impression state is component-local. Resets on unmount. Already-connected 
 
 ---
 
-## onboarding — exit step ✅ updated
+## urge surfing log ✅ shipped
+
+Third entry type in the journal tab, below private journal. Amber accent — distinct from mood (phase-colored) and journal (violet).
+
+**Structure:** five fields presented as a quiet conversation, not a form.
+- Intensity — 1–10 pill row, color-coded by heat (cyan=low, amber=mid, red=high)
+- What was happening — optional text, rotates through 4 question variants
+- What did you do — optional text, rotates through 4 variants
+- Did it pass — two-button: "it passed" / "still with me"
+- Hold to record — same HoldToConfirm pattern as mood and journal
+
+**Rotating question pools:** four variants per field. `urgeQIndexRef` tracks which variant was last shown and advances by 1 on each save. Same question never repeats twice in a row. Variants stored in `urge_log` table as `trigger_q`, `response_q`, `passed_q` indices.
+
+**Storage:** `urge_log` table in SQLite (Sanctuary vault, v2 migration). Fields: id, ts, intensity, trigger_q, trigger, response_q, response, passed_q, passed, circadian_phase. Burn ritual wipes this table. `Sanctuary.saveUrgeLog()`, `getUrgeLogs()`, `deleteUrgeLog()` in storage.ts.
+
+**History:** shows intensity badge (heat-colored), passed/held status, trigger text, timestamp, delete. Expands after 3 entries.
+
+---
+
+## workbook origin — what the app is completing
+
+The founder built a paper recovery workbook (with journal prompts, CBT exercises, urge surfing log, weekly review, daily schedule) before building the app. The app is the living version of that workbook. Features map directly:
+
+| Workbook section | App feature |
+|---|---|
+| Daily mood rating (1–10) | Mood logging — journal tab |
+| Private journal | Journal entry — journal tab |
+| Urge surfing log | Urge surfing — journal tab ✅ |
+| Weekly review (7 areas) | Weekly review — growth tab (pending) |
+| Daily schedule | Circadian engine — ambient awareness (pending) |
+| CBT thought record | Future v3.0 consideration |
+
+The workbook's note on golden hour: *"Late afternoon (4–6 PM) and late night are peak craving and low-mood windows."* This is why golden hour (17:00–20:00) has the Craving Amber accent and protective color psychology. The circadian engine already knows this. The urge surfing log captures what happens in that window.
+
+---
 
 Final step (id: 'enter') now shows "three things, always here" instead of "the cycle begins".
 Three ambient rows — breathe / check in / reach sponsor — with CourierPrime glyphs (~ / + / ::).
@@ -346,15 +367,14 @@ Narration: "the garden is always open. / return whenever you need."
 
 ## known issues / pending fixes
 
-- NeonCard goldenHour calibration still pending — amber fill/border intensity too aggressive
+- Golden hour amber too aggressive — calibration pass needed on NeonCard fillIntensity and borderIntensity during goldenHour phase
 - NeonCard glass effect may need higher shadowOpacity on dark backgrounds — mid depth at 0.15 is subtle
 - "1 days" plural — fix applied, verify on device
+- BreathingExercise hasStarted ref — may need useState for beginHint visibility
 - OuroborosRing gap — 14%, verify reads as open on device
 - ..: :.. glyph vertical centering — includeFontPadding fix applied
 - SVG filter warnings (FeTurbulence etc) — expected in Expo Go, not errors
 - NitroModules warning — expected in Expo Go, EAS only
-- Kataleya pill long-press: waveAnims moved to native driver (was blocking touch detection) — verify on device
-- Palette selector removed from vault — circadian engine drives colors automatically, no user picker
 
 ---
 
@@ -365,11 +385,13 @@ Narration: "the garden is always open. / return whenever you need."
 3. ~~Sponsor tab first impression~~ ✅ done — role first, typed question for recovery user only, name carries forward
 4. ~~GhostPulse ← mood score~~ ✅ done — loop closed via mood-event.ts
 5. ~~NeonCard glass depth~~ ✅ done — shadow stack, top edge highlight, inner glow
-6. ~~Mercury tab bar~~ ✅ done — thread + droplets, active lifted by surface tension, long press → Phosphor Noir easter egg (no hint, no label, intentionally hidden)
-7. Railway fresh deploy
-8. EAS build Android first
-9. EAS build iOS
-10. Store listings
+6. ~~Mercury tab bar~~ ✅ done — thread + droplets, active lifted by surface tension, long press → Phosphor Noir easter egg
+7. ~~Urge surfing log~~ ✅ done — journal tab, rotating question pools, amber accent, Sanctuary v2
+8. Weekly review — growth tab, surfaces Sunday evening in void phase, 7 areas, biggest win, one adjustment
+9. Railway fresh deploy
+10. EAS build Android first
+11. EAS build iOS
+12. Store listings
 
 ---
 
@@ -378,9 +400,8 @@ Narration: "the garden is always open. / return whenever you need."
 ### NeonCard ✅ done
 Shadow stack, top edge highlight, inner glow gradient.
 
-### Mercury tab bar ✅ done
+### Mercury tab bar — next
 One continuous thread that splits into four droplets. Active tab is the droplet pulled upward by surface tension. Nearly invisible when idle, brightens on interaction.
-Thread carries an ambient shimmer that loops left→right seamlessly (5.2 s, resets off-screen).
 
 ### Remaining depth work
 - **Parallax** — orb 30% slower than scroll, background 10% slower than orb
