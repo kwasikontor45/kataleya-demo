@@ -350,7 +350,7 @@ Narration: "the garden is always open. / return whenever you need."
 3. ~~Sponsor tab first impression~~ ✅ done — role first, typed question for recovery user only, name carries forward
 4. ~~GhostPulse ← mood score~~ ✅ done — loop closed via mood-event.ts
 5. ~~NeonCard glass depth~~ ✅ done — shadow stack, top edge highlight, inner glow
-6. Mercury tab bar — in progress (mercury line done, full tab bar replacement pending)
+6. ~~Mercury tab bar~~ ✅ done — thread + droplets, active lifted by surface tension, long press → Phosphor Noir easter egg (no hint, no label, intentionally hidden)
 7. Railway fresh deploy
 8. EAS build Android first
 9. EAS build iOS
