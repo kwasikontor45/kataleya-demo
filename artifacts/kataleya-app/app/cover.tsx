@@ -246,26 +246,27 @@ export default function CoverScreen() {
   }, []);
 
   const handleTap = useCallback(() => {
-    if (tapVisible) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { text, index } = getPhrase(phase, lastPhraseIdx.current);
     lastPhraseIdx.current = index;
     setTapPhrase(text);
+    // Cancel any in-flight fade out before cycling to next phrase
+    if (phraseTimer.current) clearTimeout(phraseTimer.current);
+    phraseOpacity.stopAnimation();
     phraseOpacity.setValue(0);
     Animated.timing(phraseOpacity, {
-      toValue: 1, duration: 1000,
-      useNativeDriver: true, easing: Easing.inOut(Easing.sin),
+      toValue: 1, duration: 380,
+      useNativeDriver: true, easing: Easing.out(Easing.quad),
     }).start();
     setTapVisible(true);
 
-    if (phraseTimer.current) clearTimeout(phraseTimer.current);
     phraseTimer.current = setTimeout(() => {
       Animated.timing(phraseOpacity, {
-        toValue: 0, duration: 2000,
+        toValue: 0, duration: 1800,
         useNativeDriver: true, easing: Easing.inOut(Easing.sin),
       }).start(() => { setTapVisible(false); setTapPhrase(null); });
-    }, 5000);
-  }, [phase, tapVisible]);
+    }, 5500);
+  }, [phase]);
 
   const handleReturn = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -297,7 +298,7 @@ export default function CoverScreen() {
 
       {/* Meditation word — cycles slowly, something to hold */}
       <Animated.Text style={[styles.meditationWord, {
-        color: `rgba(${accentRgb}, ${0.16 * phaseMultiplier})`,
+        color: `rgba(${accentRgb}, 0.30)`,
         opacity: wordOpacity,
       }]}>
         {words[wordIdx]}
@@ -320,36 +321,26 @@ export default function CoverScreen() {
           />
         </View>
 
-        {/* Glow pools — concentric, breathing */}
+        {/* Single subtle inner glow — barely there, breathes with orb */}
         <Animated.View pointerEvents="none" style={[styles.absolute, {
-          width: ORB * 2.8, height: ORB * 2.8, borderRadius: ORB * 1.4,
-          backgroundColor: `rgba(${accentRgb}, ${0.02 * phaseMultiplier})`,
-          transform: [{ scale: orbScale }],
-        }]} />
-        <Animated.View pointerEvents="none" style={[styles.absolute, {
-          width: ORB * 2.0, height: ORB * 2.0, borderRadius: ORB * 1.0,
-          backgroundColor: `rgba(${accentRgb}, ${0.035 * phaseMultiplier})`,
-          transform: [{ scale: orbScale }],
-        }]} />
-        <Animated.View pointerEvents="none" style={[styles.absolute, {
-          width: ORB * 1.35, height: ORB * 1.35, borderRadius: ORB * 0.675,
-          backgroundColor: `rgba(${accentRgb}, ${0.05 * phaseMultiplier})`,
+          width: ORB * 1.5, height: ORB * 1.5, borderRadius: ORB * 0.75,
+          backgroundColor: `rgba(${accentRgb}, ${0.022 * phaseMultiplier})`,
           transform: [{ scale: orbScale }],
         }]} />
 
-        {/* Core orb — tap for a phrase */}
-        <TouchableOpacity onPress={handleTap} activeOpacity={1} hitSlop={32}>
-          <Animated.View style={[styles.orb, {
-            width: ORB, height: ORB,
-            borderRadius: ORB / 2,
-            borderColor: `rgba(${accentRgb}, ${0.3 * phaseMultiplier})`,
-            backgroundColor: `rgba(${accentRgb}, 0.03)`,
-            transform: [{ scale: orbScale }],
-          }]}>
-            {/* Butterfly — own opacity, not inheriting orb animation */}
+        {/* Dark hollow — the vessel, same always regardless of phase */}
+        <Animated.View pointerEvents="none" style={[styles.absolute, {
+          width: ORB * 0.78, height: ORB * 0.78, borderRadius: ORB * 0.39,
+          backgroundColor: 'rgba(2,3,5,0.90)',
+          transform: [{ scale: orbScale }],
+        }]} />
+
+        {/* Butterfly — blended into the hollow, tap anywhere in ring area */}
+        <TouchableOpacity onPress={handleTap} activeOpacity={1} hitSlop={44}>
+          <Animated.View style={{ transform: [{ scale: orbScale }] }}>
             <Image
               source={require('../assets/images/butterfly-dna-t.gif')}
-              style={{ width: ORB * 0.62, height: ORB * 0.62, opacity: 0.85 }}
+              style={{ width: ORB * 0.52, height: ORB * 0.52, opacity: 0.55 }}
               resizeMode="contain"
             />
           </Animated.View>
@@ -425,11 +416,6 @@ const styles = StyleSheet.create({
   },
   absolute: {
     position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orb: {
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

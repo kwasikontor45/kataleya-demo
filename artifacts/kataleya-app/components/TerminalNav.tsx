@@ -14,23 +14,12 @@ import Animated, {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { PHOSPHOR, HELP_LINES } from '@/constants/phosphor-noir';
+import { PHOSPHOR, COMMANDS, HELP_LINES } from '@/constants/phosphor-noir';
 
 interface HistoryLine {
   text: string;
   type: 'input' | 'response' | 'error' | 'system';
 }
-
-// Valid routes in the app
-const ROUTES: Record<string, string> = {
-  'garden':  '/(tabs)/index',
-  'cycles':  '/(tabs)/growth',
-  'journal': '/(tabs)/journal',
-  'vault':   '/(tabs)/vault',
-  'signal':  '/(tabs)/sponsor',
-  'burn':    '/burn',
-  'cover':   '/cover',
-};
 
 const BOOT_LINES: HistoryLine[] = [
   { text: 'kataleya_os v2.5', type: 'system' },
@@ -92,8 +81,8 @@ export function TerminalNav() {
       return;
     }
 
-    const target = ROUTES[cmd];
-    if (target) {
+    const target = COMMANDS[cmd];
+    if (target && target !== '__help__' && target !== '__clear__') {
       addLine({ text: `→ ${cmd}`, type: 'response' });
       setTimeout(() => router.push(target as any), 280);
     } else {

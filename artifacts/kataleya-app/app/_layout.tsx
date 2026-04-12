@@ -40,7 +40,9 @@ function RootLayoutNav() {
       <Stack.Screen name="bridge" options={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: '#050508' } }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false, contentStyle: { backgroundColor: '#050508' } }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, contentStyle: { backgroundColor: '#050508' } }} />
-      <Stack.Screen name="burn" options={{ headerShown: false, presentation: 'modal' }} />
+      <Stack.Screen name="burn"    options={{ headerShown: false, presentation: 'modal' }} />
+      <Stack.Screen name="breathe" options={{ headerShown: false, presentation: 'modal', contentStyle: { backgroundColor: '#050508' } }} />
+      <Stack.Screen name="ground"  options={{ headerShown: false, presentation: 'modal', contentStyle: { backgroundColor: '#050508' } }} />
       <Stack.Screen name="cover" options={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: '#000000' } }} />
       <Stack.Screen name="privacy" options={{ headerShown: false, contentStyle: { backgroundColor: '#050508' } }} />
     </Stack>

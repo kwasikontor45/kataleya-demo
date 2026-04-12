@@ -20,6 +20,7 @@ export const PHOSPHOR = {
 };
 
 // Terminal commands → screen routes
+// Special values: '__help__' and '__clear__' are handled in TerminalNav directly.
 export const COMMANDS: Record<string, string> = {
   'garden':    '/(tabs)/index',
   'cycles':    '/(tabs)/growth',
@@ -27,6 +28,7 @@ export const COMMANDS: Record<string, string> = {
   'vault':     '/(tabs)/vault',
   'signal':    '/(tabs)/sponsor',
   'breathe':   '/breathe',
+  'ground':    '/ground',
   'burn':      '/burn',
   'cover':     '/cover',
   'help':      '__help__',
@@ -36,11 +38,13 @@ export const COMMANDS: Record<string, string> = {
 export const HELP_LINES = [
   'available commands:',
   '  garden   — sanctuary home',
-  '  cycles   — growth + streaks',
+  '  cycles   — growth + progress',
   '  journal  — mood + check in',
   '  vault    — privacy + burn',
   '  signal   — sponsor channel',
   '  breathe  — 4-7-8 exercise',
+  '  ground   — 5-4-3-2-1 sense',
   '  burn     — rewrite ritual',
+  '  cover    — 2am space',
   '  clear    — clear terminal',
 ];

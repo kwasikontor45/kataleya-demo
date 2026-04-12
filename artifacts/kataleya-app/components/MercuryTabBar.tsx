@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     bottom:          0,
     left:            0,
     right:           0,
-    backgroundColor: 'rgba(5,5,8,0.85)',
+    backgroundColor: '#050508',
     zIndex:          100,
   },
   threadRow: {

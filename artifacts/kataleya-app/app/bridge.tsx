@@ -72,7 +72,7 @@ function getBridgePhrase(phase: string): string {
 function getAccentRgb(phase: string): string {
   if (phase === 'night')      return '138,95,224';
   if (phase === 'goldenHour') return '255,107,53';
-  if (phase === 'dawn')       return '255,100,180';
+  if (phase === 'dawn')       return '0,212,170';
   return '0,212,170';
 }
 
