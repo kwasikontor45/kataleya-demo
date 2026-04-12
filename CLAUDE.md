@@ -1,6 +1,6 @@
 # CLAUDE.md — Kataleya
 # Lead Developer context. Read this before touching anything.
-# Last updated: April 11 2026
+# Last updated: April 12 2026
 
 ---
 
@@ -236,16 +236,17 @@ Phase mapping (internal → user-facing):
 - Reusable component — app choosing its words
 - Character by character, irregular timing
 - Punctuation adds pause (. = 140ms extra, , = 80ms)
-- Used on: bridge phrase, cover phrase, sponsor first impression
+- Used on: bridge phrase, sponsor first impression (cover screen no longer uses TypewriterText)
 - Props: text, speed (default 45ms), jitter (default 28ms), startDelay, onComplete, style
 
 ### BreathingExercise
 - 4-7-8 true timing (4 inhale / 7 hold / 8 exhale)
-- Tap orb core to begin — no autostart
-- "you did well" appears after 2 cycles — ambient text, not button
-- Orb keeps slow ambient breath after completion
-- ✕ always visible — closes immediately
-- No auto-dismiss timer
+- Auto-starts 700ms after modal opens — user pressed the button, they are ready
+- After 2 cycles: "you did well" + explicit "done" pill button fades in
+- Session ends cleanly: all rings fade to zero, orb dims to 0.18 opacity, does not keep breathing
+- "done" button closes via handleFinalClose — fades orb + labels out then calls onDismiss/onClose
+- ✕ always visible — closes immediately without waiting for cycles
+- Also reachable from terminal via `/breathe` route (app/breathe.tsx, visible={true})
 
 ### BurningRitual
 - One step — hold to ignite, done
@@ -264,8 +265,10 @@ OuroborosRing turning, phase whisper, butterfly at center, garden phrase types i
 Orb at center, quick-slots below, timer and milestone progress, everything returns to home.
 
 **Mode 3 — 2am (cover)**
-Reached via: kataleya pill long press, orb tap at void phase, sanctuary quick-slot.
-Orb breathing, butterfly in dark, rain (void only), neon edge bleeds, phrase types on tap.
+Reached via: kataleya pill long press, orb tap at void phase, sanctuary quick-slot. Also via terminal command `cover`.
+Pure darkness. Rain by phase intensity. OuroborosRing + ..: :.. glyph breathing together on a unified 5 s native-driver cycle.
+No text. No phrases. No buttons. No neon bleed. Tap anywhere = router.back().
+The glyph no longer does chaos → containment animation (removed — was contaminating home screen JS thread on return).
 
 ---
 
@@ -310,6 +313,17 @@ When dormant: fixed slow rate. When active: mirrors and regulates internal state
 
 ---
 
+## MercuryLine — home screen timer decoration ✅ updated
+
+Sits below the sobriety counter. Was a plain rolling mercury slug on a gradient wire.
+Now: caduceus. Two intertwining sine-wave paths (twin serpents of Mercury, god of knowledge/travel).
+Staff = center axis line. Three ☿ symbols at crossing points: 25%, 50%, 75% of track width.
+Mercury slug still rolls on the track (10.4 s back-and-forth, Easing.inOut(Easing.sin)).
+Paths pre-computed at module load — no runtime math.
+**Note:** ☿ is the planetary/deity symbol, not the element (Hg). Intentional.
+
+---
+
 ## sponsor tab — connection flow ✅ updated
 
 Role choice comes first — no warmth, just clarity. Two paths:
@@ -332,14 +346,15 @@ Narration: "the garden is always open. / return whenever you need."
 
 ## known issues / pending fixes
 
-- Golden hour amber — phaseMultiplier (0.55) applied to cover screen and glow rings ✅. NeonCard goldenHour calibration still pending.
+- NeonCard goldenHour calibration still pending — amber fill/border intensity too aggressive
 - NeonCard glass effect may need higher shadowOpacity on dark backgrounds — mid depth at 0.15 is subtle
 - "1 days" plural — fix applied, verify on device
-- BreathingExercise hasStarted ref — may need useState for beginHint visibility
 - OuroborosRing gap — 14%, verify reads as open on device
 - ..: :.. glyph vertical centering — includeFontPadding fix applied
 - SVG filter warnings (FeTurbulence etc) — expected in Expo Go, not errors
 - NitroModules warning — expected in Expo Go, EAS only
+- Kataleya pill long-press: waveAnims moved to native driver (was blocking touch detection) — verify on device
+- Palette selector removed from vault — circadian engine drives colors automatically, no user picker
 
 ---
 
@@ -363,8 +378,9 @@ Narration: "the garden is always open. / return whenever you need."
 ### NeonCard ✅ done
 Shadow stack, top edge highlight, inner glow gradient.
 
-### Mercury tab bar — next
+### Mercury tab bar ✅ done
 One continuous thread that splits into four droplets. Active tab is the droplet pulled upward by surface tension. Nearly invisible when idle, brightens on interaction.
+Thread carries an ambient shimmer that loops left→right seamlessly (5.2 s, resets off-screen).
 
 ### Remaining depth work
 - **Parallax** — orb 30% slower than scroll, background 10% slower than orb
