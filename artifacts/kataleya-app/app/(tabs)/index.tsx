@@ -340,6 +340,8 @@ export default function SanctuaryScreen() {
   const pillPulse  = useRef(new Animated.Value(1)).current;
   const pillGlow   = useRef(new Animated.Value(0.4)).current;
   const ecgAnim    = useRef(new Animated.Value(0)).current;
+  // Blood pressure wave — 8 individual values, one per letter in the pill
+  const waveAnims  = useRef('kataleya'.split('').map(() => new Animated.Value(0))).current;
   const orbHint      = useRef(new Animated.Value(0)).current;
   const ambientGlow   = useRef(new Animated.Value(0)).current;
   // Scroll parallax
@@ -370,23 +372,58 @@ export default function SanctuaryScreen() {
     return () => dayPulse.stopAnimation();
   }, [dayPulse]);
 
-  // ECG sweep — occasional heartbeat through letters. Skipped on reduce motion.
+  // ECG pulse — wordmark only. Sharp spike travels once per beat, then rests.
+  // Slow: 300ms sweep + 2700ms rest = one beat every 3s (~20 BPM, deliberate).
   useEffect(() => {
     if (reduceMotion) return;
     const sweep = () => {
       ecgAnim.setValue(-1);
       Animated.timing(ecgAnim, {
         toValue: 8,
-        duration: 600,
-        easing: Easing.inOut(Easing.sin),
+        duration: 300,          // sharp, fast front
+        easing: Easing.linear,  // uniform sweep — no acceleration
         useNativeDriver: false,
       }).start(({ finished }) => {
-        if (finished) setTimeout(sweep, 2400); // long rest — heartbeat not loop
+        if (finished) setTimeout(sweep, 2700); // long silence between beats
       });
     };
-    const t = setTimeout(sweep, 1800);
+    const t = setTimeout(sweep, 2400);
     return () => clearTimeout(t);
   }, [ecgAnim, reduceMotion]);
+
+  // Blood pressure wave — pill letters. Continuous sinusoidal roll, never stops.
+  // Each letter has a phase offset so the wave travels left to right.
+  useEffect(() => {
+    if (reduceMotion) return;
+    const PERIOD = 3000; // one full wave cycle in ms
+    const STAGGER = PERIOD / 8; // phase gap between adjacent letters
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    waveAnims.forEach((anim, i) => {
+      const t = setTimeout(() => {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: PERIOD / 2,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: false,
+            }),
+            Animated.timing(anim, {
+              toValue: 0,
+              duration: PERIOD / 2,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: false,
+            }),
+          ])
+        ).start();
+      }, i * STAGGER);
+      timers.push(t);
+    });
+    return () => {
+      timers.forEach(clearTimeout);
+      waveAnims.forEach(a => a.stopAnimation());
+    };
+  }, [reduceMotion]);
 
   // Heart pill idle animation — Animated.loop with no deps so it never restarts mid-breath.
   useEffect(() => {
@@ -594,7 +631,7 @@ export default function SanctuaryScreen() {
                 transform: [{ scale: pillPulse }],
               },
             ]}>
-              {/* ECG sweep overlay — a moving highlight passes through the text */}
+              {/* Blood pressure wave — sinusoidal roll across the letters */}
               <View style={styles.pillInner}>
                 {'kataleya'.split('').map((char, i) => (
                   <Animated.Text
@@ -605,10 +642,9 @@ export default function SanctuaryScreen() {
                         color: `rgba(${accentRgb}, 0.88)`,
                         marginRight: i < 7 ? 3 : 0,
                         letterSpacing: 0,
-                        opacity: ecgAnim.interpolate({
-                          inputRange: [i - 1.5, i - 0.3, i, i + 0.3, i + 1.5],
-                          outputRange: [0.2, 0.6, 1.0, 0.6, 0.2],
-                          extrapolate: 'clamp',
+                        opacity: waveAnims[i].interpolate({
+                          inputRange:  [0, 1],
+                          outputRange: [0.2, 1.0],
                         }),
                       },
                     ]}
@@ -845,8 +881,8 @@ export default function SanctuaryScreen() {
                     textTransform: 'lowercase',
                     color: theme.textMuted,
                     opacity: ecgAnim.interpolate({
-                      inputRange:  [i - 1.5, i - 0.3, i, i + 0.3, i + 1.5],
-                      outputRange: [0.18,    0.55,    0.88, 0.55,   0.18],
+                      inputRange:  [i - 0.9, i - 0.2, i, i + 0.2, i + 0.9],
+                      outputRange: [0.15,    0.45,   1.0,  0.45,   0.15],
                       extrapolate: 'clamp',
                     }),
                   }}

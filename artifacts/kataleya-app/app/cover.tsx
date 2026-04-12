@@ -11,7 +11,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, Image, StyleSheet, TouchableOpacity, Animated,
+  View, Text, StyleSheet, TouchableOpacity, Animated,
   Easing, Dimensions, Platform, StatusBar,
 } from 'react-native';
 import Svg, { Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -183,6 +183,13 @@ export default function CoverScreen() {
   const returnOpacity   = useRef(new Animated.Value(0)).current;
   const wordOpacity     = useRef(new Animated.Value(1)).current;
 
+  // ..: :.. — chaos → containment glyph
+  // 7 chars: ['.','.',':',' ',':','.','.']
+  // Left `..` = chaos (fast, irregular). Right `..` = containment (slow, steady).
+  // After 8s all converge to unified breathing — the threshold has been held.
+  const GLYPH_CHARS = ['.', '.', ':', ' ', ':', '.', '.'];
+  const glyphAnims = useRef(GLYPH_CHARS.map(() => new Animated.Value(0.15))).current;
+
   const [tapPhrase, setTapPhrase]   = useState<string | null>(null);
   const [tapVisible, setTapVisible] = useState(false);
   const [wordIdx, setWordIdx]       = useState(0);
@@ -242,6 +249,71 @@ export default function CoverScreen() {
       clearInterval(wordInterval);
       orbScale.stopAnimation();
       bgGlow.stopAnimation();
+    };
+  }, []);
+
+  // Chaos → containment: left side is chaotic, right side already calm.
+  // After 8s everything converges to unified breathing.
+  useEffect(() => {
+    // Chaos periods (ms) per char. Index 3 = space, always dim.
+    //   0:'.'  1:'.'  2:':'  3:' '  4:':'  5:'.'  6:'.'
+    const chaosPeriods  = [210,   280,   380,   0,     360,   540,   480  ];
+    const chaosOffsets  = [0,     100,   50,    0,     70,    0,     180  ];
+    const chaosLoops: Animated.CompositeAnimation[] = [];
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    GLYPH_CHARS.forEach((_, i) => {
+      if (i === 3) { glyphAnims[i].setValue(0.07); return; } // space stays void
+      const period = chaosPeriods[i];
+      const t = setTimeout(() => {
+        const loop = Animated.loop(
+          Animated.sequence([
+            Animated.timing(glyphAnims[i], {
+              toValue: 1.0, duration: period / 2,
+              easing: Easing.inOut(Easing.sin), useNativeDriver: false,
+            }),
+            Animated.timing(glyphAnims[i], {
+              toValue: 0.12, duration: period / 2,
+              easing: Easing.inOut(Easing.sin), useNativeDriver: false,
+            }),
+          ])
+        );
+        chaosLoops.push(loop);
+        loop.start();
+      }, chaosOffsets[i]);
+      timers.push(t);
+    });
+
+    // After 8s: convergence — all breathe together. The threshold has been held.
+    const conv = setTimeout(() => {
+      chaosLoops.forEach(l => { try { (l as any).stop?.(); } catch {} });
+      glyphAnims.forEach((a, i) => { if (i !== 3) a.stopAnimation(); });
+
+      const PERIOD = 3200;
+      GLYPH_CHARS.forEach((_, i) => {
+        if (i === 3) return;
+        const t2 = setTimeout(() => {
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(glyphAnims[i], {
+                toValue: 1.0, duration: PERIOD / 2,
+                easing: Easing.inOut(Easing.sin), useNativeDriver: false,
+              }),
+              Animated.timing(glyphAnims[i], {
+                toValue: 0.28, duration: PERIOD / 2,
+                easing: Easing.inOut(Easing.sin), useNativeDriver: false,
+              }),
+            ])
+          ).start();
+        }, i * 120); // slight stagger remains — feels alive, not mechanical
+        timers.push(t2);
+      });
+    }, 8000);
+    timers.push(conv);
+
+    return () => {
+      timers.forEach(clearTimeout);
+      glyphAnims.forEach(a => a.stopAnimation());
     };
   }, []);
 
@@ -335,14 +407,27 @@ export default function CoverScreen() {
           transform: [{ scale: orbScale }],
         }]} />
 
-        {/* Butterfly — blended into the hollow, tap anywhere in ring area */}
+        {/* ..: :.. — chaos → containment, tap for a phrase */}
         <TouchableOpacity onPress={handleTap} activeOpacity={1} hitSlop={44}>
-          <Animated.View style={{ transform: [{ scale: orbScale }] }}>
-            <Image
-              source={require('../assets/images/butterfly-dna-t.gif')}
-              style={{ width: ORB * 0.52, height: ORB * 0.52, opacity: 0.55 }}
-              resizeMode="contain"
-            />
+          <Animated.View style={{ transform: [{ scale: orbScale }], alignItems: 'center' }}>
+            <View style={styles.glyphRow}>
+              {GLYPH_CHARS.map((ch, i) => (
+                <Animated.Text
+                  key={i}
+                  style={[
+                    styles.glyphChar,
+                    {
+                      color: `rgba(${accentRgb}, 1)`,
+                      opacity: i === 3
+                        ? 0.07                // space — void between the sides
+                        : glyphAnims[i],
+                    },
+                  ]}
+                >
+                  {ch}
+                </Animated.Text>
+              ))}
+            </View>
           </Animated.View>
         </TouchableOpacity>
 
@@ -451,5 +536,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 6,
     textTransform: 'lowercase',
+  },
+  glyphRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  glyphChar: {
+    fontFamily: 'SpaceMono',
+    fontSize: 26,
+    letterSpacing: 3,
   },
 });
