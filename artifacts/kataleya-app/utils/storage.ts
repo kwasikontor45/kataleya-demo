@@ -33,6 +33,7 @@ const SK = {
   LAST_NOTIFIED_MILESTONE: 'kataleya.surface.last_notified_milestone',
   PRESENCE_LOG:           'kataleya.surface.presence_log',
   DARK_OVERRIDE:          'kataleya.surface.dark_override',
+  PALETTE:                'kataleya.surface.palette',
 } as const;
 
 // ── Canonical Fortress keys ─────────────────────────────────────────────────
@@ -215,6 +216,13 @@ export const Surface = {
   },
   async getDarkOverride(): Promise<boolean> {
     return (await AsyncStorage.getItem(SK.DARK_OVERRIDE)) === '1';
+  },
+
+  async setPalette(id: string): Promise<void> {
+    await AsyncStorage.setItem(SK.PALETTE, id);
+  },
+  async getPalette(): Promise<string> {
+    return (await AsyncStorage.getItem(SK.PALETTE)) ?? 'ouroboros';
   },
 
   async clearAll(): Promise<void> {

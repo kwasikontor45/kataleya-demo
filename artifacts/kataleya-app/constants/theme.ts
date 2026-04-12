@@ -3,7 +3,11 @@
 // Ouroboros Protocol — Scar Palette
 // All phases share Null Black (#050508) as base.
 // Accent shifts per phase. Background never changes — only the signal does.
+//
+// themeForPhase() accepts an optional Palette so the color system is
+// fully palette-driven. Defaults to Ouroboros when no palette is given.
 // ─────────────────────────────────────────────────────────────────────────────
+import { PALETTES, Palette } from './palettes';
 
 export interface ThemeTokens {
   bg: string;
@@ -80,25 +84,33 @@ export const NightTheme: ThemeTokens = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 export type CircadianPhase = 'dawn' | 'day' | 'goldenHour' | 'night';
 
-export function themeForPhase(phase: CircadianPhase): ThemeTokens {
-  switch (phase) {
-    case 'dawn':       return DawnTheme;
-    case 'day':        return DayTheme;
-    case 'goldenHour': return GoldenHourTheme;
-    case 'night':      return NightTheme;
-    default:           return NightTheme;
-  }
+// Build a ThemeTokens from the active palette + phase.
+// All callers that already pass no palette get Ouroboros (backward compatible).
+export function themeForPhase(phase: CircadianPhase, palette?: Palette): ThemeTokens {
+  const p     = palette ?? PALETTES.ouroboros;
+  const colors = p[phase];
+  return {
+    ...BASE,
+    gold:       colors.accent,
+    accent:     colors.accent,
+    accentSoft: colors.accentSoft,
+    phaseRgb:   colors.phaseRgb,
+  };
 }
 
-// Legacy alias
-export const MidnightGarden = NightTheme;
+// Legacy static theme exports — still valid when palette is Ouroboros
+export const DawnTheme        = themeForPhase('dawn');
+export const DayTheme         = themeForPhase('day');
+export const GoldenHourTheme  = themeForPhase('goldenHour');
+export const NightTheme       = themeForPhase('night');
+export const MidnightGarden   = NightTheme;
 
-export function getPhasePair(phase: CircadianPhase): [ThemeTokens, ThemeTokens] {
+export function getPhasePair(phase: CircadianPhase, palette?: Palette): [ThemeTokens, ThemeTokens] {
   switch (phase) {
-    case 'dawn':       return [NightTheme,      DawnTheme];
-    case 'day':        return [DawnTheme,        DayTheme];
-    case 'goldenHour': return [DayTheme,         GoldenHourTheme];
-    case 'night':      return [GoldenHourTheme,  NightTheme];
-    default:           return [NightTheme,       NightTheme];
+    case 'dawn':       return [themeForPhase('night', palette),      themeForPhase('dawn', palette)];
+    case 'day':        return [themeForPhase('dawn', palette),        themeForPhase('day', palette)];
+    case 'goldenHour': return [themeForPhase('day', palette),         themeForPhase('goldenHour', palette)];
+    case 'night':      return [themeForPhase('goldenHour', palette),  themeForPhase('night', palette)];
+    default:           return [themeForPhase('night', palette),       themeForPhase('night', palette)];
   }
 }

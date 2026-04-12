@@ -1,31 +1,24 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Switch, Platform, Alert, Keyboard, ActivityIndicator,
+  TextInput, Platform, Alert, Keyboard, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useCircadian } from '@/hooks/useCircadian';
 import { TAB_BAR_HEIGHT } from '@/constants/circadian';
-import { Sanctuary } from '@/utils/storage';
+import { PALETTES, PALETTE_ORDER, PaletteId } from '@/constants/palettes';
 import { encryptBackup, decryptBackup, restorePayload, saveAndShareBackup, pickBackupFile } from '@/utils/backup';
 import { NeonCard, NEON_RGB } from '@/components/NeonCard';
 import { HoldToConfirm } from '@/components/HoldToConfirm';
 import { ScanlineLayer } from '@/components/scanline-layer';
 
-function phaseAccentRgb(phase: string): string {
-  if (phase === 'goldenHour') return NEON_RGB.amber;
-  if (phase === 'night')      return NEON_RGB.violet;
-  if (phase === 'dawn')       return NEON_RGB.pink;
-  return NEON_RGB.cyan;
-}
-
 export default function VaultScreen() {
   const insets = useSafeAreaInsets();
-  const { theme, phase } = useCircadian();
+  const { theme, paletteId, setPalette } = useCircadian();
   const router = useRouter();
-  const accentRgb = phaseAccentRgb(phase);
+  const accentRgb = theme.phaseRgb;
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 + TAB_BAR_HEIGHT : insets.bottom + TAB_BAR_HEIGHT;
@@ -100,6 +93,53 @@ export default function VaultScreen() {
         keyboardShouldPersistTaps="handled"
       >
 
+
+        {/* ── APPEARANCE ── */}
+        <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 8 }]}>appearance</Text>
+        <NeonCard theme={theme} accentRgb={accentRgb} fillIntensity={0.02} borderIntensity={0.12}>
+          <View style={styles.paletteGrid}>
+            {PALETTE_ORDER.map(id => {
+              const p    = PALETTES[id];
+              const active = paletteId === id;
+              const dayRgb = p.day.phaseRgb;
+              return (
+                <TouchableOpacity
+                  key={id}
+                  activeOpacity={0.7}
+                  style={[
+                    styles.paletteItem,
+                    active
+                      ? { borderColor: `rgba(${dayRgb},0.55)`, backgroundColor: `rgba(${dayRgb},0.07)` }
+                      : { borderColor: 'rgba(255,255,255,0.06)', backgroundColor: 'transparent' },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setPalette(id as PaletteId);
+                  }}
+                >
+                  {/* Phase color dots */}
+                  <View style={styles.paletteDots}>
+                    {(['dawn', 'day', 'goldenHour', 'night'] as const).map(ph => (
+                      <View
+                        key={ph}
+                        style={[styles.paletteDot, { backgroundColor: p[ph].accent }]}
+                      />
+                    ))}
+                  </View>
+                  {/* Name row */}
+                  <View style={styles.paletteNameRow}>
+                    <Text style={[styles.paletteName, { color: active ? `rgba(${dayRgb},0.9)` : `rgba(${dayRgb},0.38)` }]}>
+                      {id}
+                    </Text>
+                    {active && (
+                      <View style={[styles.paletteActiveGlyph, { backgroundColor: `rgba(${dayRgb},0.75)` }]} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </NeonCard>
 
         {/* ── PRIVACY ARCHITECTURE ── */}
         <Text style={[styles.sectionLabel, { color: `rgba(${accentRgb},0.5)`, marginTop: 24 }]}>privacy architecture</Text>
@@ -274,4 +314,12 @@ const styles = StyleSheet.create({
   burnBtnText: { fontFamily: 'CourierPrime', fontSize: 12, letterSpacing: 2, textTransform: 'lowercase' },
   privacyNote: { borderTopWidth: 1, paddingTop: 16, marginTop: 8, alignItems: 'center' },
   privacyText: { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 1, textAlign: 'center', lineHeight: 16 },
+  // Palette selector
+  paletteGrid:     { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 8 },
+  paletteItem:     { width: '47%', borderWidth: 1, borderRadius: 8, padding: 12, gap: 8 },
+  paletteDots:     { flexDirection: 'row', gap: 5, alignItems: 'center' },
+  paletteDot:      { width: 10, height: 10, borderRadius: 5 },
+  paletteNameRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  paletteName:     { fontFamily: 'CourierPrime', fontSize: 10, letterSpacing: 2, textTransform: 'lowercase' },
+  paletteActiveGlyph: { width: 5, height: 5, borderRadius: 2.5 },
 });
