@@ -78,4 +78,4 @@ export const PALETTES: Record<string, Palette> = {
 export const PALETTE_ORDER = ['ouroboros', 'ocean', 'turquoise', 'arctic'] as const;
 export type PaletteId = typeof PALETTE_ORDER[number];
 
-export const DEFAULT_PALETTE_ID: PaletteId = 'ouroboros';
+export const DEFAULT_PALETTE_ID: PaletteId = 'turquoise';

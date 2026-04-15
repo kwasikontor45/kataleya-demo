@@ -7,7 +7,7 @@
 // themeForPhase() accepts an optional Palette so the color system is
 // fully palette-driven. Defaults to Ouroboros when no palette is given.
 // ─────────────────────────────────────────────────────────────────────────────
-import { PALETTES, Palette } from './palettes';
+import { PALETTES, DEFAULT_PALETTE_ID, Palette } from './palettes';
 
 export interface ThemeTokens {
   bg: string;
@@ -44,9 +44,9 @@ const BASE = {
 export type CircadianPhase = 'dawn' | 'day' | 'goldenHour' | 'night';
 
 // Build a ThemeTokens from the active palette + phase.
-// All callers that already pass no palette get Ouroboros (backward compatible).
+// Defaults to DEFAULT_PALETTE_ID when no palette is given.
 export function themeForPhase(phase: CircadianPhase, palette?: Palette): ThemeTokens {
-  const p     = palette ?? PALETTES.ouroboros;
+  const p     = palette ?? PALETTES[DEFAULT_PALETTE_ID];
   const colors = p[phase];
   return {
     ...BASE,
