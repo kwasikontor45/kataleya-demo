@@ -49,3 +49,7 @@ Thumbs.db
 .local/
 publish-demo.sh
 kataleya-publish
+
+# Local developer context — never committed
+CLAUDE.md
+replit.md
