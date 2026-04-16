@@ -259,23 +259,45 @@ Burn ritual wipes all four tables. Never add columns without adding a migration.
 ## what is done
 
 - Bridge screen (arrival ritual)
-- Onboarding (7 steps, exit: "three things, always here")
+- Onboarding (7 steps, exit: "three things, always here") — redesign in progress
 - Home screen with GhostPulseOrb + OuroborosRing
 - Mood logging, journal entries, urge surfing log
-- Weekly review (growth tab)
+- Weekly review (growth tab, wired to Surface storage)
 - Sponsor tab (role-first flow, end-to-end encrypted via NaCl)
 - BurningRitual (irreversible, one step)
 - BreathingExercise (4-7-8), GroundingExercise (5-4-3-2-1)
 - NeonCard glassmorphism system
-- Mercury tab bar
-- Phosphor Noir easter egg (long press mercury bar)
+- Mercury tab bar (renders + navigates — migrating to CaduceusTabBar)
+- Phosphor Noir easter egg (long press mercury bar — intentional, keep it)
 - Circadian engine + adaptive state engine
 - GhostPulse biofeedback loop (mood → BPM → orb)
+- Turquoise as active palette default (night = deep navy #1e6091, not violet)
+
+## active bugs (confirmed on device Apr 16 2026)
+
+- BreathingExercise frozen at "inhale 4" — native/JS driver conflict in coreGlow animation
+- greetPhrase shows "good afternoon" at 08:35am — day phase maps wrong before noon
+- HoldToConfirm unreliable inside ScrollView — scroll gesture steals touch
+- Override pill works once then stops — animation loop conflict on re-render
+- ECG/wave animations race-pulse then stop — too many simultaneous loops
+- Export crashes in Expo Go — react-native-quick-crypto is EAS only (expected, not a bug)
 
 ## what is pending
 
+- Bug surgery (in progress) — see active bugs above
+- CaduceusTabBar — replace MercuryTabBar with double-helix caduceus, phase-aware viscosity
+- Attunement onboarding — replace 7-step sequence with presence-first ritual (Kimi designing)
+- Cover screen redesign — needs 2am presence (Kimi designing)
 - Railway blind relay server — fresh deploy needed
 - EAS build (Android first, then iOS)
 - Store listings
 - Parallax, light sourcing, press depth, OuroborosRing perspective tilt (3D depth layer)
 - Ouroboros Navigator (v2.5 — sphere-based navigation, design locked, not started)
+
+## export / EAS-only features
+
+These work in EAS builds only. Do not treat as bugs in Expo Go:
+- Encrypted backup / export (react-native-quick-crypto)
+- SQLite mood/journal storage (expo-sqlite JSI)
+- Audio narration (expo-av broken in Expo Go SDK 54)
+- Sponsor encryption (react-native-quick-crypto)
