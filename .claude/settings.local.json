@@ -1,7 +1,26 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(pnpm expo *)",
+      "Bash(nohup pnpm *)",
+      "Bash(ngrok config:*)",
+      "Bash(ngrok version *)",
+      "Bash(ngrok http *)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(gh repo:*)",
+      "Bash(gh auth:*)",
+      "Bash(fuser -k 8081/tcp)",
+      "Bash(fuser -k 8082/tcp)",
+      "Bash(pkill -f \"expo start\")",
+      "Bash(curl -s http://localhost:8081/status)",
+      "Bash(node *)",
+      "Read(//home/architect-of-chaos/**)",
+      "Read(//home/architect-of-chaos/.config/**)",
+      "Read(//tmp/**)"
     ]
   }
 }
